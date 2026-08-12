@@ -369,7 +369,7 @@ input, select, textarea {
 
 .search-input {
   width: 100%;
-  padding: 14px 16px 14px 48px;
+  padding: 14px 48px 14px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--cream);
@@ -2764,15 +2764,15 @@ input, select, textarea {
 
 @media (max-width: 768px) {
   :root {
-    --header-height: 74px;
+    --header-height: 64px;
   }
   body, html {
     overflow-x: hidden;
     max-width: 100vw;
   }
   .container {
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
   }
   .site-header {
     position: sticky;
@@ -2783,10 +2783,25 @@ input, select, textarea {
     -webkit-backdrop-filter: blur(10px);
   }
   
+  .header-inner {
+    gap: 8px !important;
+    padding: 0 4px !important;
+  }
+
+  .header-actions {
+    gap: 2px !important;
+  }
+
+  /* Hide wishlist and profile user icons in mobile header actions (moved to side drawer) */
+  .header-actions .action-btn:nth-child(2),
+  .header-actions .action-btn:nth-child(3) {
+    display: none !important;
+  }
+
   /* Brand Logo (Enlarged & Sharp Visibility on Mobile) */
   .brand-logo-img {
-    height: 60px;
-    max-width: 200px;
+    height: 48px;
+    max-width: 150px;
     width: auto;
     object-fit: contain;
   }
@@ -3159,3 +3174,74 @@ input, select, textarea {
     height: 46px;
   }
 }
+
+/* ── Split Layout Utilities (Responsive grid columns for About & Collections) ── */
+.split-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.split-layout-image {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  height: 480px;
+  box-shadow: var(--shadow-xl);
+}
+
+.split-layout-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 768px) {
+  .split-layout-grid {
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+  }
+  .split-layout-grid > div {
+    order: initial !important;
+  }
+  .split-layout-image {
+    height: 280px !important;
+  }
+}
+
+/* ── FAQ Page Styling refinements (Responsive sizes to avoid "zoomed in" feel) ── */
+.faq-category-title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--onyx);
+  margin-top: 24px;
+}
+
+.faq-question-text {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .faq-category-title {
+    font-size: 18px !important;
+    margin-bottom: 12px !important;
+    margin-top: 18px !important;
+  }
+  .faq-question-text {
+    font-size: 13px !important;
+    line-height: 1.4;
+  }
+  .accordion-header {
+    padding: 14px 0 !important;
+  }
+  .accordion-body {
+    font-size: 12.5px !important;
+    padding-bottom: 14px !important;
+    line-height: 1.5 !important;
+  }
+}
+
+

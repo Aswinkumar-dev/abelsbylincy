@@ -1,5 +1,5 @@
 $listener = New-Object System.Net.HttpListener
-$port = 3000
+$port = 3005
 $listener.Prefixes.Add("http://localhost:$port/")
 try {
     $listener.Start()

@@ -108,7 +108,7 @@
 
       container.innerHTML = list.map(cat => `
         <div style="margin-bottom: 40px;">
-          <h3 style="font-family: var(--font-serif); font-size: 22px; font-weight: 600; margin-bottom: 16px; color: var(--onyx);">${cat.category}</h3>
+          <h3 class="faq-category-title">${cat.category}</h3>
           
           <div class="pdp-accordion">
             ${cat.items.map((item, idx) => {
@@ -117,7 +117,7 @@
               return `
                 <div class="accordion-item">
                   <button class="accordion-header" onclick="toggleFaq('${key}')">
-                    <span style="font-size: 15px; font-weight: 500;">${item.q}</span>
+                    <span class="faq-question-text">${item.q}</span>
                     <i data-lucide="${isOpen ? 'chevron-up' : 'chevron-down'}"></i>
                   </button>
                   ${isOpen ? `<div class="accordion-body">${item.a}</div>` : ''}

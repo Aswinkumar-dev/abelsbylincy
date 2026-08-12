@@ -579,7 +579,6 @@
         <!-- Search Drawer -->
         <div id="search-drawer" class="search-drawer" style="display: none;">
           <div class="search-input-wrapper">
-            <i data-lucide="search"></i>
             <input type="text" class="search-input" id="search-query-input" placeholder="Search earrings, bangles, rings, necklaces, bracelets..." oninput="window.abl.handleSearch(this.value)">
             <button onclick="window.abl.toggleSearchDrawer()" style="position: absolute; right: 16px; color: var(--slate);"><i data-lucide="x"></i></button>
           </div>
@@ -602,8 +601,9 @@
             <a href="collections.html" style="font-weight: 600; font-size: 16px;">Collections</a>
             <a href="about.html" style="font-weight: 600; font-size: 16px;">About Us</a>
             <a href="contact.html" style="font-weight: 600; font-size: 16px;">Contact</a>
-            <a href="faq.html" style="font-weight: 600; font-size: 16px;">FAQ & Sizing</a>
-            <a href="account.html" style="font-weight: 600; font-size: 16px; border-top: 1px solid var(--border); padding-top: 14px;">My Account</a>
+            <a href="faq.html" style="font-weight: 600; font-size: 16px;">FAQ</a>
+            <a href="wishlist.html" style="font-weight: 600; font-size: 16px; border-top: 1px solid var(--border); padding-top: 14px;">My Wishlist</a>
+            <a href="account.html" style="font-weight: 600; font-size: 16px; margin-top: -6px;">My Account</a>
           </div>
         </div>
       </header>
