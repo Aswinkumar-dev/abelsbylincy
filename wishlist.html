@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saved Wishlist | Abel's By Lincy Sydney</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css?v=20260812-4">
+</head>
+<body data-page="wishlist">
+
+  <div id="header-root"></div>
+
+  <div class="page-hero">
+    <div class="container">
+      <p class="section-subtitle">Your Saved Treasures</p>
+      <h1>My Wishlist</h1>
+    </div>
+  </div>
+
+  <div class="container section-padding" id="wishlist-container"></div>
+
+  <div id="footer-root"></div>
+
+  <script src="app.js?v=20260812-4"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('wishlist-container');
+      const saved = window.abl.state.products.filter(p => window.abl.state.wishlist.includes(p.id));
+
+      if (saved.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 60px 20px;">
+            <i data-lucide="heart" style="width: 48px; height: 48px; color: var(--slate-light); margin-bottom: 16px;"></i>
+            <h3 style="font-family: var(--font-serif); font-size: 24px; margin-bottom: 8px;">No Saved Pieces Yet</h3>
+            <p style="color: var(--slate); font-size: 14px; margin-bottom: 24px;">Browse our fine jewellery collection and tap the heart icon on pieces you love.</p>
+            <a href="shop.html" class="btn-primary">Explore Catalogue</a>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="products-grid">
+            ${saved.map(p => `
+              <div class="product-card" onclick="window.location.href='product.html?id=${p.id}'">
+                <div class="product-img-wrapper">
+                  <img src="${p.image}" alt="${p.name}">
+                  <button class="wishlist-btn active" onclick="event.stopPropagation(); window.abl.toggleWishlist('${p.id}')">
+                    <i data-lucide="heart" style="fill: var(--danger);"></i>
+                  </button>
+                  <div class="quick-add-bar">
+                    <button class="quick-add-btn" onclick="event.stopPropagation(); window.abl.addToCart('${p.id}')">
+                      <i data-lucide="shopping-bag" style="width: 14px;"></i> Move to Bag
+                    </button>
+                  </div>
+                </div>
+                <div class="product-info">
+                  <p class="product-category">${p.category}</p>
+                  <h4 class="product-name">${p.name}</h4>
+                  <span class="current-price">${window.abl.formatMoney(p.price)}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      if (window.lucide) lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

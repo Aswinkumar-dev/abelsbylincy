@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Abel's By Lincy | Fine Gold-Plated Jewellery & Bespoke Elegance</title>
+  <meta name="description" content="Discover Abel's By Lincy fine jewellery. Ethically crafted diamond rings, pearl earrings, and solid 18k gold pendants in Sydney, Australia.">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css?v=20260812-4">
+</head>
+<body data-page="home">
+
+  <!-- Shared Header -->
+  <div id="header-root"></div>
+
+  <!-- Hero Section (Wireframe Arch Card & 3 Stats) -->
+  <section class="hero-wireframe-section">
+    <div class="container">
+      <div class="hero-grid">
+        
+        <!-- Left Text Column -->
+        <div class="hero-left">
+          <p class="hero-tagline" id="hero-tagline">Cloud White & Onyx Signature Collection</p>
+          <h1 class="hero-title" id="hero-title">
+            Fine <br>
+            <span class="italic">Fine Jewellery</span> & <br>
+            Bespoke Elegance.
+          </h1>
+          <p class="hero-description" id="hero-subtitle">
+            Australian heirloom-quality jewellery crafted for moments that endure for generations. Discover sustainably mined Australian gemstones, 18k solid gold, and timeless silhouettes.
+          </p>
+
+          <div class="hero-cta-group">
+            <a href="shop.html" class="btn-primary">
+              Shop Collection <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>
+            </a>
+            <a href="about.html" class="btn-secondary">
+              Our Story
+            </a>
+          </div>
+
+          <!-- 3-Stat Counter Row (Matching 111+ 111 in wireframe) -->
+          <div class="hero-stats-row">
+            <div class="stat-item">
+              <h4 id="stat-1">111+</h4>
+              <p>Unique Designs</p>
+            </div>
+            <div class="stat-item">
+              <h4 id="stat-2">Ethical</h4>
+              <p>Craftsmanship</p>
+            </div>
+            <div class="stat-item">
+              <h4 id="stat-3">10k+</h4>
+              <p>Happy Clients</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Visual Composition (Arch Photo Card + Floating Badges) -->
+        <div class="hero-right-visual">
+          <div class="hero-arch-card">
+            <img src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=900&h=1200&fit=crop&auto=format" alt="Luxury Abel's By Lincy Jewellery">
+          </div>
+
+          <!-- Floating Circle Badge -->
+          <div class="floating-circle-badge">
+            <div class="badge-inner">
+              <i data-lucide="award" style="width: 22px; height: 22px;"></i>
+              <span class="badge-num">Ethical</span>
+              <span class="badge-lbl">Authentic</span>
+            </div>
+          </div>
+
+          <!-- Floating Pill Card -->
+          <div class="floating-pill-card">
+            <div class="pill-dot"></div>
+            <span class="pill-text">Abel's By Lincy</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Curated Categories Grid -->
+  <section class="section-padding" style="background: var(--cloud-white);">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-subtitle">Curated Categories</p>
+        <h2 class="section-title">Explore Our Collections</h2>
+      </div>
+
+      <div class="collections-grid" id="home-categories-grid"></div>
+    </div>
+  </section>
+
+  <!-- Featured Pieces Section -->
+  <section class="section-padding" style="background: var(--cream);">
+    <div class="container">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 40px; flex-wrap: wrap; gap: 16px;">
+        <div>
+          <p class="section-subtitle" style="text-align: left;">Artisan Selection</p>
+          <h2 class="section-title" style="text-align: left;">Featured Pieces</h2>
+        </div>
+        <a href="shop.html" class="btn-secondary" style="padding: 10px 24px;">
+          View All Pieces <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
+        </a>
+      </div>
+
+      <div class="products-grid" id="home-featured-grid"></div>
+    </div>
+  </section>
+
+  <!-- Editorial Promo Banner -->
+  <section class="editorial-banner-section">
+    <img src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=1800&h=700&fit=crop&auto=format" alt="The Riviera Collection" class="editorial-banner-bg">
+    <div class="editorial-banner-overlay"></div>
+    <div class="editorial-content">
+      <p style="font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--gold); margin-bottom: 12px;">Limited Release</p>
+      <h2>The Riviera Diamond & Gold Collection</h2>
+      <p style="font-size: 16px; color: rgba(255, 255, 255, 0.85); line-height: 1.6; margin-bottom: 28px;">
+        A bespoke tribute to Australian coastal light. Hand-selected brilliant diamonds set in fluid 18k gold prongs for extraordinary brilliance.
+      </p>
+      <a href="shop.html?category=bracelets" class="btn-primary">
+        Explore Collection <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
+      </a>
+    </div>
+  </section>
+
+  <!-- Best Sellers Grid -->
+  <section class="section-padding" style="background: var(--cloud-white);">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-subtitle">Most Treasured</p>
+        <h2 class="section-title">Client Favorites & Best Sellers</h2>
+      </div>
+
+      <div class="products-grid" id="home-bestsellers-grid"></div>
+    </div>
+  </section>
+
+  <!-- Promise Cards -->
+  <section class="promise-section">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-subtitle">Our Promise</p>
+        <h2 class="section-title" style="color: var(--cloud-white);">Why Choose Abel's By Lincy</h2>
+      </div>
+
+      <div class="promise-grid">
+        <div class="promise-card">
+          <div class="promise-icon-box"><i data-lucide="award"></i></div>
+          <h4 class="promise-title">Certified Authenticity</h4>
+          <p class="promise-desc">Every gemstone is conflict-free and certified by recognized Australian gemological institutes.</p>
+        </div>
+        <div class="promise-card">
+          <div class="promise-icon-box"><i data-lucide="shield-check"></i></div>
+          <h4 class="promise-title">Secure Payments</h4>
+          <p class="promise-desc">Encrypted Stripe checkout with Apple Pay, Google Pay, and major credit cards.</p>
+        </div>
+        <div class="promise-card">
+          <div class="promise-icon-box"><i data-lucide="truck"></i></div>
+          <h4 class="promise-title">Fast Metro Dispatch</h4>
+          <p class="promise-desc">Orders placed before 2pm AEST are carefully hand-packed and dispatched the same day.</p>
+        </div>
+        <div class="promise-card">
+          <div class="promise-icon-box"><i data-lucide="refresh-cw"></i></div>
+          <h4 class="promise-title">30-Day Easy Returns</h4>
+          <p class="promise-desc">Complimentary return labels and full refunds or sizing exchanges within 30 days.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials Carousel -->
+  <section class="section-padding" style="background: var(--cloud-white);">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-subtitle">Client Kind Words</p>
+        <h2 class="section-title">Stories & Testimonials</h2>
+      </div>
+
+      <div class="testimonial-container" id="testimonial-box">
+        <div class="stars" style="justify-content: center; margin-bottom: 20px;">
+          <i data-lucide="star" style="width: 18px; height: 18px; fill: var(--gold); color: var(--gold);"></i>
+          <i data-lucide="star" style="width: 18px; height: 18px; fill: var(--gold); color: var(--gold);"></i>
+          <i data-lucide="star" style="width: 18px; height: 18px; fill: var(--gold); color: var(--gold);"></i>
+          <i data-lucide="star" style="width: 18px; height: 18px; fill: var(--gold); color: var(--gold);"></i>
+          <i data-lucide="star" style="width: 18px; height: 18px; fill: var(--gold); color: var(--gold);"></i>
+        </div>
+
+        <blockquote class="testimonial-quote" id="testi-text">
+          "The Lumière necklace arrived in the most gorgeous velvet box and exceeded every expectation. The diamond sparkle and Australian craftsmanship are extraordinary — it truly feels like an heirloom."
+        </blockquote>
+
+        <div class="testimonial-author-row">
+          <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&auto=format" alt="Sophie Reynolds" class="testimonial-avatar" id="testi-avatar">
+          <div class="testimonial-info">
+            <h5 id="testi-name">Sophie Reynolds</h5>
+            <p id="testi-loc">Sydney, NSW</p>
+          </div>
+        </div>
+        <p class="testimonial-product" id="testi-prod">Purchased: Lumière Diamond Necklace</p>
+
+        <div class="testimonial-nav">
+          <button class="carousel-btn" onclick="prevHomeTestimonial()"><i data-lucide="chevron-left"></i></button>
+          <div class="carousel-dots" id="testi-dots">
+            <div class="carousel-dot active"></div>
+            <div class="carousel-dot"></div>
+            <div class="carousel-dot"></div>
+          </div>
+          <button class="carousel-btn" onclick="nextHomeTestimonial()"><i data-lucide="chevron-right"></i></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Instagram Grid -->
+  <section class="section-padding-sm" style="background: var(--cream);">
+    <div class="container">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <p class="section-subtitle">@abelsbylincy</p>
+        <h3 style="font-family: var(--font-serif); font-size: 26px; font-weight: 500;">Follow Our Jewellery Journey</h3>
+      </div>
+
+      <div class="insta-grid">
+        <div class="insta-item"><img src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop" alt="Jewellery 1" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
+        <div class="insta-item"><img src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&h=400&fit=crop" alt="Jewellery 2" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
+        <div class="insta-item"><img src="https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&h=400&fit=crop" alt="Jewellery 3" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
+        <div class="insta-item"><img src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400&h=400&fit=crop" alt="Jewellery 4" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
+        <div class="insta-item"><img src="https://images.unsplash.com/photo-1603561591411-07134e71a2a9?w=400&h=400&fit=crop" alt="Jewellery 5" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
+        <div class="insta-item"><img src="https://images.unsplash.com/photo-1611085583191-a3b181a88401?w=400&h=400&fit=crop" alt="Jewellery 6" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Shared Footer -->
+  <div id="footer-root"></div>
+
+  <!-- Scripts -->
+  <script src="app.js?v=20260812-4"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Render Dynamic Categories
+      const catContainer = document.getElementById('home-categories-grid');
+      if (catContainer) {
+        catContainer.innerHTML = window.abl.state.categories.map(cat => `
+          <div class="collection-card" onclick="window.location.href='shop.html?category=${cat.id}'">
+            <img src="${cat.image}" alt="${cat.name}">
+            <div class="collection-overlay">
+              <span class="collection-count">${cat.count} Pieces</span>
+              <h3 class="collection-name">${cat.name}</h3>
+              <p class="collection-desc">${cat.description}</p>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Render Featured Products
+      const featContainer = document.getElementById('home-featured-grid');
+      if (featContainer) {
+        const featured = window.abl.state.products.slice(0, 4);
+        featContainer.innerHTML = featured.map(p => `
+          <div class="product-card" onclick="window.location.href='product.html?id=${p.id}'">
+            <div class="product-img-wrapper">
+              <img src="${p.image}" alt="${p.name}">
+              ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ''}
+              <button class="wishlist-btn ${window.abl.state.wishlist.includes(p.id) ? 'active' : ''}" onclick="event.stopPropagation(); window.abl.toggleWishlist('${p.id}')">
+                <i data-lucide="heart" style="${window.abl.state.wishlist.includes(p.id) ? 'fill: var(--danger);' : ''}"></i>
+              </button>
+              <div class="quick-add-bar">
+                <button class="quick-add-btn" onclick="event.stopPropagation(); window.abl.addToCart('${p.id}')">
+                  <i data-lucide="shopping-bag" style="width: 14px;"></i> Quick Add
+                </button>
+              </div>
+            </div>
+            <div class="product-info">
+              <p class="product-category">${p.category}</p>
+              <h4 class="product-name">${p.name}</h4>
+              <div class="product-price-row">
+                <span class="current-price">${window.abl.formatMoney(p.price)}</span>
+                ${p.originalPrice ? `<span class="original-price">${window.abl.formatMoney(p.originalPrice)}</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Render Best Sellers
+      const bestContainer = document.getElementById('home-bestsellers-grid');
+      if (bestContainer) {
+        const best = window.abl.state.products.filter(p => p.badge === 'bestseller' || p.badge === 'sale').slice(0, 4);
+        bestContainer.innerHTML = best.map(p => `
+          <div class="product-card" onclick="window.location.href='product.html?id=${p.id}'">
+            <div class="product-img-wrapper">
+              <img src="${p.image}" alt="${p.name}">
+              ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ''}
+              <button class="wishlist-btn ${window.abl.state.wishlist.includes(p.id) ? 'active' : ''}" onclick="event.stopPropagation(); window.abl.toggleWishlist('${p.id}')">
+                <i data-lucide="heart" style="${window.abl.state.wishlist.includes(p.id) ? 'fill: var(--danger);' : ''}"></i>
+              </button>
+              <div class="quick-add-bar">
+                <button class="quick-add-btn" onclick="event.stopPropagation(); window.abl.addToCart('${p.id}')">
+                  <i data-lucide="shopping-bag" style="width: 14px;"></i> Quick Add
+                </button>
+              </div>
+            </div>
+            <div class="product-info">
+              <p class="product-category">${p.category}</p>
+              <h4 class="product-name">${p.name}</h4>
+              <div class="product-price-row">
+                <span class="current-price">${window.abl.formatMoney(p.price)}</span>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      if (window.lucide) lucide.createIcons();
+    });
+
+    // Testimonial rotator
+    const testimonials = [
+      { name: 'Sophie Reynolds', loc: 'Sydney, NSW', text: 'The Lumière necklace arrived in the most gorgeous velvet box and exceeded every expectation. The diamond sparkle and Australian craftsmanship are extraordinary — it truly feels like an heirloom.', prod: 'Lumière Diamond Necklace', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop' },
+      { name: 'Marcus Lang', loc: 'Melbourne, VIC', text: 'Purchased the Celeste sapphire bracelet as an anniversary gift for my wife. She was completely speechless! Abel\'s By Lincy\'s attention to detail and fast Sydney dispatch is unmatched.', prod: 'Celeste Gold Bracelet', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop' },
+      { name: 'Amara Khan', loc: 'Brisbane, QLD', text: 'I had been searching for the perfect freshwater pearl earrings for years. These are stunning — lustrous, light on the earlobes, and so luxurious. Will definitely be ordering again.', prod: 'Aurora Pearl Earrings', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop' }
+    ];
+    let tIdx = 0;
+    function updateTestimonialView() {
+      const item = testimonials[tIdx];
+      document.getElementById('testi-text').textContent = `"${item.text}"`;
+      document.getElementById('testi-name').textContent = item.name;
+      document.getElementById('testi-loc').textContent = item.loc;
+      document.getElementById('testi-prod').textContent = `Purchased: ${item.prod}`;
+      document.getElementById('testi-avatar').src = item.avatar;
+      const dots = document.querySelectorAll('#testi-dots .carousel-dot');
+      dots.forEach((d, i) => d.className = `carousel-dot ${i === tIdx ? 'active' : ''}`);
+    }
+    function nextHomeTestimonial() {
+      tIdx = (tIdx + 1) % testimonials.length;
+      updateTestimonialView();
+    }
+    function prevHomeTestimonial() {
+      tIdx = (tIdx - 1 + testimonials.length) % testimonials.length;
+      updateTestimonialView();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Dependencies
+/backend/node_modules/
+
+# Environment Variables & Secrets
+/backend/.env
+
+# Local logs
+*.log
+/backend/logs/
+
+# Editor / OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Checkout | Abel's By Lincy Sydney</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css?v=20260812-4">
+</head>
+<body data-page="checkout">
+
+  <div id="header-root"></div>
+
+  <div id="checkout-view-container"></div>
+
+  <div id="footer-root"></div>
+
+  <script src="app.js?v=20260812-4"></script>
+  <script>
+    let checkoutStep = 0; // 0: Shipping, 1: Payment, 2: Review, 3: Completed
+    let selectedPaymentTab = 'card'; // 'card' | 'express'
+    
+    // Load saved address only if user explicitly saved it previously
+    let savedAddress = null;
+    try {
+      savedAddress = JSON.parse(localStorage.getItem('abl_saved_address'));
+    } catch (e) {}
+
+    let checkoutData = savedAddress ? { ...savedAddress } : {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      address: '',
+      city: '',
+      postcode: ''
+    };
+
+    let saveAddressForFuture = !!savedAddress;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderCheckout();
+    });
+
+    function renderCheckout() {
+      const container = document.getElementById('checkout-view-container');
+      const cart = window.abl.state.cart;
+
+      if (checkoutStep === 3) {
+        container.innerHTML = `
+          <div class="container" style="padding: 40px 16px 80px 16px; text-align: center; max-width: 600px;">
+            <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--success-bg); color: var(--success); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
+              <i data-lucide="check" style="width: 42px; height: 42px;"></i>
+            </div>
+            <p class="section-subtitle" style="color: var(--success); margin-bottom: 8px;">Payment Successful</p>
+            <h1 style="font-family: var(--font-serif); font-size: 32px; font-weight: 600; margin-bottom: 14px;">Order Confirmed!</h1>
+            <p style="font-size: 15px; color: var(--slate); margin-bottom: 24px; line-height: 1.6;">
+              Thank you, <strong>${checkoutData.firstName || 'Valued Client'}</strong>. Your bespoke jewellery order <strong>#ABL-2026-${Math.floor(1000 + Math.random() * 9000)}</strong> has been received. A tax invoice and dispatch tracker have been dispatched to <strong>${checkoutData.email || 'your email'}</strong>.
+            </p>
+
+            <div style="background: var(--cream); border-radius: var(--radius-lg); padding: 20px; text-align: left; font-size: 13px; margin-bottom: 28px; line-height: 1.6;">
+              <p style="margin-bottom: 6px;"><strong>Delivery Address:</strong> ${checkoutData.address}, ${checkoutData.city} ${checkoutData.postcode} NSW</p>
+              <p style="margin-bottom: 6px;"><strong>Payment Method:</strong> ${selectedPaymentTab === 'express' ? 'Apple Pay / Google Pay (Biometric Encrypted)' : 'Stripe Card (•••• 8892)'}</p>
+              <p style="margin-bottom: 0;"><strong>Status:</strong> Dispatched via Australia Post Express Insured</p>
+            </div>
+
+            <div class="confirmation-btn-group">
+              <a href="index.html" class="btn-primary" style="flex: 1; text-align: center; justify-content: center;">Return to Storefront</a>
+              <a href="account.html" class="btn-secondary" style="flex: 1; text-align: center; justify-content: center;">View in My Account</a>
+            </div>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+      const shipping = subtotal >= 150 ? 0 : 9.95;
+      const total = subtotal + shipping;
+
+      container.innerHTML = `
+        <div class="page-hero">
+          <div class="container">
+            <p class="section-subtitle">Encrypted Stripe Gateway</p>
+            <h1>Secure Checkout</h1>
+          </div>
+        </div>
+
+        <div class="container" style="max-width: 1000px; padding-bottom: 60px;">
+          
+          <!-- Responsive Stepper -->
+          <div class="checkout-stepper">
+            <div class="step-item ${checkoutStep === 0 ? 'active' : checkoutStep > 0 ? 'completed' : ''}">
+              <div class="step-circle">${checkoutStep > 0 ? '✓' : '1'}</div>
+              <span>Shipping</span>
+            </div>
+            <div class="stepper-line"></div>
+            <div class="step-item ${checkoutStep === 1 ? 'active' : checkoutStep > 1 ? 'completed' : ''}">
+              <div class="step-circle">${checkoutStep > 1 ? '✓' : '2'}</div>
+              <span>Payment</span>
+            </div>
+            <div class="stepper-line"></div>
+            <div class="step-item ${checkoutStep === 2 ? 'active' : ''}">
+              <div class="step-circle">3</div>
+              <span>Review & Place</span>
+            </div>
+          </div>
+
+          <div class="checkout-layout">
+            
+            <!-- Step Forms -->
+            <div>
+              <div class="checkout-card">
+                
+                ${checkoutStep === 0 ? `
+                  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; gap: 8px;">
+                    <h3 style="font-family: var(--font-serif); font-size: 22px; font-weight: 600; margin: 0;">1. Shipping Details</h3>
+                    ${savedAddress ? '<span style="font-size: 11px; color: var(--gold); font-weight: 600;">✓ Auto-filled from saved address</span>' : '<span style="font-size: 11px; color: var(--slate);">Enter your delivery details</span>'}
+                  </div>
+                  
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label class="form-label">First Name *</label>
+                      <input type="text" class="form-control" value="${checkoutData.firstName}" id="ck-fn" placeholder="e.g. Sarah" required>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Last Name *</label>
+                      <input type="text" class="form-control" value="${checkoutData.lastName}" id="ck-ln" placeholder="e.g. Jenkins" required>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Email for Tracking *</label>
+                    <input type="email" class="form-control" value="${checkoutData.email}" id="ck-em" placeholder="e.g. sarah@example.com" required>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Mobile Phone (For Courier Updates) *</label>
+                    <input type="tel" class="form-control" value="${checkoutData.phone}" id="ck-ph" placeholder="e.g. +61 412 345 678" required>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Street Address *</label>
+                    <input type="text" class="form-control" value="${checkoutData.address}" id="ck-ad" placeholder="e.g. 42 George Street, Apt 3B" required>
+                  </div>
+
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label class="form-label">City / Suburb *</label>
+                      <input type="text" class="form-control" value="${checkoutData.city}" id="ck-ct" placeholder="e.g. Sydney" required>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Postcode *</label>
+                      <input type="text" class="form-control" value="${checkoutData.postcode}" id="ck-pc" placeholder="e.g. 2000" required>
+                    </div>
+                  </div>
+
+                  <!-- Save Address Option Checkbox -->
+                  <div style="margin: 10px 0 20px 0; background: var(--cream); border-radius: var(--radius-md); padding: 12px 16px;">
+                    <label class="filter-checkbox-label" style="font-size: 13px; color: var(--onyx); cursor: pointer; user-select: none;">
+                      <input type="checkbox" id="ck-save-address" class="filter-checkbox" ${saveAddressForFuture ? 'checked' : ''} onchange="saveAddressForFuture = this.checked">
+                      <span><strong>Save these details</strong> for faster 1-click checkout next time</span>
+                    </label>
+                  </div>
+
+                  <button class="btn-primary" style="width: 100%;" onclick="validateAndGoToPayment()">
+                    Continue to Payment <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
+                  </button>
+                ` : ''}
+
+                ${checkoutStep === 1 ? `
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 8px;">
+                    <h3 style="font-family: var(--font-serif); font-size: 22px; font-weight: 600; margin: 0;">2. Payment Method</h3>
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--success); font-weight: 600;">
+                      <i data-lucide="shield-check" style="width: 15px; height: 15px;"></i> 256-bit SSL Encrypted
+                    </div>
+                  </div>
+
+                  <!-- Payment Method Selector Tabs -->
+                  <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+                    <div onclick="switchPaymentTab('card')" style="flex: 1; border: 2px solid ${selectedPaymentTab === 'card' ? 'var(--gold)' : 'var(--border)'}; border-radius: var(--radius-md); padding: 14px 10px; text-align: center; background: ${selectedPaymentTab === 'card' ? 'var(--cream)' : 'var(--cloud-white)'}; cursor: pointer; transition: all var(--transition-fast);">
+                      <i data-lucide="credit-card" style="width: 20px; height: 20px; color: ${selectedPaymentTab === 'card' ? 'var(--gold)' : 'var(--slate)'}; margin-bottom: 4px;"></i>
+                      <p style="font-size: 13px; font-weight: 600; color: var(--onyx); margin: 0;">Credit / Debit Card</p>
+                    </div>
+                    
+                    <div onclick="switchPaymentTab('express')" style="flex: 1; border: 2px solid ${selectedPaymentTab === 'express' ? 'var(--gold)' : 'var(--border)'}; border-radius: var(--radius-md); padding: 14px 10px; text-align: center; background: ${selectedPaymentTab === 'express' ? 'var(--cream)' : 'var(--cloud-white)'}; cursor: pointer; transition: all var(--transition-fast);">
+                      <i data-lucide="smartphone" style="width: 20px; height: 20px; color: ${selectedPaymentTab === 'express' ? 'var(--gold)' : 'var(--slate)'}; margin-bottom: 4px;"></i>
+                      <p style="font-size: 13px; font-weight: 600; color: var(--onyx); margin: 0;">Apple Pay / Google Pay</p>
+                    </div>
+                  </div>
+
+                  ${selectedPaymentTab === 'card' ? `
+                    <div class="form-group">
+                      <label class="form-label">Card Number</label>
+                      <div style="position: relative;">
+                        <input type="text" class="form-control" value="4532 •••• •••• 8892" placeholder="4532 0000 0000 0000">
+                        <div style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: flex; gap: 6px;">
+                          <span style="font-size: 10px; font-weight: 700; background: #1A1F71; color: #fff; padding: 2px 6px; border-radius: 3px;">VISA</span>
+                          <span style="font-size: 10px; font-weight: 700; background: #EB001B; color: #fff; padding: 2px 6px; border-radius: 3px;">MC</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label class="form-label">Expiry Date</label>
+                        <input type="text" class="form-control" value="08 / 28" placeholder="MM / YY">
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Security CVC</label>
+                        <input type="password" class="form-control" value="892" placeholder="CVC">
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label">Cardholder Name</label>
+                      <input type="text" class="form-control" value="${(checkoutData.firstName + ' ' + checkoutData.lastName).trim() || 'CARDHOLDER NAME'}" placeholder="Name as printed on card">
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 20px;">
+                      <button class="btn-secondary" style="flex: 1;" onclick="goToStep(0)">Back</button>
+                      <button class="btn-primary" style="flex: 2;" onclick="goToStep(2)">Review Order <i data-lucide="arrow-right" style="width: 14px;"></i></button>
+                    </div>
+                  ` : `
+                    <!-- 1-Click Apple Pay & Google Pay Express Options -->
+                    <div style="padding: 10px 0;">
+                      <p style="font-size: 13px; color: var(--slate); margin-bottom: 16px; text-align: center;">
+                        Pay instantly with your biometric wallet (FaceID / TouchID / Google Account).
+                      </p>
+
+                      <!-- Apple Pay Button -->
+                      <button class="apple-pay-btn" onclick="simulateExpressPay('Apple Pay')" style="width: 100%; height: 50px; background: #000000; color: #FFFFFF; border-radius: var(--radius-md); border: none; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; margin-bottom: 12px; transition: transform var(--transition-fast);">
+                        <svg width="20" height="20" viewBox="0 0 170 170" fill="currentColor">
+                          <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.69-7.85-12-14.42-6.09-9.35-10.99-19.8-14.69-31.33-3.7-11.53-5.55-22.6-5.55-33.22 0-14.8 3.7-27.18 11.09-37.13 7.39-9.95 16.74-15.02 28.05-15.22 4.35 0 9.47 1.25 15.35 3.75 5.88 2.5 9.79 3.86 11.73 4.09 1.74-.23 5.87-1.63 12.38-4.2 6.51-2.58 11.73-3.76 15.66-3.53 11.53.65 20.89 4.9 28.07 12.73-10.23 6.19-15.24 14.68-15.02 25.46.22 8.48 3.59 15.77 10.09 21.86 6.51 6.1 14.24 9.57 23.2 10.44-2.18 6.52-4.68 12.72-7.51 18.59zM119.22 33.04c0-7.39 2.61-14.35 7.83-20.88C132.27 5.63 138.8.84 146.64 0c.22 1.09.33 2.18.33 3.26 0 7.39-2.83 14.68-8.48 21.86-5.66 7.18-12.4 11.2-20.24 12.07-.44-1.31-.67-2.69-.67-4.15z"/>
+                        </svg>
+                        <span>Pay with Apple Pay</span>
+                      </button>
+
+                      <!-- Google Pay Button -->
+                      <button class="google-pay-btn" onclick="simulateExpressPay('Google Pay')" style="width: 100%; height: 50px; background: #FFFFFF; color: #3c4043; border-radius: var(--radius-md); border: 1px solid #dadce0; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(60,64,67,0.15); transition: transform var(--transition-fast);">
+                        <svg width="22" height="22" viewBox="0 0 48 48">
+                          <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+                          <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+                          <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.91l7.35-5.73z"/>
+                          <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+                        </svg>
+                        <span>Buy with GPay</span>
+                      </button>
+
+                      <div style="display: flex; gap: 12px;">
+                        <button class="btn-secondary" style="width: 100%;" onclick="goToStep(0)">Back</button>
+                      </div>
+                    </div>
+                  `}
+                ` : ''}
+
+                ${checkoutStep === 2 ? `
+                  <h3 style="font-family: var(--font-serif); font-size: 22px; font-weight: 600; margin-bottom: 16px;">3. Review Order</h3>
+                  
+                  <div style="background: var(--cream); border-radius: var(--radius-md); padding: 16px; margin-bottom: 20px; font-size: 13px; line-height: 1.6;">
+                    <p style="margin-bottom: 6px;"><strong>Deliver To:</strong> ${checkoutData.firstName} ${checkoutData.lastName}</p>
+                    <p style="margin-bottom: 6px;"><strong>Address:</strong> ${checkoutData.address}, ${checkoutData.city} ${checkoutData.postcode} NSW</p>
+                    <p style="margin-bottom: 6px;"><strong>Contact:</strong> ${checkoutData.email} · ${checkoutData.phone}</p>
+                    <p style="margin-bottom: 0;"><strong>Payment:</strong> ${selectedPaymentTab === 'express' ? 'Apple Pay / Google Pay' : 'Stripe Card (•••• 8892)'}</p>
+                  </div>
+
+                  <p style="font-size: 12px; color: var(--slate); margin-bottom: 20px;">
+                    By clicking "Place Order", you authorize Abel's By Lincy to charge <strong>${window.abl.formatMoney(total)}</strong> to your selected payment method.
+                  </p>
+
+                  <div style="display: flex; gap: 12px;">
+                    <button class="btn-secondary" style="flex: 1;" onclick="goToStep(1)">Back</button>
+                    <button class="btn-primary" style="flex: 2;" onclick="placeOrder()">Place Order · ${window.abl.formatMoney(total)} <i data-lucide="lock" style="width: 14px;"></i></button>
+                  </div>
+                ` : ''}
+
+              </div>
+            </div>
+
+            <!-- Sidebar Items Overview -->
+            <div>
+              <div style="background: var(--cloud-white); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 20px;">
+                <h4 style="font-family: var(--font-serif); font-size: 17px; font-weight: 600; margin-bottom: 14px;">Bag Items (${cart.length})</h4>
+                
+                <div style="max-height: 220px; overflow-y: auto; margin-bottom: 14px;">
+                  ${cart.length === 0 ? '<p style="font-size: 13px; color: var(--slate);">Your bag is empty.</p>' : cart.map(item => `
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-light);">
+                      <img src="${item.image}" style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover;">
+                      <div style="flex: 1;">
+                        <p style="font-size: 12px; font-weight: 600; color: var(--onyx); margin: 0;">${item.name}</p>
+                        <p style="font-size: 11px; color: var(--slate); margin: 2px 0 0 0;">Qty: ${item.quantity} · ${window.abl.formatMoney(item.price)}</p>
+                      </div>
+                      <span style="font-size: 12px; font-weight: 600;">${window.abl.formatMoney(item.price * item.quantity)}</span>
+                    </div>
+                  `).join('')}
+                </div>
+
+                <div class="summary-row" style="font-size: 13px; margin-bottom: 8px;">
+                  <span style="color: var(--slate);">Subtotal</span>
+                  <span style="font-weight: 600;">${window.abl.formatMoney(subtotal)}</span>
+                </div>
+                <div class="summary-row" style="font-size: 13px; margin-bottom: 8px;">
+                  <span style="color: var(--slate);">Express Shipping</span>
+                  <span style="font-weight: 600; color: ${shipping === 0 ? 'var(--success)' : 'var(--onyx)'};">${shipping === 0 ? 'FREE' : window.abl.formatMoney(shipping)}</span>
+                </div>
+                <div class="summary-row summary-total" style="font-size: 16px; margin-top: 10px; padding-top: 10px;">
+                  <span>Total</span>
+                  <span style="font-size: 18px; font-weight: 700; color: var(--onyx);">${window.abl.formatMoney(total)}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      `;
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function switchPaymentTab(tab) {
+      selectedPaymentTab = tab;
+      renderCheckout();
+    }
+
+    function validateAndGoToPayment() {
+      const fn = document.getElementById('ck-fn').value.trim();
+      const ln = document.getElementById('ck-ln').value.trim();
+      const em = document.getElementById('ck-em').value.trim();
+      const ph = document.getElementById('ck-ph').value.trim();
+      const ad = document.getElementById('ck-ad').value.trim();
+      const ct = document.getElementById('ck-ct').value.trim();
+      const pc = document.getElementById('ck-pc').value.trim();
+
+      if (!fn || !ln || !em || !ph || !ad || !ct || !pc) {
+        window.abl.showToast('Please fill in all required shipping fields', 'alert-circle');
+        return;
+      }
+
+      checkoutData = { firstName: fn, lastName: ln, email: em, phone: ph, address: ad, city: ct, postcode: pc };
+
+      const saveCb = document.getElementById('ck-save-address');
+      if (saveCb && saveCb.checked) {
+        localStorage.setItem('abl_saved_address', JSON.stringify(checkoutData));
+      } else {
+        localStorage.removeItem('abl_saved_address');
+      }
+
+      goToStep(1);
+    }
+
+    function simulateExpressPay(provider) {
+      window.abl.showToast(`Authenticating with ${provider}...`, 'loader');
+      setTimeout(() => {
+        placeOrder();
+      }, 1000);
+    }
+
+    function goToStep(s) {
+      checkoutStep = s;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      renderCheckout();
+    }
+
+    function placeOrder() {
+      const cartItems = window.abl.state.cart;
+      if (cartItems.length === 0) {
+        window.abl.showToast('Your bag is empty', 'alert-circle');
+        return;
+      }
+
+      const orderSubtotal = cartItems.reduce((s, i) => s + i.price * i.quantity, 0);
+
+      // 1. Deduct stock quantities from inventory in real-time
+      cartItems.forEach(item => {
+        const prod = window.abl.state.products.find(p => p.id === item.id);
+        if (prod) {
+          prod.stockQty = Math.max(0, (prod.stockQty || 0) - item.quantity);
+          if (prod.stockQty === 0) prod.inStock = false;
+        }
+      });
+      localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+
+      // 2. Add new order to orders database
+      const newOrder = {
+        id: `#ABL-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        customer: `${checkoutData.firstName || 'Valued'} ${checkoutData.lastName || 'Client'}`.trim(),
+        email: checkoutData.email || 'client@abels.com',
+        product: cartItems[0] ? cartItems[0].name : 'Fine Jewellery',
+        date: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        status: 'Processing',
+        total: window.abl.formatMoney(orderSubtotal),
+        rawAmount: orderSubtotal,
+        itemsCount: cartItems.length
+      };
+      window.abl.state.orders.unshift(newOrder);
+      localStorage.setItem('abl_orders', JSON.stringify(window.abl.state.orders));
+
+      // 3. Update / create customer spending in real-time
+      let cust = window.abl.state.customers.find(c => c.email.toLowerCase() === (checkoutData.email || '').toLowerCase());
+      if (cust) {
+        cust.orders = (cust.orders || 0) + 1;
+        const currentSpent = parseFloat((cust.spent || '$0').replace(/[^0-9.]/g, '')) || 0;
+        cust.spent = `$${(currentSpent + orderSubtotal).toLocaleString()}`;
+      } else if (checkoutData.email) {
+        window.abl.state.customers.push({
+          id: `c${Date.now()}`,
+          name: `${checkoutData.firstName} ${checkoutData.lastName}`,
+          email: checkoutData.email,
+          orders: 1,
+          spent: `$${orderSubtotal.toLocaleString()}`,
+          joined: 'Aug 2026',
+          status: 'New'
+        });
+      }
+      localStorage.setItem('abl_customers', JSON.stringify(window.abl.state.customers));
+
+      // 4. Clear Cart
+      window.abl.state.cart = [];
+      localStorage.setItem('abl_cart', JSON.stringify([]));
+
+      checkoutStep = 3;
+      window.abl.showToast('Payment successful! Order placed.', 'check');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      renderCheckout();
+    }
+  </script>
+</body>
+</html>

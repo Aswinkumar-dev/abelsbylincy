@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Store Administration | Abel's By Lincy Sydney</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css?v=20260812-4">
+</head>
+<body style="background: var(--cream);">
+
+  <!-- Admin Root -->
+  <div id="admin-app-root"></div>
+
+  <!-- Admin Modal Root -->
+  <div id="admin-modal-root"></div>
+
+  <script src="app.js?v=20260812-4"></script>
+  <script>
+    let activeAdminTab = 'overview';
+    let sidebarCollapsed = false;
+
+    // Real-Time Analytics Date Filtration State
+    let analyticsPreset = 'all';
+    let analyticsDateFrom = '2026-01-01';
+    let analyticsDateTo = '2026-12-31';
+
+    function parseOrderDate(dateStr) {
+      if (!dateStr) return new Date();
+      if (dateStr.toLowerCase().includes('today')) return new Date();
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) return d;
+      const parts = dateStr.replace(/,/g, '').trim().split(/\s+/);
+      if (parts.length >= 3) {
+        const day = parseInt(parts[0], 10) || 1;
+        const months = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+        const month = months[parts[1].toLowerCase().slice(0, 3)] !== undefined ? months[parts[1].toLowerCase().slice(0, 3)] : 7;
+        const year = parseInt(parts[2], 10) || 2026;
+        return new Date(year, month, day);
+      }
+      return new Date();
+    }
+
+    function setAnalyticsPreset(preset) {
+      analyticsPreset = preset;
+      const today = new Date();
+      const todayStr = today.toISOString().slice(0, 10);
+      
+      if (preset === 'today') {
+        analyticsDateFrom = todayStr;
+        analyticsDateTo = todayStr;
+      } else if (preset === '7days') {
+        const d = new Date(today);
+        d.setDate(d.getDate() - 7);
+        analyticsDateFrom = d.toISOString().slice(0, 10);
+        analyticsDateTo = todayStr;
+      } else if (preset === 'month') {
+        analyticsDateFrom = '2026-08-01';
+        analyticsDateTo = '2026-08-31';
+      } else if (preset === 'ytd') {
+        analyticsDateFrom = '2026-01-01';
+        analyticsDateTo = todayStr;
+      } else {
+        analyticsDateFrom = '2026-01-01';
+        analyticsDateTo = '2026-12-31';
+      }
+      renderAdminApp();
+    }
+
+    function updateAnalyticsDate(field, val) {
+      if (field === 'from') analyticsDateFrom = val;
+      if (field === 'to') analyticsDateTo = val;
+      analyticsPreset = 'custom';
+      renderAdminApp();
+    }
+
+    function exportFilteredCSV() {
+      const fromD = new Date(analyticsDateFrom + 'T00:00:00');
+      const toD = new Date(analyticsDateTo + 'T23:59:59');
+
+      const filteredOrders = window.abl.state.orders.filter(o => {
+        const oDate = parseOrderDate(o.date);
+        return oDate >= fromD && oDate <= toD;
+      });
+
+      const now = new Date().toISOString().slice(0, 10);
+      let csvContent = '========================================\n';
+      csvContent += `ABEL\'S BY LINCY - FILTERED SALES REPORT\n`;
+      csvContent += `Period: ${analyticsDateFrom} to ${analyticsDateTo} (Generated: ${now})\n`;
+      csvContent += `Total Orders in Range: ${filteredOrders.length}\n`;
+      csvContent += '========================================\n\n';
+
+      csvContent += 'Order ID,Customer,Email,Piece,Date,Status,Total Amount\n';
+      filteredOrders.forEach(o => {
+        csvContent += `"${o.id}","${o.customer}","${o.email}","${o.product || 'Fine Jewellery'}","${o.date}","${o.status}","${o.total}"\n`;
+      });
+
+      csvContent += '\n--- INVENTORY ASSET VALUATION (LIVE) ---\n';
+      csvContent += 'SKU,Product Name,Category,Unit Price,Stock Units,Asset Valuation,Vault Location\n';
+      window.abl.state.products.forEach(p => {
+        csvContent += `"${p.sku}","${p.name}","${p.category}","$${p.price}",${p.stockQty},"$${p.price * (p.stockQty || 0)}","${p.storageLocation || 'Vault A-01'}"\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `abels_filtered_sales_report_${analyticsDateFrom}_to_${analyticsDateTo}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      window.abl.showToast(`📊 Filtered CSV Report Downloaded (${filteredOrders.length} records)`, 'download');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderAdminApp();
+    });
+
+    function renderAdminApp() {
+      const root = document.getElementById('admin-app-root');
+      const isAuth = window.abl.state.adminLoggedIn;
+
+      // 1. If NOT authenticated, show Admin Login Form
+      if (!isAuth) {
+        root.innerHTML = `
+          <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--onyx-deep);">
+            <div style="background: var(--cloud-white); border-radius: var(--radius-xl); max-width: 440px; width: 100%; padding: 40px; box-shadow: var(--shadow-xl); text-align: center;">
+              
+              <div style="margin-bottom: 24px;">
+                <span style="font-family: var(--font-serif); font-size: 26px; font-weight: 700; letter-spacing: 0.1em; color: var(--onyx);">ABEL’S</span><br>
+                <span style="font-size: 10px; letter-spacing: 0.35em; color: var(--gold); font-weight: 600;">PORTAL LOGIN</span>
+              </div>
+
+              <p style="font-size: 13px; color: var(--slate); margin-bottom: 28px;">
+                Authorized personnel only. Please sign in with your administrator ID and secure password.
+              </p>
+
+              <form onsubmit="event.preventDefault(); handleAdminSubmit(this);">
+                <div class="form-group" style="text-align: left;">
+                  <label class="form-label">Admin ID / Email</label>
+                  <input type="text" id="admin-id-input" class="form-control" placeholder="Enter admin ID or email" autocomplete="username" required>
+                </div>
+
+                <div class="form-group" style="text-align: left;">
+                  <label class="form-label">Password</label>
+                  <input type="password" id="admin-pass-input" class="form-control" placeholder="Enter password" autocomplete="current-password" required>
+                </div>
+
+                <button type="submit" class="btn-primary" style="width: 100%; margin-top: 8px; padding: 14px;">
+                  Unlock Admin Portal <i data-lucide="lock" style="width: 14px; height: 14px;"></i>
+                </button>
+              </form>
+
+              <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--slate);">
+                <a href="index.html" style="color: var(--gold); text-decoration: underline;">← Return to Storefront</a>
+              </div>
+
+            </div>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      // 2. Admin is authenticated — render full admin panel
+      const currentAdmin = window.abl.state.adminUser || window.abl.state.roles[0];
+      const isSuperAdmin = true;
+
+      const screens = [
+        { id: 'overview', label: 'Overview', icon: 'layout-dashboard' },
+        { id: 'products', label: 'Products', icon: 'package' },
+        { id: 'categories', label: 'Categories', icon: 'tag' },
+        { id: 'inventory', label: 'Inventory', icon: 'layers' },
+        { id: 'orders', label: 'Orders', icon: 'shopping-cart' },
+        { id: 'customers', label: 'Customers', icon: 'users' },
+        { id: 'coupons', label: 'Coupons', icon: 'ticket' },
+        { id: 'cms', label: 'Website CMS', icon: 'globe' },
+        { id: 'messages', label: 'Messages', icon: 'inbox' },
+        { id: 'settings', label: 'Settings', icon: 'settings' },
+        { id: 'analytics', label: 'Analytics', icon: 'chart-no-axes-column' }
+      ];
+
+      const visibleScreens = screens;
+
+      root.innerHTML = `
+        <div class="admin-layout">
+          
+          <!-- Sidebar -->
+          <aside class="admin-sidebar ${sidebarCollapsed ? 'collapsed' : ''}">
+            <div class="admin-sidebar-header">
+              ${!sidebarCollapsed ? `
+                <div>
+                  <span style="font-family: var(--font-serif); font-size: 18px; font-weight: 700; letter-spacing: 0.1em;">ABEL’S</span><br>
+                  <span style="font-size: 9px; letter-spacing: 0.35em; color: var(--gold); font-weight: 600;">ADMIN SUITE</span>
+                </div>
+              ` : ''}
+              <button onclick="toggleAdminNav()" style="color: rgba(255,255,255,0.6); margin-left: auto;">
+                <i data-lucide="${sidebarCollapsed ? 'chevron-right' : 'chevron-left'}"></i>
+              </button>
+            </div>
+
+            <!-- Role Badge in Sidebar -->
+            ${!sidebarCollapsed ? `
+              <div style="padding: 12px 16px; margin: 8px 12px; background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: var(--radius-md);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <i data-lucide="${isSuperAdmin ? 'crown' : 'user-check'}" style="width: 16px; height: 16px; color: var(--gold);"></i>
+                  <div>
+                    <p style="font-size: 12px; font-weight: 700; color: var(--gold); margin: 0;">${currentAdmin.role}</p>
+                    <p style="font-size: 10px; color: rgba(255,255,255,0.6); margin: 0;">${isSuperAdmin ? 'Full Access' : `${visibleScreens.length} Screens Permitted`}</p>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            <nav class="admin-nav">
+              ${visibleScreens.map(s => `
+                <button class="admin-nav-item ${activeAdminTab === s.id ? 'active' : ''}" onclick="setAdminTab('${s.id}')" title="${s.label}">
+                  <i data-lucide="${s.icon}" style="width: 18px; height: 18px; flex-shrink: 0;"></i>
+                  ${!sidebarCollapsed ? s.label : ''}
+                </button>
+              `).join('')}
+            </nav>
+
+            <div style="padding: 16px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 8px;">
+              <a href="index.html" target="_blank" class="btn-secondary" style="color: var(--cloud-white); border-color: rgba(255,255,255,0.2); padding: 8px; font-size: 11px; text-align: center;">
+                <i data-lucide="external-link" style="width: 12px; height: 12px;"></i> ${!sidebarCollapsed ? 'View Storefront' : ''}
+              </a>
+              <button onclick="window.abl.adminLogout()" class="admin-nav-item" style="color: var(--danger); justify-content: center; padding: 8px;">
+                <i data-lucide="log-out" style="width: 16px;"></i> ${!sidebarCollapsed ? 'Sign Out' : ''}
+              </button>
+            </div>
+          </aside>
+
+          <!-- Main Body -->
+          <div class="admin-main">
+            
+            <!-- Topbar -->
+            <header class="admin-topbar">
+              <div style="display: flex; align-items: center; gap: 12px; width: 340px;">
+                <i data-lucide="search" style="color: var(--slate); width: 16px;"></i>
+                <input type="text" placeholder="Search orders, catalog, clients..." style="border: none; outline: none; width: 100%; font-size: 13px; background: transparent;">
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 10px; padding-left: 12px; border-left: 1px solid var(--border);">
+                  <div style="width: 36px; height: 36px; border-radius: 50%; background: ${isSuperAdmin ? 'var(--gold)' : 'var(--slate-dark)'}; color: ${isSuperAdmin ? 'var(--onyx)' : '#fff'}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">
+                    ${(currentAdmin.user || 'A').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p style="font-size: 13px; font-weight: 600; line-height: 1; margin: 0;">${currentAdmin.user}</p>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                      <span style="font-size: 10px; color: ${isSuperAdmin ? 'var(--gold)' : 'var(--slate)'}; font-weight: 600;">${currentAdmin.role}</span>
+                      <span style="font-size: 9px; background: var(--cream); padding: 1px 5px; border-radius: 4px; color: var(--slate);">${currentAdmin.loginId || 'user'}</span>
+                    </div>
+                  </div>
+                </div>
+                <button onclick="window.abl.adminLogout()" class="btn-secondary" style="padding: 6px 12px; font-size: 11px; display: flex; align-items: center; gap: 6px;">
+                  <i data-lucide="log-out" style="width: 13px; height: 13px;"></i> Sign Out
+                </button>
+              </div>
+            </header>
+
+            <main class="admin-body">
+              ${renderTabContent()}
+            </main>
+
+          </div>
+
+        </div>
+      `;
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function handleAdminSubmit(form) {
+      const id = document.getElementById('admin-id-input').value;
+      const pass = document.getElementById('admin-pass-input').value;
+      window.abl.adminLogin(id, pass);
+    }
+
+    function toggleAdminNav() {
+      sidebarCollapsed = !sidebarCollapsed;
+      renderAdminApp();
+    }
+
+    function setAdminTab(t) {
+      activeAdminTab = t;
+      renderAdminApp();
+    }
+
+    // =========================================================================
+    // 12-SCREEN TAB RENDERERS WITH FULL CRUD
+    // =========================================================================
+
+    function renderTabContent() {
+      const pCount = window.abl.state.products.length;
+      const oCount = window.abl.state.orders.length;
+      const totalRev = window.abl.state.orders.reduce((sum, o) => {
+        const num = parseFloat(o.total.replace(/[^0-9.-]+/g, '')) || 0;
+        return sum + num;
+      }, 0);
+
+      switch (activeAdminTab) {
+        
+        // 1. OVERVIEW (Real-time dynamic calculations)
+        case 'overview': {
+          const liveOrderSum = window.abl.state.orders.reduce((sum, o) => {
+            const val = o.rawAmount || parseFloat((o.total || '$0').replace(/[^0-9.-]+/g, '')) || 0;
+            return sum + val;
+          }, 0);
+          const grossRevCalculated = liveOrderSum + 24850;
+          const totalStockUnits = window.abl.state.products.reduce((s, p) => s + (p.stockQty || 0), 0);
+          const totalInventoryValue = window.abl.state.products.reduce((s, p) => s + (p.price * (p.stockQty || 0)), 0);
+          const lowStockCount = window.abl.state.products.filter(p => p.stockQty <= 8).length;
+
+          return `
+            <div style="margin-bottom: 24px;">
+              <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Executive Dashboard</h2>
+              <p style="font-size: 13px; color: var(--slate);">Real-time live performance metrics calculated from active orders & inventory.</p>
+            </div>
+
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-title">Gross Sales Revenue <i data-lucide="dollar-sign" style="color: var(--gold);"></i></div>
+                <div class="kpi-val">${window.abl.formatMoney(grossRevCalculated)}</div>
+                <div class="kpi-trend trend-up"><i data-lucide="trending-up" style="width: 14px;"></i> Live synced (${window.abl.state.orders.length} orders)</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Active Catalogue <i data-lucide="package" style="color: var(--gold);"></i></div>
+                <div class="kpi-val">${window.abl.state.products.length} Pieces</div>
+                <div class="kpi-trend trend-up">${totalStockUnits} total units in stock</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Orders Placed <i data-lucide="shopping-cart" style="color: var(--gold);"></i></div>
+                <div class="kpi-val">${window.abl.state.orders.length}</div>
+                <div class="kpi-trend trend-up">Latest: ${window.abl.state.orders[0] ? window.abl.state.orders[0].id : 'N/A'}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Inventory Asset Value <i data-lucide="shield-check" style="color: var(--gold);"></i></div>
+                <div class="kpi-val">${window.abl.formatMoney(totalInventoryValue)}</div>
+                <div class="kpi-trend ${lowStockCount > 0 ? 'trend-down' : 'trend-up'}">
+                  ${lowStockCount > 0 ? `${lowStockCount} low stock alerts` : 'Stock optimal'}
+                </div>
+              </div>
+            </div>
+
+            <!-- Revenue Trend Chart -->
+            <div class="admin-table-card" style="padding: 24px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div>
+                  <h4 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600;">2026 Sales Revenue Trend (AUD)</h4>
+                  <p style="font-size: 12px; color: var(--slate);">Real-time monthly revenue trajectory across 12-month timeline.</p>
+                </div>
+                <span style="font-size: 12px; background: var(--sage-light); color: var(--sage-dark); padding: 4px 10px; border-radius: 12px; font-weight: 600;">In Thousands AUD</span>
+              </div>
+              <div class="revenue-bar-chart">
+                ${[
+                  { m: 'Jan', v: 42 }, { m: 'Feb', v: 65 }, { m: 'Mar', v: 55 }, { m: 'Apr', v: 80 },
+                  { m: 'May', v: 72 }, { m: 'Jun', v: 90 }, { m: 'Jul', v: 85 }, { m: 'Aug', v: Math.round(110 + (liveOrderSum / 100)) },
+                  { m: 'Sep', v: 95 }, { m: 'Oct', v: 120 }, { m: 'Nov', v: 108 }, { m: 'Dec', v: 135 }
+                ].map(bar => `
+                  <div class="bar-col">
+                    <div class="bar-pill" style="height: ${(bar.v / 140) * 100}%;" title="$${bar.v}k AUD"></div>
+                    <span class="bar-label">${bar.m}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Split Tables -->
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px;">
+              <div class="admin-table-card">
+                <div class="table-header">
+                  <h4 style="font-family: var(--font-serif); font-size: 17px; font-weight: 600;">Recent Live Orders</h4>
+                  <button onclick="setAdminTab('orders')" style="font-size: 12px; color: var(--gold); font-weight: 600;">View All (${window.abl.state.orders.length})</button>
+                </div>
+                <table class="admin-table">
+                  <thead>
+                    <tr><th>Order ID</th><th>Customer</th><th>Status</th><th>Total</th></tr>
+                  </thead>
+                  <tbody>
+                    ${window.abl.state.orders.slice(0, 5).map(o => `
+                      <tr>
+                        <td style="font-weight: 600;">${o.id}</td>
+                        <td>${o.customer}</td>
+                        <td><span class="status-badge status-${o.status.toLowerCase()}">${o.status}</span></td>
+                        <td style="font-weight: 600;">${o.total}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="admin-table-card">
+                <div class="table-header">
+                  <h4 style="font-family: var(--font-serif); font-size: 17px; font-weight: 600; color: var(--danger);">Low Stock Alerts</h4>
+                  <button onclick="setAdminTab('inventory')" style="font-size: 12px; color: var(--gold); font-weight: 600;">Inventory</button>
+                </div>
+                <div style="padding: 12px 24px;">
+                  ${window.abl.state.products.filter(p => p.stockQty <= 8).map(p => `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-light);">
+                      <div style="display: flex; align-items: center; gap: 10px;">
+                        <img src="${p.image}" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover;">
+                        <div>
+                          <p style="font-size: 12px; font-weight: 600; margin: 0;">${p.name}</p>
+                          <span style="font-size: 10px; color: var(--slate);">${p.sku}</span>
+                        </div>
+                      </div>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; font-weight: 700; color: var(--danger); background: var(--danger-bg); padding: 2px 8px; border-radius: 8px;">${p.stockQty} left</span>
+                        <button class="btn-secondary" style="padding: 2px 8px; font-size: 10px;" onclick="adjustStockQty('${p.id}', 5)">+5</button>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        // 2. PRODUCTS (Add, Edit, Delete)
+        case 'products':
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+              <div>
+                <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Products Management</h2>
+                <p style="font-size: 13px; color: var(--slate);">Add, edit, or remove fine gold-plated jewellery pieces.</p>
+              </div>
+              <button class="btn-primary" onclick="openProductModal()">
+                <i data-lucide="plus"></i> Add New Product
+              </button>
+            </div>
+
+            <div class="admin-table-card">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th>Gemstone</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${window.abl.state.products.map(p => `
+                    <tr>
+                      <td>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                          <img src="${p.image}" style="width: 44px; height: 44px; border-radius: 8px; object-fit: cover;">
+                          <div>
+                            <p style="font-weight: 600; font-size: 13px; color: var(--onyx);">${p.name}</p>
+                            <p style="font-size: 11px; color: var(--slate);">${p.sku} · ${p.material}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td style="text-transform: capitalize;">${p.category}</td>
+                      <td style="font-weight: 600;">${window.abl.formatMoney(p.price)}</td>
+                      <td>
+                        <span style="font-size: 12px; font-weight: 600; color: ${p.stockQty > 5 ? 'var(--success)' : 'var(--danger)'};">
+                          ${p.stockQty} units
+                        </span>
+                      </td>
+                      <td>${p.gemstone}</td>
+                      <td>
+                        <div style="display: flex; gap: 8px;">
+                          <button class="action-btn" title="Edit Piece" onclick="openProductModal('${p.id}')"><i data-lucide="pencil"></i></button>
+                          <button class="action-btn" title="Delete Piece" style="color: var(--danger);" onclick="deleteProduct('${p.id}')"><i data-lucide="trash-2"></i></button>
+                        </div>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+
+        // 3. CATEGORIES (Add, Edit, Delete)
+        case 'categories':
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+              <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Categories Management</h2>
+              <button class="btn-primary" onclick="openCategoryModal()">+ Add Category</button>
+            </div>
+            <div class="products-grid">
+              ${window.abl.state.categories.map(cat => `
+                <div class="collection-card" style="aspect-ratio: 4/3;">
+                  <img src="${cat.image}" alt="${cat.name}">
+                  <div class="collection-overlay">
+                    <h3 class="collection-name">${cat.name}</h3>
+                    <p class="collection-count">${window.abl.state.products.filter(p => p.category === cat.id).length} Active Products</p>
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                      <button class="btn-secondary" style="background: rgba(255,255,255,0.2); color: #fff; padding: 4px 10px; font-size: 11px;" onclick="event.stopPropagation(); openCategoryModal('${cat.id}')">Edit</button>
+                      <button class="btn-secondary" style="background: rgba(198,40,40,0.6); color: #fff; padding: 4px 10px; font-size: 11px;" onclick="event.stopPropagation(); deleteCategory('${cat.id}')">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+
+        // 4. INVENTORY TRACKING (Full CRUD: Add, Edit, Delete, Steppers)
+        case 'inventory': {
+          const totalUnits = window.abl.state.products.reduce((s, p) => s + (p.stockQty || 0), 0);
+          const totalVal = window.abl.state.products.reduce((s, p) => s + (p.price * (p.stockQty || 0)), 0);
+          const lowCount = window.abl.state.products.filter(p => (p.stockQty || 0) <= 8).length;
+          const outCount = window.abl.state.products.filter(p => (p.stockQty || 0) === 0).length;
+
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <div>
+                <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Inventory Tracking & Stock Management</h2>
+                <p style="font-size: 13px; color: var(--slate);">Real-time stock valuation, vault storage bins, safety levels, and batch replenishments.</p>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <button class="btn-secondary" onclick="restockAllLowStock(10)">
+                  <i data-lucide="refresh-cw"></i> Restock All Low Items (+10)
+                </button>
+                <button class="btn-primary" onclick="openInventoryAddModal()">
+                  <i data-lucide="plus"></i> Add Inventory Piece
+                </button>
+              </div>
+            </div>
+
+            <!-- Inventory Real-Time Status Cards -->
+            <div class="kpi-grid" style="margin-bottom: 24px;">
+              <div class="kpi-card">
+                <div class="kpi-title">Total Units In Stock</div>
+                <div class="kpi-val">${totalUnits} units</div>
+                <div class="kpi-trend trend-up">Across ${window.abl.state.products.length} active SKUs</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Total Inventory Asset Valuation</div>
+                <div class="kpi-val">${window.abl.formatMoney(totalVal)}</div>
+                <div class="kpi-trend trend-up">Current Cost Basis</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Low Stock Warnings (<= 8)</div>
+                <div class="kpi-val" style="color: ${lowCount > 0 ? 'var(--danger)' : 'var(--success)'};">${lowCount} SKUs</div>
+                <div class="kpi-trend ${lowCount > 0 ? 'trend-down' : 'trend-up'}">${lowCount > 0 ? 'Requires Replenishment' : 'Adequate Coverage'}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Out of Stock</div>
+                <div class="kpi-val" style="color: ${outCount > 0 ? 'var(--danger)' : 'var(--slate)'};">${outCount} SKUs</div>
+                <div class="kpi-trend ${outCount > 0 ? 'trend-down' : 'trend-up'}">${outCount > 0 ? 'Action Needed' : 'Zero Stockouts'}</div>
+              </div>
+            </div>
+
+            <!-- Inventory Master Table -->
+            <div class="admin-table-card">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Product / Piece</th>
+                    <th>SKU</th>
+                    <th>Unit Price</th>
+                    <th>Stock Quantity</th>
+                    <th>Asset Valuation</th>
+                    <th>Vault Location</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${window.abl.state.products.map((p, idx) => {
+                    const isLow = (p.stockQty || 0) <= 8 && (p.stockQty || 0) > 0;
+                    const isOut = (p.stockQty || 0) === 0;
+                    const statusText = isOut ? 'Out of Stock' : (isLow ? 'Low Stock' : 'Healthy');
+                    const statusClass = isOut ? 'status-cancelled' : (isLow ? 'status-processing' : 'status-delivered');
+                    const location = p.storageLocation || `Vault Bin A-0${(idx % 6) + 1}`;
+
+                    return `
+                      <tr>
+                        <td>
+                          <div style="display: flex; align-items: center; gap: 12px;">
+                            <img src="${p.image}" style="width: 44px; height: 44px; border-radius: 8px; object-fit: cover;">
+                            <div>
+                              <p style="font-weight: 600; font-size: 13px; color: var(--onyx);">${p.name}</p>
+                              <span style="font-size: 11px; text-transform: capitalize; color: var(--gold-dark); font-weight: 500;">${p.category} · ${p.material}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td style="font-family: monospace; font-weight: 600; font-size: 12px;">${p.sku}</td>
+                        <td style="font-weight: 600;">${window.abl.formatMoney(p.price)}</td>
+                        <td>
+                          <div style="display: flex; align-items: center; gap: 8px;">
+                            <strong style="font-size: 14px;">${p.stockQty || 0}</strong>
+                            <span class="status-badge ${statusClass}">${statusText}</span>
+                          </div>
+                        </td>
+                        <td style="font-weight: 600; color: var(--onyx);">${window.abl.formatMoney(p.price * (p.stockQty || 0))}</td>
+                        <td>
+                          <span style="font-size: 12px; background: var(--cream); border: 1px solid var(--border); padding: 4px 10px; border-radius: 6px; font-weight: 500;">
+                            ${location}
+                          </span>
+                        </td>
+                        <td>
+                          <div style="display: flex; align-items: center; gap: 6px;">
+                            <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" title="Decrease 1" onclick="adjustStockQty('${p.id}', -1)">-1</button>
+                            <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" title="Increase 5" onclick="adjustStockQty('${p.id}', 5)">+5</button>
+                            <button class="action-btn" title="Edit Inventory Details" onclick="openInventoryEditModal('${p.id}')">
+                              <i data-lucide="pencil"></i>
+                            </button>
+                            <button class="action-btn" style="color: var(--danger);" title="Delete Piece from Inventory" onclick="deleteProduct('${p.id}')">
+                              <i data-lucide="trash-2"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        // 5. ORDERS (View, Cycle Status, Delete)
+        case 'orders':
+          return `
+            <div style="margin-bottom: 24px;">
+              <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Order Management</h2>
+            </div>
+            <div class="admin-table-card">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Order Reference</th>
+                    <th>Customer</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${window.abl.state.orders.map(o => `
+                    <tr>
+                      <td style="font-weight: 600;">${o.id}</td>
+                      <td>${o.customer}<br><span style="font-size: 11px; color: var(--slate);">${o.email}</span></td>
+                      <td>${o.date}</td>
+                      <td><span class="status-badge status-${o.status.toLowerCase()}">${o.status}</span></td>
+                      <td style="font-weight: 600;">${o.total}</td>
+                      <td>
+                        <button class="btn-secondary" style="padding: 4px 10px; font-size: 11px; margin-right: 6px;" onclick="cycleStatus('${o.id}')">Cycle Status</button>
+                        <button class="action-btn" style="display: inline-flex; color: var(--danger);" onclick="deleteOrder('${o.id}')"><i data-lucide="trash-2"></i></button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+
+        // 6. CUSTOMERS (Add, Edit, Delete)
+        case 'customers':
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+              <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Customer Relations</h2>
+              <button class="btn-primary" onclick="openCustomerModal()">+ Add Customer</button>
+            </div>
+            <div class="admin-table-card">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Client</th>
+                    <th>Email</th>
+                    <th>Orders</th>
+                    <th>Total Spent</th>
+                    <th>VIP Tier</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${window.abl.state.customers.map(c => `
+                    <tr>
+                      <td style="font-weight: 600;">${c.name}</td>
+                      <td>${c.email}</td>
+                      <td>${c.orders}</td>
+                      <td style="font-weight: 600;">${c.spent}</td>
+                      <td><span class="status-badge ${c.status === 'Platinum' ? 'status-delivered' : 'status-shipped'}">${c.status}</span></td>
+                      <td>
+                        <button class="action-btn" style="display: inline-flex;" onclick="openCustomerModal('${c.id}')"><i data-lucide="pencil"></i></button>
+                        <button class="action-btn" style="display: inline-flex; color: var(--danger);" onclick="deleteCustomer('${c.id}')"><i data-lucide="trash-2"></i></button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+
+        // 7. COUPONS (Add, Edit, Delete)
+        case 'coupons':
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+              <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Promotional Coupons</h2>
+              <button class="btn-primary" onclick="openCouponModal()">+ Create Coupon</button>
+            </div>
+            <div class="admin-table-card">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Label</th>
+                    <th>Type</th>
+                    <th>Discount</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${window.abl.state.coupons.map(cp => `
+                    <tr>
+                      <td style="font-weight: 700; color: var(--gold);">${cp.code}</td>
+                      <td>${cp.label}</td>
+                      <td style="text-transform: capitalize;">${cp.discountType}</td>
+                      <td>${cp.value}${cp.discountType === 'percentage' ? '%' : ' AUD'}</td>
+                      <td><span class="status-badge status-delivered">${cp.active ? 'Active' : 'Inactive'}</span></td>
+                      <td>
+                        <button class="action-btn" style="display: inline-flex; color: var(--danger);" onclick="deleteCoupon('${cp.code}')"><i data-lucide="trash-2"></i></button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+
+        // 8. WEBSITE CMS
+        case 'cms':
+          return `
+            <div style="margin-bottom: 24px;">
+              <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Website CMS & Copy Editor</h2>
+            </div>
+            <div class="checkout-card" style="max-width: 700px;">
+              <form onsubmit="event.preventDefault(); saveCMS(this);">
+                <div class="form-group">
+                  <label class="form-label">Top Ribbon Announcement</label>
+                  <input type="text" class="form-control" name="announcement" value="${window.abl.state.cms.announcement}">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Hero Title Headline</label>
+                  <input type="text" class="form-control" name="heroTitle" value="${window.abl.state.cms.heroTitle}">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Hero Subtitle</label>
+                  <textarea class="form-control" name="heroSubtitle" rows="3">${window.abl.state.cms.heroSubtitle}</textarea>
+                </div>
+                <button type="submit" class="btn-primary">Publish Live Updates</button>
+              </form>
+            </div>
+          `;
+
+        // 9. MESSAGES
+        case 'messages':
+          return `
+            <div style="margin-bottom: 24px;">
+              <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Atelier Inquiries Inbox (${window.abl.state.messages.length})</h2>
+            </div>
+            <div class="admin-table-card">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Sender</th>
+                    <th>Subject</th>
+                    <th>Date</th>
+                    <th>Message</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${window.abl.state.messages.map(m => `
+                    <tr>
+                      <td style="font-weight: 600;">${m.name}<br><span style="font-size: 11px; color: var(--slate);">${m.email}</span></td>
+                      <td style="font-weight: 600; color: var(--gold);">${m.subject}</td>
+                      <td>${m.date}</td>
+                      <td style="max-width: 320px; font-size: 12px; color: var(--slate);">${m.message}</td>
+                      <td>
+                        <a href="mailto:${m.email}" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;">Reply</a>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+
+        // 10. SETTINGS (Store Email, 10-Country Currency, GST)
+        case 'settings':
+          return `
+            <div style="margin-bottom: 24px;">
+              <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Store Configuration</h2>
+              <p style="font-size: 13px; color: var(--slate);">Adjust store contact email, primary currency for 10 major economies, and GST tax rate.</p>
+            </div>
+            <div class="checkout-card" style="max-width: 600px;">
+              <form onsubmit="event.preventDefault(); saveStoreSettings(this);">
+                
+                <div class="form-group">
+                  <label class="form-label">Store Email</label>
+                  <input type="email" class="form-control" name="storeEmail" value="${window.abl.state.settings.storeEmail}" required>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Primary Store Currency (10 Major Countries)</label>
+                  <select class="form-control" name="primaryCurrency">
+                    <option value="AUD" ${window.abl.state.settings.primaryCurrency === 'AUD' ? 'selected' : ''}>Australia (AUD $)</option>
+                    <option value="USD" ${window.abl.state.settings.primaryCurrency === 'USD' ? 'selected' : ''}>United States (USD $)</option>
+                    <option value="EUR" ${window.abl.state.settings.primaryCurrency === 'EUR' ? 'selected' : ''}>European Union (EUR €)</option>
+                    <option value="GBP" ${window.abl.state.settings.primaryCurrency === 'GBP' ? 'selected' : ''}>United Kingdom (GBP £)</option>
+                    <option value="CAD" ${window.abl.state.settings.primaryCurrency === 'CAD' ? 'selected' : ''}>Canada (CAD $)</option>
+                    <option value="SGD" ${window.abl.state.settings.primaryCurrency === 'SGD' ? 'selected' : ''}>Singapore (SGD $)</option>
+                    <option value="NZD" ${window.abl.state.settings.primaryCurrency === 'NZD' ? 'selected' : ''}>New Zealand (NZD $)</option>
+                    <option value="AED" ${window.abl.state.settings.primaryCurrency === 'AED' ? 'selected' : ''}>United Arab Emirates (AED)</option>
+                    <option value="INR" ${window.abl.state.settings.primaryCurrency === 'INR' ? 'selected' : ''}>India (INR ₹)</option>
+                    <option value="JPY" ${window.abl.state.settings.primaryCurrency === 'JPY' ? 'selected' : ''}>Japan (JPY ¥)</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">GST Tax Rate</label>
+                  <input type="text" class="form-control" name="gstTaxRate" value="${window.abl.state.settings.gstTaxRate}" required>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Free Shipping Minimum Threshold (AUD)</label>
+                  <input type="number" class="form-control" name="freeShippingThreshold" value="${window.abl.state.settings.freeShippingThreshold}" required>
+                </div>
+
+                <button type="submit" class="btn-primary">Save Settings</button>
+              </form>
+            </div>
+          `;
+
+        // 11. USER ROLES & ACCESS CONTROL (REMOVED)
+        case 'roles': {
+          return `<div style="padding: 40px; text-align: center;"><p>This screen is no longer available.</p></div>`;
+        }
+
+        // 12. ANALYTICS & REAL-TIME SALES REPORTS (WITH DATE RANGE FILTER)
+        case 'analytics': {
+          const fromD = new Date(analyticsDateFrom + 'T00:00:00');
+          const toD = new Date(analyticsDateTo + 'T23:59:59');
+
+          // Filter orders by chosen date range
+          const filteredOrders = window.abl.state.orders.filter(o => {
+            const oDate = parseOrderDate(o.date);
+            return oDate >= fromD && oDate <= toD;
+          });
+
+          const liveOrderSum = filteredOrders.reduce((sum, o) => {
+            const val = o.rawAmount || parseFloat((o.total || '$0').replace(/[^0-9.-]+/g, '')) || 0;
+            return sum + val;
+          }, 0);
+
+          const grossRevCalculated = liveOrderSum + (analyticsPreset === 'all' || analyticsPreset === 'ytd' ? 24850 : 0);
+          const totalUnits = window.abl.state.products.reduce((s, p) => s + (p.stockQty || 0), 0);
+          const totalVal = window.abl.state.products.reduce((s, p) => s + (p.price * (p.stockQty || 0)), 0);
+          const avgOrderVal = filteredOrders.length > 0 ? (liveOrderSum / filteredOrders.length) : 0;
+
+          // Category real-time calculations
+          const categoriesSummary = window.abl.state.categories.map(cat => {
+            const catProds = window.abl.state.products.filter(p => p.category === cat.id);
+            const catUnits = catProds.reduce((s, p) => s + (p.stockQty || 0), 0);
+            const catValuation = catProds.reduce((s, p) => s + (p.price * (p.stockQty || 0)), 0);
+            const sharePercent = totalVal > 0 ? Math.round((catValuation / totalVal) * 100) : 0;
+            return {
+              id: cat.id,
+              name: cat.name,
+              prodsCount: catProds.length,
+              units: catUnits,
+              valuation: catValuation,
+              share: sharePercent
+            };
+          });
+
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 16px;">
+              <div>
+                <h2 style="font-family: var(--font-serif); font-size: 26px; font-weight: 600;">Sales Reports & Real-Time Analytics</h2>
+                <p style="font-size: 13px; color: var(--slate);">Filter transactions by custom date range, analyze revenue trajectories, and export reports.</p>
+              </div>
+              <button class="btn-primary" onclick="exportFilteredCSV()">
+                <i data-lucide="download"></i> Download Filtered CSV Report
+              </button>
+            </div>
+
+            <!-- Date Range Filtration Bar -->
+            <div class="admin-table-card" style="padding: 16px 20px; margin-bottom: 24px; background: var(--cloud-white);">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+                
+                <!-- Quick Presets -->
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                  <span style="font-size: 12px; font-weight: 700; color: var(--onyx); margin-right: 4px; text-transform: uppercase; letter-spacing: 0.05em;">Presets:</span>
+                  <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px; ${analyticsPreset === 'all' ? 'background: var(--onyx); color: #fff; border-color: var(--onyx);' : ''}" onclick="setAnalyticsPreset('all')">All Time</button>
+                  <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px; ${analyticsPreset === 'today' ? 'background: var(--onyx); color: #fff; border-color: var(--onyx);' : ''}" onclick="setAnalyticsPreset('today')">Today</button>
+                  <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px; ${analyticsPreset === '7days' ? 'background: var(--onyx); color: #fff; border-color: var(--onyx);' : ''}" onclick="setAnalyticsPreset('7days')">Last 7 Days</button>
+                  <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px; ${analyticsPreset === 'month' ? 'background: var(--onyx); color: #fff; border-color: var(--onyx);' : ''}" onclick="setAnalyticsPreset('month')">August 2026</button>
+                  <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px; ${analyticsPreset === 'ytd' ? 'background: var(--onyx); color: #fff; border-color: var(--onyx);' : ''}" onclick="setAnalyticsPreset('ytd')">Year to Date (2026)</button>
+                </div>
+
+                <!-- Date Pickers -->
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 12px; font-weight: 600; color: var(--slate);">From:</label>
+                    <input type="date" class="form-control" style="padding: 6px 10px; font-size: 12px; width: auto;" value="${analyticsDateFrom}" onchange="updateAnalyticsDate('from', this.value)">
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 12px; font-weight: 600; color: var(--slate);">To:</label>
+                    <input type="date" class="form-control" style="padding: 6px 10px; font-size: 12px; width: auto;" value="${analyticsDateTo}" onchange="updateAnalyticsDate('to', this.value)">
+                  </div>
+                  <span style="font-size: 11px; background: var(--sage-light); color: var(--sage-dark); padding: 5px 10px; border-radius: 6px; font-weight: 700;">
+                    ${filteredOrders.length} Orders in Range
+                  </span>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Real-Time Dynamic KPI Grid based on Date Filter -->
+            <div class="kpi-grid" style="margin-bottom: 24px;">
+              <div class="kpi-card">
+                <div class="kpi-title">Selected Period Revenue <i data-lucide="dollar-sign" style="color: var(--gold);"></i></div>
+                <div class="kpi-val">${window.abl.formatMoney(grossRevCalculated)}</div>
+                <div class="kpi-trend trend-up"><i data-lucide="trending-up" style="width: 14px;"></i> ${filteredOrders.length} orders in date filter</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Average Order Value (AOV) <i data-lucide="shopping-bag" style="color: var(--gold);"></i></div>
+                <div class="kpi-val">${window.abl.formatMoney(avgOrderVal)}</div>
+                <div class="kpi-trend trend-up">Filtered basket performance</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Inventory Asset Valuation <i data-lucide="shield-check" style="color: var(--gold);"></i></div>
+                <div class="kpi-val">${window.abl.formatMoney(totalVal)}</div>
+                <div class="kpi-trend trend-up">${totalUnits} total units in stock</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-title">Active VIP Clients <i data-lucide="users" style="color: var(--gold);"></i></div>
+                <div class="kpi-val">${window.abl.state.customers.length}</div>
+                <div class="kpi-trend trend-up">Repeat purchase rate: 68%</div>
+              </div>
+            </div>
+
+            <!-- Filtered Orders Table -->
+            <div class="admin-table-card" style="margin-bottom: 24px;">
+              <div class="table-header">
+                <div>
+                  <h4 style="font-family: var(--font-serif); font-size: 17px; font-weight: 600;">Orders in Selected Date Range (${analyticsDateFrom} to ${analyticsDateTo})</h4>
+                  <p style="font-size: 12px; color: var(--slate);">${filteredOrders.length} transaction records found.</p>
+                </div>
+                <button class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="exportFilteredCSV()">
+                  <i data-lucide="download"></i> Export Range CSV
+                </button>
+              </div>
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Date</th>
+                    <th>Piece / Item</th>
+                    <th>Status</th>
+                    <th>Order Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${filteredOrders.length > 0 ? filteredOrders.map(o => `
+                    <tr>
+                      <td style="font-weight: 600;">${o.id}</td>
+                      <td>${o.customer}<br><span style="font-size: 11px; color: var(--slate);">${o.email}</span></td>
+                      <td>${o.date}</td>
+                      <td>${o.product || 'Fine Jewellery'}</td>
+                      <td><span class="status-badge status-${(o.status || 'delivered').toLowerCase()}">${o.status}</span></td>
+                      <td style="font-weight: 700; color: var(--onyx);">${o.total}</td>
+                    </tr>
+                  `).join('') : `
+                    <tr>
+                      <td colspan="6" style="text-align: center; padding: 24px; color: var(--slate);">
+                        No order transactions recorded between ${analyticsDateFrom} and ${analyticsDateTo}.
+                      </td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Category Performance Breakdown Table -->
+            <div class="admin-table-card" style="margin-bottom: 24px;">
+              <div class="table-header">
+                <div>
+                  <h4 style="font-family: var(--font-serif); font-size: 17px; font-weight: 600;">Category Inventory & Revenue Share</h4>
+                  <p style="font-size: 12px; color: var(--slate);">Real-time inventory valuation breakdown by fine jewellery category.</p>
+                </div>
+                <span style="font-size: 12px; background: var(--sage-light); color: var(--sage-dark); padding: 4px 10px; border-radius: 12px; font-weight: 600;">100% Real-Time</span>
+              </div>
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Active Pieces</th>
+                    <th>Units in Stock</th>
+                    <th>Asset Valuation</th>
+                    <th>Share of Inventory</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${categoriesSummary.map(c => `
+                    <tr>
+                      <td style="font-weight: 600; text-transform: capitalize;">${c.name}</td>
+                      <td>${c.prodsCount} Designs</td>
+                      <td><strong>${c.units}</strong> units</td>
+                      <td style="font-weight: 600;">${window.abl.formatMoney(c.valuation)}</td>
+                      <td>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                          <div style="flex: 1; height: 8px; background: var(--cream); border-radius: 4px; overflow: hidden; max-width: 120px;">
+                            <div style="width: ${c.share}%; height: 100%; background: var(--gold); border-radius: 4px;"></div>
+                          </div>
+                          <span style="font-size: 12px; font-weight: 600;">${c.share}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Top Revenue Performing Pieces -->
+            <div class="admin-table-card">
+              <div class="table-header">
+                <div>
+                  <h4 style="font-family: var(--font-serif); font-size: 17px; font-weight: 600;">Top Performing Pieces & Stock Valuation</h4>
+                  <p style="font-size: 12px; color: var(--slate);">Real-time valuation rank across all active products.</p>
+                </div>
+                <button onclick="setAdminTab('products')" style="font-size: 12px; color: var(--gold); font-weight: 600;">Manage Catalogue</button>
+              </div>
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Piece</th>
+                    <th>Category</th>
+                    <th>Unit Price</th>
+                    <th>Stock Units</th>
+                    <th>Current Stock Valuation</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${[...window.abl.state.products].sort((a, b) => (b.price * b.stockQty) - (a.price * a.stockQty)).slice(0, 5).map(p => `
+                    <tr>
+                      <td>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                          <img src="${p.image}" style="width: 38px; height: 38px; border-radius: 6px; object-fit: cover;">
+                          <div>
+                            <p style="font-weight: 600; font-size: 13px; color: var(--onyx); margin: 0;">${p.name}</p>
+                            <span style="font-size: 11px; color: var(--slate);">${p.sku}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td style="text-transform: capitalize;">${p.category}</td>
+                      <td style="font-weight: 600;">${window.abl.formatMoney(p.price)}</td>
+                      <td><strong>${p.stockQty}</strong> units</td>
+                      <td style="font-weight: 700; color: var(--onyx);">${window.abl.formatMoney(p.price * p.stockQty)}</td>
+                      <td>
+                        <span class="status-badge ${p.stockQty > 5 ? 'status-delivered' : 'status-cancelled'}">
+                          ${p.stockQty > 5 ? 'Active' : 'Low Stock'}
+                        </span>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        default:
+          return `<p>Select a section from the sidebar.</p>`;
+      }
+    }
+
+    // =========================================================================
+    // CRUD MODAL HANDLERS (WITH DIRECT IMAGE FILE UPLOADING)
+    // =========================================================================
+
+    let currentModalImages = [];
+    let currentCategoryModalImage = '';
+
+    function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.85) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth || height > maxHeight) {
+              if (width > height) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+              } else {
+                width = Math.round((width * maxHeight) / height);
+                height = maxHeight;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+          img.onerror = () => resolve(e.target.result);
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    window.handleProductImageUpload = async function(event, slotIndex) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      try {
+        const dataUrl = await compressImage(file);
+        currentModalImages[slotIndex] = dataUrl;
+        renderImageSlots();
+      } catch (err) {
+        alert('Error processing image: ' + err.message);
+      }
+    };
+
+    window.removeProductSlotImage = function(event, slotIndex) {
+      event.stopPropagation();
+      currentModalImages[slotIndex] = '';
+      renderImageSlots();
+    };
+
+    function renderImageSlots() {
+      const container = document.getElementById('product-image-slots-container');
+      if (!container) return;
+
+      const slotLabels = [
+        '1. Primary Studio Photo (Required)',
+        '2. Angle View',
+        '3. Macro Detail',
+        '4. Lifestyle Shot'
+      ];
+
+      container.innerHTML = `
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Product Images (Upload up to 4 Photos directly from device)</span>
+          <span style="font-size: 11px; color: var(--gold-dark); font-weight: normal;">PNG, JPG, WEBP accepted</span>
+        </label>
+        <div class="image-upload-slots-grid">
+          ${[0, 1, 2, 3].map(idx => {
+            const img = currentModalImages[idx];
+            return `
+              <div>
+                <input type="file" id="prod-file-input-${idx}" accept="image/*" style="display: none;" onchange="handleProductImageUpload(event, ${idx})">
+                <div class="upload-slot-card" onclick="document.getElementById('prod-file-input-${idx}').click()" title="${slotLabels[idx]}">
+                  ${img ? `
+                    <img src="${img}" class="upload-slot-preview" alt="Slot ${idx + 1}">
+                    <div class="upload-slot-overlay">
+                      <span style="color: #fff; font-size: 11px; font-weight: 600;">Change</span>
+                      <button type="button" class="btn-secondary" style="padding: 2px 8px; font-size: 10px; background: rgba(198,40,40,0.8); color: #fff;" onclick="removeProductSlotImage(event, ${idx})">Remove</button>
+                    </div>
+                  ` : `
+                    <i data-lucide="image-plus" style="width: 24px; height: 24px; color: var(--slate); margin-bottom: 4px;"></i>
+                    <span style="font-size: 11px; font-weight: 600; color: var(--onyx);">Upload ${idx === 0 ? 'Primary' : `Angle ${idx + 1}`}</span>
+                    <span style="font-size: 9px; color: var(--slate-light); margin-top: 2px;">Click to select</span>
+                  `}
+                </div>
+                <div style="font-size: 10px; text-align: center; color: var(--slate); margin-top: 4px;">${idx === 0 ? '★ Main Image' : `Slot ${idx + 1}`}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function openProductModal(id = null) {
+      const root = document.getElementById('admin-modal-root');
+      const isEdit = !!id;
+      const p = isEdit ? window.abl.state.products.find(item => item.id === id) : {
+        name: '', category: 'rings', price: 295, material: '18k Gold', gemstone: 'Diamond', stockQty: 10,
+        image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80',
+        images: [
+          'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1598560917505-59a3ad559071?auto=format&fit=crop&w=800&q=80'
+        ]
+      };
+
+      currentModalImages = p.images ? [...p.images] : [p.image, '', '', ''];
+      while (currentModalImages.length < 4) currentModalImages.push('');
+
+      root.innerHTML = `
+        <div class="modal-backdrop" onclick="this.remove()">
+          <div class="modal-content" style="max-width: 620px;" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" onclick="document.getElementById('admin-modal-root').innerHTML=''"><i data-lucide="x"></i></button>
+            <h3 style="font-family: var(--font-serif); font-size: 22px; font-weight: 600; margin-bottom: 20px;">${isEdit ? 'Edit Product' : 'Add New Jewellery Piece'}</h3>
+            
+            <form onsubmit="event.preventDefault(); saveProductForm(this, '${id || ''}');">
+              <div class="form-group">
+                <label class="form-label">Piece Name</label>
+                <input type="text" class="form-control" name="name" value="${p.name}" placeholder="e.g. Royal Diamond Solitaire Ring" required>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Category</label>
+                  <select class="form-control" name="category">
+                    <option value="rings" ${p.category === 'rings' ? 'selected' : ''}>Rings</option>
+                    <option value="necklaces" ${p.category === 'necklaces' ? 'selected' : ''}>Necklaces</option>
+                    <option value="earrings" ${p.category === 'earrings' ? 'selected' : ''}>Earrings</option>
+                    <option value="bracelets" ${p.category === 'bracelets' ? 'selected' : ''}>Bracelets</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Price (AUD $)</label>
+                  <input type="number" class="form-control" name="price" value="${p.price}" min="1" step="1" required>
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Material & Metal</label>
+                  <input type="text" class="form-control" name="material" value="${p.material}" placeholder="e.g. 18k Solid Gold" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Gemstone</label>
+                  <input type="text" class="form-control" name="gemstone" value="${p.gemstone}" placeholder="e.g. Ceylon Sapphire, Diamond" required>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Stock Quantity</label>
+                <input type="number" class="form-control" name="stockQty" value="${p.stockQty}" min="0" required>
+              </div>
+
+              <!-- Interactive Direct Image Upload Grid -->
+              <div id="product-image-slots-container"></div>
+
+              <button type="submit" class="btn-primary" style="width: 100%; margin-top: 12px; height: 48px;">${isEdit ? 'Save & Reflect On Storefront' : 'Create Piece & Reflect On Storefront'}</button>
+            </form>
+          </div>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+      renderImageSlots();
+    }
+
+    function saveProductForm(form, id) {
+      // Ensure at least primary image is present
+      let primaryImg = currentModalImages[0];
+      if (!primaryImg) {
+        primaryImg = 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80';
+        currentModalImages[0] = primaryImg;
+      }
+      
+      const filteredImages = currentModalImages.filter(img => img && img.trim() !== '');
+      if (filteredImages.length === 0) {
+        filteredImages.push(primaryImg);
+      }
+      while (filteredImages.length < 4) {
+        filteredImages.push(filteredImages[0]);
+      }
+
+      if (id) {
+        const item = window.abl.state.products.find(p => p.id === id);
+        if (item) {
+          item.name = form.name.value;
+          item.category = form.category.value;
+          item.price = parseFloat(form.price.value);
+          item.material = form.material.value;
+          item.gemstone = form.gemstone.value;
+          item.stockQty = parseInt(form.stockQty.value, 10);
+          item.image = filteredImages[0];
+          item.images = filteredImages;
+          window.abl.showToast(`✨ ${item.name} updated & live on storefront!`);
+        }
+      } else {
+        const newP = {
+          id: `p${Date.now()}`,
+          name: form.name.value,
+          category: form.category.value,
+          price: parseFloat(form.price.value),
+          originalPrice: Math.round(parseFloat(form.price.value) * 1.2),
+          material: form.material.value,
+          gemstone: form.gemstone.value,
+          stockQty: parseInt(form.stockQty.value, 10),
+          image: filteredImages[0],
+          images: filteredImages,
+          rating: 5.0,
+          reviews: 1,
+          badge: 'new',
+          inStock: parseInt(form.stockQty.value, 10) > 0,
+          sku: `ABL-${form.category.value.charAt(0).toUpperCase()}${Math.floor(100 + Math.random() * 900)}`,
+          description: 'Anti-tarnish gold-plated fine jewellery piece crafted with quality materials.',
+          details: [form.material.value, `${form.gemstone.value} setting`, 'Anti-Tarnish Gold-Plated', 'Certificate of Authenticity & Valuation included', 'Complimentary luxury gift box'],
+          sizes: form.category.value === 'rings' ? ['5', '6', '7', '8', '9', '10'] : (form.category.value === 'bracelets' ? ['Small (16cm)', 'Medium (18cm)', 'Large (20cm)'] : ['Standard'])
+        };
+        window.abl.state.products.unshift(newP);
+        window.abl.showToast(`🎉 ${newP.name} created & live on storefront!`);
+      }
+
+      localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+      document.getElementById('admin-modal-root').innerHTML = '';
+      renderAdminApp();
+    }
+
+    function deleteProduct(id) {
+      if (confirm('Are you sure you want to delete this product from the storefront?')) {
+        window.abl.state.products = window.abl.state.products.filter(p => p.id !== id);
+        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        window.abl.showToast('Product deleted from storefront');
+        renderAdminApp();
+      }
+    }
+
+    function adjustStockQty(id, delta) {
+      const p = window.abl.state.products.find(item => item.id === id);
+      if (p) {
+        p.stockQty = Math.max(0, p.stockQty + delta);
+        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        window.abl.showToast(`Stock updated: ${p.name} (${p.stockQty} units)`);
+        renderAdminApp();
+      }
+    }
+
+    function cycleStatus(id) {
+      const o = window.abl.state.orders.find(item => item.id === id);
+      if (o) {
+        const statuses = ['Processing', 'Shipped', 'Delivered', 'Cancelled'];
+        const nextIdx = (statuses.indexOf(o.status) + 1) % statuses.length;
+        o.status = statuses[nextIdx];
+        localStorage.setItem('abl_orders', JSON.stringify(window.abl.state.orders));
+        window.abl.showToast(`Order ${o.id} marked as ${o.status}`);
+        renderAdminApp();
+      }
+    }
+
+    function deleteOrder(id) {
+      if (confirm('Archive/Delete this order?')) {
+        window.abl.state.orders = window.abl.state.orders.filter(o => o.id !== id);
+        localStorage.setItem('abl_orders', JSON.stringify(window.abl.state.orders));
+        window.abl.showToast('Order deleted');
+        renderAdminApp();
+      }
+    }
+
+    // Category Modal with File Upload
+    window.handleCategoryImageUpload = async function(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      try {
+        currentCategoryModalImage = await compressImage(file);
+        renderCategoryModalPreview();
+      } catch (err) {
+        alert('Error processing image: ' + err.message);
+      }
+    };
+
+    function renderCategoryModalPreview() {
+      const preview = document.getElementById('category-upload-preview');
+      if (preview && currentCategoryModalImage) {
+        preview.innerHTML = `<img src="${currentCategoryModalImage}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;">`;
+      }
+    }
+
+    function openCategoryModal(id = null) {
+      const root = document.getElementById('admin-modal-root');
+      const isEdit = !!id;
+      const cat = isEdit ? window.abl.state.categories.find(item => item.id === id) : {
+        name: '', image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80'
+      };
+
+      currentCategoryModalImage = cat.image || '';
+
+      root.innerHTML = `
+        <div class="modal-backdrop" onclick="this.remove()">
+          <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" onclick="document.getElementById('admin-modal-root').innerHTML=''"><i data-lucide="x"></i></button>
+            <h3 style="font-family: var(--font-serif); font-size: 22px; font-weight: 600; margin-bottom: 20px;">${isEdit ? 'Edit Category' : 'Add Category'}</h3>
+            
+            <form onsubmit="event.preventDefault(); saveCategoryForm(this, '${id || ''}');">
+              <div class="form-group">
+                <label class="form-label">Category Name</label>
+                <input type="text" class="form-control" name="name" value="${cat.name}" placeholder="e.g. Rings, Necklaces, Pendants" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Category Cover Image (Upload from device)</label>
+                <input type="file" accept="image/*" class="form-control" onchange="handleCategoryImageUpload(event)">
+                <div id="category-upload-preview" style="margin-top: 10px;">
+                  ${currentCategoryModalImage ? `<img src="${currentCategoryModalImage}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;">` : ''}
+                </div>
+              </div>
+
+              <button type="submit" class="btn-primary" style="width: 100%; margin-top: 12px;">${isEdit ? 'Update Category' : 'Create Category'}</button>
+            </form>
+          </div>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function saveCategoryForm(form, id) {
+      const img = currentCategoryModalImage || 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80';
+      if (id) {
+        const cat = window.abl.state.categories.find(c => c.id === id);
+        if (cat) {
+          cat.name = form.name.value;
+          cat.image = img;
+          window.abl.showToast(`Category ${cat.name} updated`);
+        }
+      } else {
+        const newCat = {
+          id: form.name.value.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          name: form.name.value,
+          image: img
+        };
+        window.abl.state.categories.push(newCat);
+        window.abl.showToast(`Category ${newCat.name} created`);
+      }
+      localStorage.setItem('abl_categories', JSON.stringify(window.abl.state.categories));
+      document.getElementById('admin-modal-root').innerHTML = '';
+      renderAdminApp();
+    }
+
+    function deleteCategory(id) {
+      if (confirm('Delete category?')) {
+        window.abl.state.categories = window.abl.state.categories.filter(c => c.id !== id);
+        localStorage.setItem('abl_categories', JSON.stringify(window.abl.state.categories));
+        window.abl.showToast('Category deleted');
+        renderAdminApp();
+      }
+    }
+
+    function openCustomerModal(id = null) {
+      const c = id ? window.abl.state.customers.find(item => item.id === id) : { name: '', email: '', status: 'Gold', spent: '$0', orders: 0 };
+      const root = document.getElementById('admin-modal-root');
+      root.innerHTML = `
+        <div class="modal-backdrop" onclick="this.remove()">
+          <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" onclick="document.getElementById('admin-modal-root').innerHTML=''"><i data-lucide="x"></i></button>
+            <h3 style="font-family: var(--font-serif); font-size: 22px; font-weight: 600; margin-bottom: 20px;">${id ? 'Edit Client Tier' : 'Add Client'}</h3>
+            <form onsubmit="event.preventDefault(); saveCustomer(this, '${id || ''}');">
+              <div class="form-group"><label class="form-label">Client Name</label><input type="text" name="name" class="form-control" value="${c.name}" required></div>
+              <div class="form-group"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="${c.email}" required></div>
+              <div class="form-group"><label class="form-label">VIP Status</label>
+                <select name="status" class="form-control">
+                  <option value="Gold" ${c.status === 'Gold' ? 'selected' : ''}>Gold VIP</option>
+                  <option value="Platinum" ${c.status === 'Platinum' ? 'selected' : ''}>Platinum VIP</option>
+                  <option value="New" ${c.status === 'New' ? 'selected' : ''}>New Member</option>
+                </select>
+              </div>
+              <button type="submit" class="btn-primary" style="width: 100%;">Save Client</button>
+            </form>
+          </div>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function saveCustomer(form, id) {
+      if (id) {
+        const c = window.abl.state.customers.find(item => item.id === id);
+        if (c) {
+          c.name = form.name.value;
+          c.email = form.email.value;
+          c.status = form.status.value;
+        }
+      } else {
+        window.abl.state.customers.push({
+          id: `c${Date.now()}`,
+          name: form.name.value,
+          email: form.email.value,
+          status: form.status.value,
+          orders: 1,
+          spent: '$350',
+          joined: 'Today'
+        });
+      }
+      localStorage.setItem('abl_customers', JSON.stringify(window.abl.state.customers));
+      document.getElementById('admin-modal-root').innerHTML = '';
+      window.abl.showToast('Client saved');
+      renderAdminApp();
+    }
+
+    function deleteCustomer(id) {
+      if (confirm('Delete client?')) {
+        window.abl.state.customers = window.abl.state.customers.filter(c => c.id !== id);
+        localStorage.setItem('abl_customers', JSON.stringify(window.abl.state.customers));
+        window.abl.showToast('Client deleted');
+        renderAdminApp();
+      }
+    }
+
+    function openCouponModal() {
+      const root = document.getElementById('admin-modal-root');
+      root.innerHTML = `
+        <div class="modal-backdrop" onclick="this.remove()">
+          <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" onclick="document.getElementById('admin-modal-root').innerHTML=''"><i data-lucide="x"></i></button>
+            <h3 style="font-family: var(--font-serif); font-size: 22px; font-weight: 600; margin-bottom: 20px;">Create Coupon</h3>
+            <form onsubmit="event.preventDefault(); saveCoupon(this);">
+              <div class="form-group"><label class="form-label">Code</label><input type="text" name="code" class="form-control" placeholder="SUMMER20" required style="text-transform: uppercase;"></div>
+              <div class="form-group"><label class="form-label">Description / Label</label><input type="text" name="label" class="form-control" placeholder="20% Off All Pieces" required></div>
+              <div class="form-grid-2">
+                <div class="form-group"><label class="form-label">Type</label>
+                  <select name="type" class="form-control">
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="fixed">Fixed AUD ($)</option>
+                  </select>
+                </div>
+                <div class="form-group"><label class="form-label">Discount Value</label><input type="number" name="val" class="form-control" placeholder="20" required></div>
+              </div>
+              <button type="submit" class="btn-primary" style="width: 100%;">Create Coupon</button>
+            </form>
+          </div>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function saveCoupon(form) {
+      window.abl.state.coupons.push({
+        code: form.code.value.trim().toUpperCase(),
+        label: form.label.value,
+        discountType: form.type.value,
+        value: parseFloat(form.val.value),
+        minSpend: 0,
+        active: true
+      });
+      localStorage.setItem('abl_coupons', JSON.stringify(window.abl.state.coupons));
+      document.getElementById('admin-modal-root').innerHTML = '';
+      window.abl.showToast('Coupon created');
+      renderAdminApp();
+    }
+
+    function deleteCoupon(code) {
+      if (confirm('Delete coupon?')) {
+        window.abl.state.coupons = window.abl.state.coupons.filter(c => c.code !== code);
+        localStorage.setItem('abl_coupons', JSON.stringify(window.abl.state.coupons));
+        window.abl.showToast('Coupon deleted');
+        renderAdminApp();
+      }
+    }
+
+    // =========================================================================
+    // ROLE MANAGEMENT REMOVED — Simple admin-only system
+    // =========================================================================
+
+    // =========================================================================
+    // INVENTORY TRACKING SPECIFIC HANDLERS (ADD, EDIT, DELETE, RESTOCK)
+    // =========================================================================
+
+    function openInventoryAddModal() {
+      openProductModal();
+    }
+
+    function openInventoryEditModal(id) {
+      const p = window.abl.state.products.find(item => item.id === id);
+      if (!p) return;
+
+      const root = document.getElementById('admin-modal-root');
+      root.innerHTML = `
+        <div class="modal-backdrop" onclick="this.remove()">
+          <div class="modal-content" style="max-width: 520px;" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" onclick="document.getElementById('admin-modal-root').innerHTML=''"><i data-lucide="x"></i></button>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+              <img src="${p.image}" style="width: 48px; height: 48px; border-radius: 8px; object-fit: cover;">
+              <div>
+                <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin: 0;">Edit Inventory: ${p.name}</h3>
+                <p style="font-size: 12px; color: var(--slate); margin: 0;">Adjust stock levels, SKU, vault location & pricing.</p>
+              </div>
+            </div>
+
+            <form onsubmit="event.preventDefault(); saveInventoryEditForm(this, '${p.id}');">
+              <div class="form-group">
+                <label class="form-label">Product SKU / Inventory Tag</label>
+                <input type="text" class="form-control" name="sku" value="${p.sku}" required>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Current Stock Units</label>
+                  <input type="number" class="form-control" name="stockQty" value="${p.stockQty || 0}" min="0" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Unit Price (AUD $)</label>
+                  <input type="number" class="form-control" name="price" value="${p.price}" min="1" required>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Atelier Storage / Vault Location</label>
+                <input type="text" class="form-control" name="storageLocation" value="${p.storageLocation || 'Vault Bin A-01'}" placeholder="e.g. Vault Bin A-04, Showcase 2" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Reorder Safety Stock Threshold</label>
+                <input type="number" class="form-control" name="reorderThreshold" value="${p.reorderThreshold || 8}" min="1" required>
+              </div>
+
+              <button type="submit" class="btn-primary" style="width: 100%; margin-top: 12px; height: 46px;">
+                Save Inventory & Update Storefront
+              </button>
+            </form>
+          </div>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function saveInventoryEditForm(form, id) {
+      const p = window.abl.state.products.find(item => item.id === id);
+      if (p) {
+        p.sku = form.sku.value.trim();
+        p.stockQty = parseInt(form.stockQty.value, 10);
+        p.price = parseFloat(form.price.value);
+        p.storageLocation = form.storageLocation.value.trim();
+        p.reorderThreshold = parseInt(form.reorderThreshold.value, 10);
+        p.inStock = p.stockQty > 0;
+
+        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        document.getElementById('admin-modal-root').innerHTML = '';
+        window.abl.showToast(`✨ Inventory updated for ${p.name} (${p.stockQty} units in stock)`);
+        renderAdminApp();
+      }
+    }
+
+    function restockAllLowStock(qty = 10) {
+      let count = 0;
+      window.abl.state.products.forEach(p => {
+        if ((p.stockQty || 0) <= 8) {
+          p.stockQty = (p.stockQty || 0) + qty;
+          p.inStock = true;
+          count++;
+        }
+      });
+      if (count > 0) {
+        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        window.abl.showToast(`📦 Restocked ${count} low stock items by +${qty} units!`);
+        renderAdminApp();
+      } else {
+        window.abl.showToast('All inventory items are currently healthy.');
+      }
+    }
+
+    function saveStoreSettings(form) {
+      window.abl.state.settings = {
+        storeEmail: form.storeEmail.value,
+        primaryCurrency: form.primaryCurrency.value,
+        gstTaxRate: form.gstTaxRate.value,
+        freeShippingThreshold: parseFloat(form.freeShippingThreshold.value)
+      };
+      localStorage.setItem('abl_settings', JSON.stringify(window.abl.state.settings));
+      window.abl.showToast('Store configuration saved! Currency updated across store.');
+      renderAdminApp();
+    }
+
+    function saveCMS(form) {
+      window.abl.state.cms.announcement = form.announcement.value;
+      window.abl.state.cms.heroTitle = form.heroTitle.value;
+      window.abl.state.cms.heroSubtitle = form.heroSubtitle.value;
+      localStorage.setItem('abl_cms', JSON.stringify(window.abl.state.cms));
+      window.abl.showToast('Website copy updated live');
+      renderAdminApp();
+    }
+
+    function exportCSV() {
+      const now = new Date().toISOString().slice(0, 10);
+      let csvContent = '========================================\n';
+      csvContent += `ABEL\'S BY LINCY - REAL-TIME EXECUTIVE REPORT (${now})\n`;
+      csvContent += '========================================\n\n';
+
+      csvContent += '--- RECENT ORDERS & TRANSACTIONS ---\n';
+      csvContent += 'Order ID,Customer,Email,Piece,Date,Status,Total\n';
+      window.abl.state.orders.forEach(o => {
+        csvContent += `"${o.id}","${o.customer}","${o.email}","${o.product}","${o.date}","${o.status}","${o.total}"\n`;
+      });
+
+      csvContent += '\n--- INVENTORY ASSET VALUATION ---\n';
+      csvContent += 'SKU,Product Name,Category,Unit Price,Stock Units,Asset Valuation,Vault Location\n';
+      window.abl.state.products.forEach(p => {
+        csvContent += `"${p.sku}","${p.name}","${p.category}","$${p.price}",${p.stockQty},"$${p.price * (p.stockQty || 0)}","${p.storageLocation || 'Vault A-01'}"\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `abels_realtime_report_${now}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      window.abl.showToast('Real-time Executive CSV Report Exported', 'download');
+    }
+  </script>
+</body>
+</html>

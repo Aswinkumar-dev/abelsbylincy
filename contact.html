@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us | Abel's By Lincy</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css?v=20260812-4">
+</head>
+<body data-page="contact">
+
+  <div id="header-root"></div>
+
+  <div class="page-hero">
+    <div class="container">
+      <p class="section-subtitle">Get in Touch</p>
+      <h1>We're Here to Help</h1>
+      <p style="font-size: 14px; color: var(--slate); margin-top: 8px;">Have a question about our products, orders, or delivery? We're happy to assist.</p>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="contact-layout">
+      
+      <!-- Contact Info Column -->
+      <div>
+        <div class="contact-card-item">
+          <div class="contact-icon-box"><i data-lucide="mail"></i></div>
+          <div>
+            <h5 style="font-size: 15px; font-weight: 600; margin-bottom: 4px;">Email Us Directly</h5>
+            <p style="font-size: 14px; color: var(--slate); margin-bottom: 2px;">
+              <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a>
+            </p>
+            <p style="font-size: 12px; color: var(--slate-light);">Average response time: within 1 business day</p>
+          </div>
+        </div>
+
+        <div class="contact-card-item">
+          <div class="contact-icon-box"><i data-lucide="phone"></i></div>
+          <div>
+            <h5 style="font-size: 15px; font-weight: 600; margin-bottom: 4px;">Call or WhatsApp</h5>
+            <p style="font-size: 14px; color: var(--slate);">+61 435 927 824</p>
+            <p style="font-size: 12px; color: var(--slate-light);">Mon–Fri: 9:00am – 5:00pm AEST</p>
+          </div>
+        </div>
+
+        <!-- WhatsApp Direct Link -->
+        <div style="margin-top: 32px;">
+          <a href="https://wa.me/61435927824?text=Hi%20Abel's%20By%20Lincy,%20I%20have%20an%20inquiry%20about%20your%20jewellery" target="_blank" rel="noopener" class="whatsapp-btn">
+            <i data-lucide="message-circle"></i> Chat on WhatsApp
+          </a>
+        </div>
+      </div>
+
+      <!-- Contact Form -->
+      <div>
+        <div class="checkout-card">
+          <h3 style="font-family: var(--font-serif); font-size: 24px; font-weight: 600; margin-bottom: 20px;">Send Us an Inquiry</h3>
+          
+          <form id="contact-form" onsubmit="event.preventDefault(); handleContactSubmit(this);">
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">Your Name</label>
+                <input type="text" class="form-control" name="name" id="contact-name" autocomplete="name" required>
+                <span class="field-error" id="name-error" style="display:none; color: var(--danger); font-size: 12px; margin-top: 4px;"></span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" class="form-control" name="email" id="contact-email" autocomplete="email" required>
+                <span class="field-error" id="email-error" style="display:none; color: var(--danger); font-size: 12px; margin-top: 4px;"></span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Subject</label>
+              <select class="form-control" name="subject">
+                <option>Question About a Product</option>
+                <option>Order Status &amp; Tracking</option>
+                <option>Delivery &amp; Shipping Inquiry</option>
+                <option>Returns &amp; Exchange</option>
+                <option>Ring / Bangle Sizing Help</option>
+                <option>Jewellery Care &amp; Maintenance</option>
+                <option>General Question</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Message</label>
+              <textarea class="form-control" name="message" rows="5" placeholder="Tell us how we can help you..." required style="resize: vertical;"></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%;">
+              Send Message to Lincy <i data-lucide="send" style="width: 14px; height: 14px;"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="footer-root"></div>
+
+  <script src="app.js?v=20260812-4"></script>
+  <script>
+    // Field validation
+    const nameInput = document.getElementById('contact-name');
+    const emailInput = document.getElementById('contact-email');
+    const nameError = document.getElementById('name-error');
+    const emailError = document.getElementById('email-error');
+
+    // Name: letters, spaces, hyphens and apostrophes only
+    nameInput.addEventListener('input', function () {
+      const val = this.value;
+      const valid = /^[a-zA-Z\s'\-]+$/.test(val);
+      if (!valid && val.length > 0) {
+        this.value = val.replace(/[^a-zA-Z\s'\-]/g, '');
+        nameError.textContent = 'Name can only contain letters, spaces, hyphens and apostrophes.';
+        nameError.style.display = 'block';
+      } else {
+        nameError.style.display = 'none';
+      }
+    });
+
+    nameInput.addEventListener('blur', function () {
+      if (this.value.trim().length < 2) {
+        nameError.textContent = 'Please enter your full name (at least 2 characters).';
+        nameError.style.display = 'block';
+      } else {
+        nameError.style.display = 'none';
+      }
+    });
+
+    // Email: validate on blur
+    emailInput.addEventListener('blur', function () {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(this.value.trim())) {
+        emailError.textContent = 'Please enter a valid email address (e.g. you@example.com).';
+        emailError.style.display = 'block';
+      } else {
+        emailError.style.display = 'none';
+      }
+    });
+
+    emailInput.addEventListener('input', function () {
+      emailError.style.display = 'none';
+    });
+
+    function handleContactSubmit(form) {
+      // Final validation before submit
+      let valid = true;
+
+      const name = nameInput.value.trim();
+      if (name.length < 2 || !/^[a-zA-Z\s'\-]+$/.test(name)) {
+        nameError.textContent = 'Please enter a valid name (letters only, at least 2 characters).';
+        nameError.style.display = 'block';
+        valid = false;
+      }
+
+      const email = emailInput.value.trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        emailError.textContent = 'Please enter a valid email address.';
+        emailError.style.display = 'block';
+        valid = false;
+      }
+
+      if (!valid) return;
+
+      // Pass to app.js handler
+      if (window.abl && window.abl.handleContactForm) {
+        window.abl.handleContactForm(form);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client Portal & Account | Abel's By Lincy Sydney</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css?v=20260812-4">
+</head>
+<body data-page="account">
+
+  <div id="header-root"></div>
+
+  <div id="account-view-container"></div>
+
+  <div id="footer-root"></div>
+
+  <script src="app.js?v=20260812-4"></script>
+  <script>
+    let authMode = 'login'; // 'login' or 'register'
+    let activeAccountTab = 'dashboard';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderAccountView();
+    });
+
+    function renderAccountView() {
+      const container = document.getElementById('account-view-container');
+      const user = window.abl.state.currentUser;
+
+      // If user is guest / not logged in
+      if (!user) {
+        container.innerHTML = `
+          <div class="page-hero">
+            <div class="container">
+              <p class="section-subtitle">Client Privileges</p>
+              <h1>Sign In or Create Account</h1>
+              <p style="font-size: 14px; color: var(--slate); margin-top: 8px;">Access your bespoke order status, complimentary sizing services, and saved pieces.</p>
+            </div>
+          </div>
+
+          <div class="container section-padding" style="max-width: 520px;">
+            <div class="checkout-card">
+              
+              <!-- Google One-Click Sign In -->
+              <button onclick="window.abl.loginWithGoogle()" style="width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 600; font-size: 14px; background: var(--cloud-white); margin-bottom: 24px; transition: background var(--transition-fast);" onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background='var(--cloud-white)'">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                Continue with Google
+              </button>
+
+              <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+                <div style="flex: 1; height: 1px; background: var(--border);"></div>
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--slate-light); letter-spacing: 0.1em;">or with email</span>
+                <div style="flex: 1; height: 1px; background: var(--border);"></div>
+              </div>
+
+              <!-- Auth Mode Switcher -->
+              <div style="display: flex; gap: 8px; margin-bottom: 24px; background: var(--cream); padding: 4px; border-radius: var(--radius-md);">
+                <button onclick="setAuthMode('login')" style="flex: 1; padding: 10px; font-size: 13px; font-weight: 600; border-radius: var(--radius-sm); ${authMode === 'login' ? 'background: var(--cloud-white); box-shadow: var(--shadow-sm);' : ''}">Sign In</button>
+                <button onclick="setAuthMode('register')" style="flex: 1; padding: 10px; font-size: 13px; font-weight: 600; border-radius: var(--radius-sm); ${authMode === 'register' ? 'background: var(--cloud-white); box-shadow: var(--shadow-sm);' : ''}">Create Account</button>
+              </div>
+
+              ${authMode === 'login' ? `
+                <form onsubmit="event.preventDefault(); window.abl.loginWithEmail(this);">
+                  <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" name="email" class="form-control" placeholder="sophie@email.com" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                  </div>
+                  <button type="submit" class="btn-primary" style="width: 100%; margin-top: 8px;">Sign In to Account</button>
+                </form>
+              ` : `
+                <form onsubmit="event.preventDefault(); window.abl.registerUser(this);">
+                  <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="name" class="form-control" placeholder="Sophie Reynolds" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" name="email" class="form-control" placeholder="sophie@email.com" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Create Password</label>
+                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                  </div>
+                  <button type="submit" class="btn-primary" style="width: 100%; margin-top: 8px;">Create My Account</button>
+                </form>
+              `}
+
+            </div>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      // If user IS logged in
+      container.innerHTML = `
+        <div class="page-hero">
+          <div class="container">
+            <p class="section-subtitle">Client Portal</p>
+            <h1>My Account</h1>
+          </div>
+        </div>
+
+        <div class="container section-padding">
+          <div style="display: grid; grid-template-columns: 260px 1fr; gap: 40px;">
+            
+            <!-- Sidebar -->
+            <div style="background: var(--cloud-white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px;">
+              <div style="text-align: center; padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 16px;">
+                <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--cream); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; margin: 0 auto 12px auto; overflow: hidden;">
+                  ${user.avatar ? `<img src="${user.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : user.name.charAt(0)}
+                </div>
+                <h4 style="font-size: 16px; font-weight: 600;">${user.name}</h4>
+                <p style="font-size: 12px; color: var(--slate);">${user.email}</p>
+                <span class="status-badge status-delivered" style="margin-top: 6px;">${user.tier || 'VIP Client'}</span>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <button onclick="setTab('dashboard')" class="admin-nav-item ${activeAccountTab === 'dashboard' ? 'active' : ''}" style="color: var(--onyx);">
+                  <i data-lucide="layout-dashboard"></i> Overview
+                </button>
+                <button onclick="setTab('orders')" class="admin-nav-item ${activeAccountTab === 'orders' ? 'active' : ''}" style="color: var(--onyx);">
+                  <i data-lucide="package"></i> Order History
+                </button>
+                <button onclick="setTab('addresses')" class="admin-nav-item ${activeAccountTab === 'addresses' ? 'active' : ''}" style="color: var(--onyx);">
+                  <i data-lucide="map-pin"></i> Saved Addresses
+                </button>
+                <button onclick="window.abl.logoutUser()" class="admin-nav-item" style="color: var(--danger); margin-top: 12px;">
+                  <i data-lucide="log-out"></i> Sign Out
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab Content -->
+            <div>
+              ${activeAccountTab === 'dashboard' ? `
+                <div class="kpi-grid">
+                  <div class="kpi-card">
+                    <div class="kpi-title">Total Orders <i data-lucide="package" style="color: var(--gold);"></i></div>
+                    <div class="kpi-val">${window.abl.state.orders.length}</div>
+                    <div class="kpi-trend trend-up">Active Purchases</div>
+                  </div>
+                  <div class="kpi-card">
+                    <div class="kpi-title">Wishlist Pieces <i data-lucide="heart" style="color: var(--gold);"></i></div>
+                    <div class="kpi-val">${window.abl.state.wishlist.length}</div>
+                    <div class="kpi-trend">Saved Pieces</div>
+                  </div>
+                  <div class="kpi-card">
+                    <div class="kpi-title">Privilege Status <i data-lucide="award" style="color: var(--gold);"></i></div>
+                    <div class="kpi-val">${user.tier || 'Gold'}</div>
+                    <div class="kpi-trend trend-up">Complimentary Sizing</div>
+                  </div>
+                </div>
+
+                <div class="admin-table-card">
+                  <div class="table-header">
+                    <h4 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600;">Recent Orders</h4>
+                  </div>
+                  <table class="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Piece</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${window.abl.state.orders.slice(0, 3).map(o => `
+                        <tr>
+                          <td style="font-weight: 600;">${o.id}</td>
+                          <td>${o.product}</td>
+                          <td style="color: var(--slate);">${o.date}</td>
+                          <td><span class="status-badge status-${o.status.toLowerCase()}">${o.status}</span></td>
+                          <td style="font-weight: 600;">${o.total}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              ` : ''}
+
+              ${activeAccountTab === 'orders' ? `
+                <div class="admin-table-card">
+                  <div class="table-header">
+                    <h4 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600;">Full Order History</h4>
+                  </div>
+                  <table class="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Order Reference</th>
+                        <th>Product Details</th>
+                        <th>Date Placed</th>
+                        <th>Fulfillment Status</th>
+                        <th>Total Paid</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${window.abl.state.orders.map(o => `
+                        <tr>
+                          <td style="font-weight: 600;">${o.id}</td>
+                          <td>${o.product}</td>
+                          <td style="color: var(--slate);">${o.date}</td>
+                          <td><span class="status-badge status-${o.status.toLowerCase()}">${o.status}</span></td>
+                          <td style="font-weight: 600;">${o.total}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              ` : ''}
+
+              ${activeAccountTab === 'addresses' ? `
+                <div style="background: var(--cloud-white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px;">
+                  <h4 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 16px;">Primary Delivery Address</h4>
+                  <p style="font-size: 14px; line-height: 1.8; color: var(--slate);">
+                    <strong>${user.name}</strong><br>
+                    123 George Street<br>
+                    The Rocks, Sydney NSW 2000<br>
+                    Australia<br>
+                    Phone: +61 412 345 678
+                  </p>
+                  <button class="btn-secondary" style="margin-top: 16px; padding: 8px 16px; font-size: 12px;" onclick="window.abl.showToast('Address updated')">Edit Address</button>
+                </div>
+              ` : ''}
+
+            </div>
+
+          </div>
+        </div>
+      `;
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      renderAccountView();
+    }
+
+    function setTab(t) {
+      activeAccountTab = t;
+      renderAccountView();
+    }
+  </script>
+</body>
+</html>

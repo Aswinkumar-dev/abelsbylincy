@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Legal & Store Policies | Abel's By Lincy Sydney</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css?v=20260812-4">
+</head>
+<body data-page="policy">
+
+  <div id="header-root"></div>
+
+  <div class="page-hero">
+    <div class="container">
+      <p class="section-subtitle" id="policy-date">Updated: August 2026</p>
+      <h1 id="policy-title">Store Policies</h1>
+    </div>
+  </div>
+
+  <div class="container section-padding" style="max-width: 760px; line-height: 1.8; color: var(--slate);">
+    <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 40px; flex-wrap: wrap;">
+      <button class="btn-secondary active" id="tab-btn-privacy" onclick="setPolicyTab('privacy')">Privacy Policy</button>
+      <button class="btn-secondary" id="tab-btn-terms" onclick="setPolicyTab('terms')">Terms of Service</button>
+      <button class="btn-secondary" id="tab-btn-shipping" onclick="setPolicyTab('shipping')">Shipping Policy</button>
+      <button class="btn-secondary" id="tab-btn-refunds" onclick="setPolicyTab('refunds')">Refunds & Returns</button>
+    </div>
+
+    <div style="background: var(--cloud-white); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 36px;" id="policy-content"></div>
+  </div>
+
+  <div id="footer-root"></div>
+
+  <script src="app.js?v=20260812-4"></script>
+  <script>
+    const policies = {
+      privacy: {
+        title: 'Privacy Policy',
+        content: `
+          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">1. Information We Collect</h3>
+          <p style="margin-bottom: 20px;">We collect personal details provided during checkout, inquiry submissions, and newsletter signups, including your full name, shipping address, contact email (<strong>lincytitus8@gmail.com</strong>), and phone number.</p>
+          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">2. How We Protect Your Data</h3>
+          <p style="margin-bottom: 20px;">All payment transactions are encrypted using industry-standard 256-bit SSL encryption via Stripe. We never store or log credit card information on our servers.</p>
+          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">3. Australian Privacy Act Compliance</h3>
+          <p>We comply fully with the Australian Privacy Principles under the Privacy Act 1988 (Cth). For queries, please contact privacy@abelsbylincy.com.au or lincytitus8@gmail.com.</p>
+        `
+      },
+      terms: {
+        title: 'Terms of Service',
+        content: `
+          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">1. Authenticity & Warranty</h3>
+          <p style="margin-bottom: 20px;">Every piece manufactured by Abel's By Lincy is hallmarked and certified for metal purity and ethical gemstone authenticity.</p>
+          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">2. Australian Consumer Law</h3>
+          <p>Our goods come with guarantees that cannot be excluded under the Australian Consumer Law. You are entitled to a replacement or refund for a major failure.</p>
+        `
+      },
+      shipping: {
+        title: 'Shipping Policy',
+        content: `
+          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">1. Australia-Wide Express Delivery</h3>
+          <p style="margin-bottom: 20px;">Orders over $150 qualify for complimentary express shipping. Orders under $150 are charged a flat $9.95 delivery fee. Orders placed before 2pm AEST are dispatched the same day.</p>
+          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">2. Transit Insurance</h3>
+          <p>All parcels are 100% insured against loss or damage during transit at no additional cost to you.</p>
+        `
+      },
+      refunds: {
+        title: 'Refund & Return Policy',
+        content: `
+          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">1. 30-Day Return Guarantee</h3>
+          <p style="margin-bottom: 20px;">We accept returns within 30 days of receipt for all unworn jewellery in its original presentation packaging.</p>
+          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">2. How to Initiate a Return</h3>
+          <p>Email <strong>lincytitus8@gmail.com</strong> with your order ID to receive a prepaid Australia Post return label.</p>
+        `
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab') || 'privacy';
+      setPolicyTab(tab);
+    });
+
+    function setPolicyTab(tabKey) {
+      const p = policies[tabKey] || policies.privacy;
+      document.getElementById('policy-title').textContent = p.title;
+      document.getElementById('policy-content').innerHTML = `
+        ${p.content}
+        <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px;">
+          For any legal or policy inquiries, please email <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a>.
+        </div>
+      `;
+
+      ['privacy', 'terms', 'shipping', 'refunds'].forEach(key => {
+        const btn = document.getElementById(`tab-btn-${key}`);
+        if (btn) btn.className = `btn-secondary ${key === tabKey ? 'active' : ''}`;
+      });
+    }
+  </script>
+</body>
+</html>

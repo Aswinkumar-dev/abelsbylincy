@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frequently Asked Questions | Abel's By Lincy Sydney</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css?v=20260812-4">
+</head>
+<body data-page="faq">
+
+  <div id="header-root"></div>
+
+  <div class="page-hero">
+    <div class="container">
+      <p class="section-subtitle">Help & Guidance</p>
+      <h1>Frequently Asked Questions</h1>
+      
+      <div style="max-width: 520px; margin: 24px auto 0 auto; position: relative;">
+        <input type="text" id="faq-search-input" class="form-control" placeholder="Search questions (e.g. shipping, sizing, gold)..." oninput="filterFaqs(this.value)" style="padding-left: 44px; border-radius: 30px;">
+        <i data-lucide="search" style="position: absolute; left: 16px; top: 14px; color: var(--slate);"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="container section-padding" style="max-width: 800px;" id="faq-list-container"></div>
+
+  <div id="footer-root"></div>
+
+  <script src="app.js?v=20260812-4"></script>
+  <script>
+    const faqs = [
+      {
+        category: 'About Our Jewellery',
+        items: [
+          { 
+            q: 'What is gold-plated jewellery?', 
+            a: 'Gold-plated jewellery is made by applying a layer of genuine gold over another metal, such as sterling silver, stainless steel or another base metal. The jewellery has the appearance of gold while being more affordable than solid gold. The exact base metal and gold plating details should always be clearly stated on each product page.' 
+          },
+          { 
+            q: 'How long does gold-plated jewellery last?', 
+            a: 'The lifespan of gold plating depends on the thickness of the plating, how often the jewellery is worn and how it is cared for. Frequent exposure to water, sweat, perfumes, lotions and chemicals can cause the plating to fade faster. With proper care and storage, you can help maintain the finish for longer.' 
+          },
+          { 
+            q: 'Is gold-plated jewellery waterproof?', 
+            a: 'Gold-plated jewellery is not generally considered permanently waterproof. Regular exposure to water, sweat, chlorine and salt water can gradually affect the gold-plated finish. For the best longevity, remove your jewellery before showering, swimming or exercising.' 
+          },
+          { 
+            q: 'How do I find the right ring size?', 
+            a: 'The best way is to use the website\'s Ring Size Guide and measure an existing well-fitting ring or your finger according to the instructions provided. Ring fit can vary depending on the design and width of the band, so if you\'re between sizes, contact customer support before ordering.' 
+          }
+        ]
+      },
+      {
+        category: 'Shipping & Delivery',
+        items: [
+          { 
+            q: 'How long does delivery take within Australia?', 
+            a: 'Delivery times depend on the customer\'s location and the shipping method selected at checkout. As a general benchmark, Australian jewellery retailers commonly quote around 2–3 business days for domestic delivery, with regional and remote areas potentially taking longer.' 
+          },
+          { 
+            q: 'Do you offer express shipping in Australia?', 
+            a: 'If express shipping is available, customers can select it at checkout where applicable. Delivery times may vary depending on the destination and courier service.' 
+          },
+          { 
+            q: 'What happens if my parcel is delayed or lost?', 
+            a: 'If your parcel hasn\'t arrived within the expected delivery timeframe, please contact us with your order number and tracking details. We\'ll help investigate the delivery with the courier and work towards resolving the issue as quickly as possible.' 
+          }
+        ]
+      },
+      {
+        category: 'Orders & Payments',
+        items: [
+          { 
+            q: 'Can I change or cancel my order after placing it?', 
+            a: 'If you need to change or cancel an order, contact us as soon as possible. We may be able to make changes if your order hasn\'t been processed or dispatched. Once an order has entered processing or been shipped, changes or cancellations may no longer be possible.' 
+          },
+          { 
+            q: 'What payment methods do you accept?', 
+            a: 'We accept the payment methods displayed at checkout. For an Australian e-commerce store, you may offer options such as Stripe, Apple Pay, Google Pay, Debit cards and credit cards depending on what your business has enabled.' 
+          },
+          { 
+            q: 'Can I add a gift message to my order?', 
+            a: 'Yes, if gift messaging is available, you can add a personalised message during checkout or contact our team after placing your order.' 
+          }
+        ]
+      }
+    ];
+
+    let openKeys = ['About Our Jewellery-0', 'Shipping & Delivery-0'];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderFaqs(faqs);
+    });
+
+    function renderFaqs(list) {
+      const container = document.getElementById('faq-list-container');
+      if (list.length === 0) {
+        container.innerHTML = `<p style="text-align: center; color: var(--slate); padding: 40px 0;">No questions matched your search. <a href="contact.html" style="color: var(--gold); text-decoration: underline;">Contact us directly</a>.</p>`;
+        return;
+      }
+
+      container.innerHTML = list.map(cat => `
+        <div style="margin-bottom: 40px;">
+          <h3 style="font-family: var(--font-serif); font-size: 22px; font-weight: 600; margin-bottom: 16px; color: var(--onyx);">${cat.category}</h3>
+          
+          <div class="pdp-accordion">
+            ${cat.items.map((item, idx) => {
+              const key = `${cat.category}-${idx}`;
+              const isOpen = openKeys.includes(key);
+              return `
+                <div class="accordion-item">
+                  <button class="accordion-header" onclick="toggleFaq('${key}')">
+                    <span style="font-size: 15px; font-weight: 500;">${item.q}</span>
+                    <i data-lucide="${isOpen ? 'chevron-up' : 'chevron-down'}"></i>
+                  </button>
+                  ${isOpen ? `<div class="accordion-body">${item.a}</div>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function toggleFaq(key) {
+      if (openKeys.includes(key)) openKeys = openKeys.filter(k => k !== key);
+      else openKeys.push(key);
+      const query = document.getElementById('faq-search-input').value;
+      filterFaqs(query);
+    }
+
+    function filterFaqs(val) {
+      const q = val.trim().toLowerCase();
+      if (!q) {
+        renderFaqs(faqs);
+        return;
+      }
+      const filtered = faqs.map(cat => ({
+        ...cat,
+        items: cat.items.filter(item => item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q))
+      })).filter(cat => cat.items.length > 0);
+      renderFaqs(filtered);
+    }
+  </script>
+</body>
+</html>
