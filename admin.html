@@ -280,7 +280,10 @@
     function handleAdminSubmit(form) {
       const id = document.getElementById('admin-id-input').value;
       const pass = document.getElementById('admin-pass-input').value;
-      window.abl.adminLogin(id, pass);
+      const success = window.abl.adminLogin(id, pass);
+      if (success) {
+        renderAdminApp();
+      }
     }
 
     function toggleAdminNav() {
