@@ -676,10 +676,10 @@
                 <ul class="footer-links">
                   <li><a href="contact.html">Contact Atelier</a></li>
                   <li><a href="faq.html">FAQ & Ring Sizing</a></li>
-                  <li><a href="policy.html?tab=shipping">Shipping & Dispatch</a></li>
-                  <li><a href="policy.html?tab=refunds">30-Day Easy Returns</a></li>
+                  <li><a href="policy.html?tab=shipping">Shipping & Delivery Policy</a></li>
+                  <li><a href="policy.html?tab=refunds">Returns & Refund Policy</a></li>
                   <li><a href="policy.html?tab=privacy">Privacy Policy</a></li>
-                  <li><a href="policy.html?tab=terms">Terms of Service</a></li>
+                  <li><a href="policy.html?tab=terms">Terms & Conditions</a></li>
                 </ul>
               </div>
 
@@ -697,7 +697,7 @@
 
             <!-- Footer Bottom Note with webgrat hyperlink -->
             <div class="footer-bottom">
-              <p>© 2026 Abel's By Lincy. All rights reserved by <a href="https://webgrat.com" target="_blank" rel="noopener" class="webgrat-link">webgrat</a></p>
+              <p>© ${new Date().getFullYear()} Abel's By Lincy. All rights reserved by <a href="https://webgrat.com" target="_blank" rel="noopener" class="webgrat-link">webgrat</a></p>
               <div style="display: flex; align-items: center; gap: 16px;">
                 <span style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;">Encrypted 256-bit SSL Checkout</span>
                 <i data-lucide="shield-check" style="width: 16px; height: 16px; color: var(--gold);"></i>
@@ -713,7 +713,7 @@
       </button>
 
       <!-- Floating WhatsApp Integration Button -->
-      <a href="https://wa.me/61435927824?text=Hi%20Abel's%20By%20Lincy,%20I%20have%20an%20inquiry%20regarding%20fine%20jewellery" target="_blank" rel="noopener" class="floating-whatsapp-widget">
+      <a href="https://wa.me/61435927824?text=Hi%20Lincy,%20I'd%20like%20to%20know%20more%20about%20your%20collections" target="_blank" rel="noopener" class="floating-whatsapp-widget">
         <img src="assets/whatsapp.png" alt="WhatsApp" class="wa-img">
         <span class="wa-label">Chat on WhatsApp</span>
       </a>

@@ -27,7 +27,7 @@
   <div class="container section-padding" style="max-width: 760px; line-height: 1.8; color: var(--slate);">
     <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 40px; flex-wrap: wrap;">
       <button class="btn-secondary active" id="tab-btn-privacy" onclick="setPolicyTab('privacy')">Privacy Policy</button>
-      <button class="btn-secondary" id="tab-btn-terms" onclick="setPolicyTab('terms')">Terms of Service</button>
+      <button class="btn-secondary" id="tab-btn-terms" onclick="setPolicyTab('terms')">Terms & Conditions</button>
       <button class="btn-secondary" id="tab-btn-shipping" onclick="setPolicyTab('shipping')">Shipping Policy</button>
       <button class="btn-secondary" id="tab-btn-refunds" onclick="setPolicyTab('refunds')">Refunds & Returns</button>
     </div>
@@ -43,39 +43,335 @@
       privacy: {
         title: 'Privacy Policy',
         content: `
-          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">1. Information We Collect</h3>
-          <p style="margin-bottom: 20px;">We collect personal details provided during checkout, inquiry submissions, and newsletter signups, including your full name, shipping address, contact email (<strong>lincytitus8@gmail.com</strong>), and phone number.</p>
-          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">2. How We Protect Your Data</h3>
-          <p style="margin-bottom: 20px;">All payment transactions are encrypted using industry-standard 256-bit SSL encryption via Stripe. We never store or log credit card information on our servers.</p>
-          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">3. Australian Privacy Act Compliance</h3>
-          <p>We comply fully with the Australian Privacy Principles under the Privacy Act 1988 (Cth). For queries, please contact privacy@abelsbylincy.com.au or lincytitus8@gmail.com.</p>
+          <div style="font-family: var(--font-sans); color: var(--slate); font-size: 14px; line-height: 1.7;">
+            <p style="margin-bottom: 24px; font-style: italic; font-size: 13px;">Last updated: {{CURRENT_DATE}}</p>
+
+            <p style="margin-bottom: 20px;">
+              At Abels by Lincy ("we", "us", "our"), we respect your privacy and are committed to protecting your personal information. This Privacy Policy explains how we collect, use, store, disclose and protect your personal information when you visit or use our website <a href="https://abelsbylincy.com" target="_blank" style="color: var(--gold); text-decoration: underline;">abelsbylincy.com</a> ("Website"), create an account, place an order, contact us, or interact with us.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">1. Information We Collect</h3>
+            <p style="margin-bottom: 16px;">We collect information necessary to process transactions, manage accounts, and communicate with you:</p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;"><strong>Personal & Contact Data:</strong> Name, email address, phone number, billing address, and shipping address.</li>
+              <li style="margin-bottom: 8px;"><strong>Account Details:</strong> Securely hashed passwords (we never store plain-text passwords), preferences, activity logs, and email verification status.</li>
+              <li style="margin-bottom: 8px;"><strong>Google Sign-In:</strong> If you use Google OAuth, we receive your name, email, and a unique Google identifier (we do not receive or store your Google password).</li>
+              <li style="margin-bottom: 8px;"><strong>Transaction Data:</strong> Ordered products, order number, date, total amount, payment status, and refund history.</li>
+              <li style="margin-bottom: 8px;"><strong>Payment Data:</strong> Handled securely by third-party processors (such as Stripe). We do not store complete card numbers, CVV codes, or credentials on our servers.</li>
+              <li style="margin-bottom: 8px;"><strong>Technical usage:</strong> IP addresses, browser and device type, operating system, and page interaction diagnostics gathered via cookies.</li>
+            </ul>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">2. How We Collect Information</h3>
+            <p style="margin-bottom: 16px;">
+              We collect personal information directly from you when you register an account, authenticate via Google, complete a purchase, subscribe to our newsletter, or submit an inquiry. We also collect usage diagnostics automatically as you browse our store.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">3. How We Use Your Information</h3>
+            <p style="margin-bottom: 16px;">We use your information to power your shopping experience and manage our operations:</p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;"><strong>Identity & Account Management:</strong> Authenticating logins, sending verification codes, and executing secure password resets.</li>
+              <li style="margin-bottom: 8px;"><strong>Order Processing & Logistics:</strong> Processing payments, generating invoices, shipping orders, and handling returns or refunds.</li>
+              <li style="margin-bottom: 8px;"><strong>Support & Relations:</strong> Responding to client inquiries, managing feedback, and sending service updates.</li>
+              <li style="margin-bottom: 8px;"><strong>Security & Compliance:</strong> Monitoring for fraudulent activity and complying with Australian accounting and legal rules.</li>
+              <li style="margin-bottom: 8px;"><strong>Marketing (With Consent):</strong> Sharing updates regarding new collections, special promotions, and events.</li>
+            </ul>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">4. Transactional Emails</h3>
+            <p style="margin-bottom: 16px;">
+              We send critical account-related emails (such as verification links, order confirmations, shipping updates, and safety notifications) that are necessary to complete transactions or secure your account. These transactional emails are exempt from marketing opt-out choices.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">5. Marketing Communications</h3>
+            <p style="margin-bottom: 16px;">
+              If you opt-in to the Abel's By Lincy Circle, we may send you news regarding sales, special offers, and events. You can opt out at any time using the unsubscribe link at the bottom of any email.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">6. Cookies & Trackers</h3>
+            <p style="margin-bottom: 16px;">
+              We use cookies to maintain your active shopping cart session, keep you signed in, and remember preference selections. You can disable cookies in your browser settings, but it may affect website functionality.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">7. Security Safeguards</h3>
+            <p style="margin-bottom: 16px;">
+              We implement appropriate technical measures (including SSL encryption and secure database hashing) to protect your personal details against unauthorized access, loss, or misuse.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">8. Data Retention</h3>
+            <p style="margin-bottom: 16px;">
+              We store your information only for as long as needed to maintain your account, fulfill orders, process accounting records, resolve conflicts, and meet Australian legal requirements.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">9. Access & Corrections</h3>
+            <p style="margin-bottom: 16px;">
+              You have the right to request access to the personal data we hold about you and request corrections of any inaccuracies. We may ask you to verify your identity before processing access requests.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">10. Account Deletion</h3>
+            <p style="margin-bottom: 16px;">
+              You can request the deletion of your account and personal details at any time by contacting us. We will delete all data except what is legally required to keep for transaction audits, tax records, or fraud compliance.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">11. Australian Privacy Compliance & Complaints</h3>
+            <p style="margin-bottom: 16px;">
+              We comply with the Australian Privacy Principles (APPs) under the <em>Privacy Act 1988</em> (Cth). If you have any complaints or queries regarding our data handling, please contact us immediately so we can investigate and resolve the issue. If unsatisifed with our resolution, you may escalate to the Office of the Australian Information Commissioner (OAIC).
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">12. Contact Us</h3>
+            <p style="margin-bottom: 16px;">If you have any questions about this Privacy Policy or wish to access/delete your data, please contact:</p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;"><strong>Business:</strong> Abels by Lincy</li>
+              <li style="margin-bottom: 8px;"><strong>Email:</strong> <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a></li>
+              <li style="margin-bottom: 8px;"><strong>Phone:</strong> +61 435 927 824</li>
+            </ul>
+          </div>
         `
       },
       terms: {
-        title: 'Terms of Service',
+        title: 'Terms & Conditions',
         content: `
-          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">1. Authenticity & Warranty</h3>
-          <p style="margin-bottom: 20px;">Every piece manufactured by Abel's By Lincy is hallmarked and certified for metal purity and ethical gemstone authenticity.</p>
-          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">2. Australian Consumer Law</h3>
-          <p>Our goods come with guarantees that cannot be excluded under the Australian Consumer Law. You are entitled to a replacement or refund for a major failure.</p>
+          <div style="font-family: var(--font-sans); color: var(--slate); font-size: 14px; line-height: 1.7;">
+            <p style="margin-bottom: 24px; font-style: italic; font-size: 13px;">Last updated: {{CURRENT_DATE}}</p>
+
+            <p style="margin-bottom: 20px;">
+              Welcome to Abels by Lincy. These Terms & Conditions ("Terms") apply to your use of <a href="https://abelsbylincy.com" target="_blank" style="color: var(--gold); text-decoration: underline;">abelsbylincy.com</a> ("Website") and any purchase you make through the Website. By accessing or using our Website, you agree to these Terms. If you do not agree, please do not use our Website.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">1. About Us</h3>
+            <p style="margin-bottom: 16px;">The Website is operated by:</p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;"><strong>Business Name:</strong> Abels by Lincy</li>
+              <li style="margin-bottom: 8px;"><strong>Email:</strong> <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a></li>
+              <li style="margin-bottom: 8px;"><strong>Phone:</strong> +61 435 927 824</li>
+            </ul>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">2. Using Our Website</h3>
+            <p style="margin-bottom: 16px;">
+              You agree to use our Website lawfully and responsibly. You must not attempt to gain unauthorized access, interfere with the security or operation of the site, introduce malicious software, commit fraud, or copy our design content without written permission. We reserve the right to restrict access to prevent abuse or during technical maintenance.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">3. Creating an Account</h3>
+            <p style="margin-bottom: 16px;">
+              You can create an account using your email/password or Google Sign-In. You are responsible for maintaining the confidentiality of your login credentials and ensuring all details provided are accurate and current. Please notify us immediately if you suspect unauthorized account activity.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">4. Products & Jewellery Information</h3>
+            <p style="margin-bottom: 16px;">
+              We strive to describe our products, materials, plating, and sizes as accurately as possible. However, colors and textures may vary depending on device displays and settings. Minor variations in molten finishes or organic textures are characteristic of fine hand-finished jewellery. Please read our Care Guide; we are not responsible for damage caused by chemical exposure, water, or general wear and tear.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">5. Currency & Product Prices</h3>
+            <p style="margin-bottom: 16px;">
+              All prices displayed on the Website are in Australian Dollars (AUD) and are subject to change. A price change will not affect an order that has already been accepted and paid for, unless an obvious technical pricing error has occurred.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">6. Orders & Acceptance</h3>
+            <p style="margin-bottom: 16px;">
+              Placing an order constitutes an offer to purchase. While you receive an automated confirmation email, we reserve the right to cancel an order prior to dispatch due to product unavailability, payment validation failures, or incorrect product listings. In such cases, a full refund will be processed immediately.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">7. Payments & Security</h3>
+            <p style="margin-bottom: 16px;">
+              All payments are processed securely through certified third-party providers (such as Stripe). We do not store complete card numbers, CVV codes, or payment credentials on our servers.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">8. Shipping & Delivery</h3>
+            <p style="margin-bottom: 16px;">
+              Estimated delivery schedules are provided as guidelines. Once an order is dispatched from our Sydney atelier, transit timelines may be affected by courier schedules, holiday periods, or other delays beyond our control.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">9. Australian Consumer Law (ACL)</h3>
+            <p style="margin-bottom: 16px;">
+              Our items come with non-excludable guarantees under the Australian Consumer Law. You are entitled to a repair, replacement, or refund for major quality failures. Nothing in these Terms limits your statutory consumer rights.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">10. Promotions & Discount Codes</h3>
+            <p style="margin-bottom: 16px;">
+              Promotions and codes cannot be exchanged for cash, combined with other offers, or applied after placing an order. Expiry dates and item exclusions apply as stated on specific offer pages.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">11. Changes to Terms</h3>
+            <p style="margin-bottom: 16px;">
+              We reserve the right to update these Terms from time to time. Continued use of the Website after updates have been published represents your acceptance of the revised Terms.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">12. Contact Us</h3>
+            <p style="margin-bottom: 16px;">For questions regarding these Terms or legal policies:</p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;"><strong>Abels by Lincy</strong></li>
+              <li style="margin-bottom: 8px;"><strong>Email:</strong> <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a></li>
+              <li style="margin-bottom: 8px;"><strong>Phone:</strong> +61 435 927 824</li>
+            </ul>
+          </div>
         `
       },
       shipping: {
-        title: 'Shipping Policy',
+        title: 'Shipping & Delivery Policy',
         content: `
-          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">1. Australia-Wide Express Delivery</h3>
-          <p style="margin-bottom: 20px;">Orders over $150 qualify for complimentary express shipping. Orders under $150 are charged a flat $9.95 delivery fee. Orders placed before 2pm AEST are dispatched the same day.</p>
-          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">2. Transit Insurance</h3>
-          <p>All parcels are 100% insured against loss or damage during transit at no additional cost to you.</p>
+          <div style="font-family: var(--font-sans); color: var(--slate); font-size: 14px; line-height: 1.7;">
+            <p style="margin-bottom: 24px; font-style: italic; font-size: 13px;">Last updated: {{CURRENT_DATE}}</p>
+
+            <p style="margin-bottom: 20px;">
+              At Abels by Lincy, we aim to process and deliver your jewellery safely and efficiently. This Shipping & Delivery Policy explains how orders are processed, shipped and delivered within Australia.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">1. Shipping Areas</h3>
+            <p style="margin-bottom: 16px;">We currently ship to:</p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;"><strong>Australia:</strong> Yes</li>
+              <li style="margin-bottom: 8px;"><strong>International shipping:</strong> Not currently available</li>
+            </ul>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">2. Order Processing</h3>
+            <p style="margin-bottom: 16px;">
+              Orders are generally processed within <strong>2–4 business days</strong>. Orders placed on weekends or public holidays will begin processing on the next business day. During busy periods, sales, promotional events or product launches, processing may take longer. If there is a significant delay affecting your order, we will contact you using the details provided during checkout.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">3. Delivery Times</h3>
+            <p style="margin-bottom: 16px;">Estimated delivery times within Australia are:</p>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 12px; margin-bottom: 16px; font-size: 13.5px; border: 1px solid var(--border);">
+              <thead>
+                <tr style="background: var(--cream); border-bottom: 1px solid var(--border);">
+                  <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: var(--onyx);">Delivery Type</th>
+                  <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: var(--onyx);">Estimated Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px solid var(--border);">
+                  <td style="padding: 10px 12px; color: var(--slate);">Standard Shipping</td>
+                  <td style="padding: 10px 12px; color: var(--slate);">2–4 business days</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; color: var(--slate);">Express Shipping</td>
+                  <td style="padding: 10px 12px; color: var(--slate);">1–2 business days</td>
+                </tr>
+              </tbody>
+            </table>
+            <p style="margin-bottom: 16px; font-style: italic; font-size: 13px;">
+              Note: These are estimates only and may vary depending on the delivery location, courier availability, public holidays, weather and other circumstances outside our control.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">4. Shipping Charges</h3>
+            <p style="margin-bottom: 16px;">Shipping charges are displayed during checkout before completing your purchase:</p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;"><strong>Standard Shipping:</strong> $10</li>
+              <li style="margin-bottom: 8px;"><strong>Express Shipping:</strong> $15</li>
+              <li style="margin-bottom: 8px;"><strong>Free Shipping:</strong> Complimentarily applied for orders over $60 where applicable.</li>
+            </ul>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">5. Incorrect Shipping Information</h3>
+            <p style="margin-bottom: 16px;">
+              Please carefully check your shipping address before completing your order. If you provide an incorrect or incomplete address and the order has already been dispatched, additional delivery charges may apply to resend the order. If you notice an incorrect address immediately after placing your order, contact us as soon as possible at <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a>. We will try to update the address, but cannot guarantee changes after an order has been processed.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">6. Lost or Damaged Packages</h3>
+            <p style="margin-bottom: 16px;">
+              If your package appears to be lost, damaged or significantly delayed, please contact us at <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a> with your order number so we can investigate with the delivery provider. Your rights under Australian Consumer Law are fully protected and unaffected.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">7. Delivery Confirmation</h3>
+            <p style="margin-bottom: 16px;">
+              A tracking record or delivery confirmation from the courier is used as evidence that an order has been successfully delivered. If you have not received an order that is marked as delivered, please reach out to us as soon as possible.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">8. Undeliverable Orders</h3>
+            <p style="margin-bottom: 16px;">
+              If an order is returned to us due to an incorrect/incomplete address, recipient unavailability, or failure to collect, we will contact you. Additional shipping charges may apply to resend the order.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">9. Consumer Rights</h3>
+            <p style="margin-bottom: 16px;">
+              Nothing in this policy excludes, restricts or modifies any rights you have under the Australian Consumer Law. If we cannot supply a product you have paid for, we will provide a full refund or remedy as required by law.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">10. Contact Us</h3>
+            <p style="margin-bottom: 16px;">For shipping enquiries:</p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;"><strong>Abels by Lincy</strong></li>
+              <li style="margin-bottom: 8px;"><strong>Email:</strong> <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a></li>
+              <li style="margin-bottom: 8px;"><strong>Phone:</strong> +61 435 927 824</li>
+            </ul>
+          </div>
         `
       },
       refunds: {
-        title: 'Refund & Return Policy',
+        title: 'Returns & Refund Policy',
         content: `
-          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">1. 30-Day Return Guarantee</h3>
-          <p style="margin-bottom: 20px;">We accept returns within 30 days of receipt for all unworn jewellery in its original presentation packaging.</p>
-          <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--onyx);">2. How to Initiate a Return</h3>
-          <p>Email <strong>lincytitus8@gmail.com</strong> with your order ID to receive a prepaid Australia Post return label.</p>
+          <div style="font-family: var(--font-sans); color: var(--slate); font-size: 14px; line-height: 1.7;">
+            <p style="margin-bottom: 24px; font-style: italic; font-size: 13px;">Last updated: {{CURRENT_DATE}}</p>
+
+            <p style="margin-bottom: 20px;">
+              At Abels by Lincy, we want you to be happy with your purchase. This policy explains our returns and refund process. Importantly, this policy does not exclude or limit your rights under the Australian Consumer Law.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">1. Australian Consumer Law</h3>
+            <p style="margin-bottom: 16px;">
+              Our products come with consumer guarantees under Australian Consumer Law. If a product fails to meet a consumer guarantee, you are entitled to a remedy, which may include repair, replacement, refund, cancellation of the purchase, or compensation for reasonably foreseeable losses depending on the circumstances. These statutory rights apply regardless of our store change-of-mind policy.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">2. Change-of-Mind Returns</h3>
+            <p style="margin-bottom: 16px;">
+              If you simply change your mind, we offer a voluntary store return policy. The return period is <strong>30 days</strong> from the date of delivery. To qualify:
+            </p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;">The item must be completely unused, unworn, and unaltered.</li>
+              <li style="margin-bottom: 8px;">It must be returned in its original velvet presentation packaging.</li>
+              <li style="margin-bottom: 8px;">It must include all tags, accessories, and documentation.</li>
+            </ul>
+            <p style="margin-bottom: 16px; font-style: italic; font-size: 13px;">
+              Note: Change-of-mind returns are voluntary and separate from your rights under ACL.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">3. Faulty or Defective Products</h3>
+            <p style="margin-bottom: 16px;">
+              If you believe your jewellery has a manufacturing fault, contact us immediately with your order number, customer name, description, and photographs or video of the issue. If assessed as a defect, we will provide a repair, replacement, or refund.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">4. Incorrect Item Received</h3>
+            <p style="margin-bottom: 16px;">
+              If your package contains an incorrect item, please email <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a> with your order number and photographs of the received item. We will arrange a return and dispatch the correct order.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">5. Damaged on Arrival</h3>
+            <p style="margin-bottom: 16px;">
+              If your shipment arrives damaged, notify us immediately. Provide photos of both the damaged packaging and the jewellery item so we can file an insurance claim and issue a replacement.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">6. Exclusions from Change-of-Mind Returns</h3>
+            <p style="margin-bottom: 16px;">We do not accept change-of-mind returns for:</p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;">Custom-made, engraved, or modified items.</li>
+              <li style="margin-bottom: 8px;">Jewellery showing signs of wear or scratches.</li>
+              <li style="margin-bottom: 8px;">Items returned without their original signature presentation boxes.</li>
+            </ul>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">7. Jewellery Care and Wear</h3>
+            <p style="margin-bottom: 16px;">
+              Improper use, storage, or exposure to cosmetics, perfume, chlorine, sweat, and water can tarnish gold plating. Please follow our care guidelines. Normal wear and tear or chemical damage does not constitute a manufacturing defect.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">8. How to Request a Return</h3>
+            <p style="margin-bottom: 16px;">
+              To request a return, email <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a> with your order number, name, reason for return, and support photos. Please wait for return instructions before shipping any items back.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">9. Refund Execution & Timelines</h3>
+            <p style="margin-bottom: 16px;">
+              Approved refunds are credited to the original payment method. We process refunds within <strong>3–4 business days</strong> of receiving the returned item. Clearing times depend on your bank.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">10. Gift Returns & Proof of Purchase</h3>
+            <p style="margin-bottom: 16px;">
+              We require a valid order confirmation or payment record to verify purchases. For gifts, we can issue an exchange or store credit under our voluntary return policy.
+            </p>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">11. Contact Us</h3>
+            <p style="margin-bottom: 16px;">For returns and refund queries:</p>
+            <ul style="margin-bottom: 20px; padding-left: 20px; list-style-type: disc;">
+              <li style="margin-bottom: 8px;"><strong>Abels by Lincy</strong></li>
+              <li style="margin-bottom: 8px;"><strong>Email:</strong> <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a></li>
+              <li style="margin-bottom: 8px;"><strong>Phone:</strong> +61 435 927 824</li>
+            </ul>
+          </div>
         `
       }
     };
@@ -89,8 +385,21 @@
     function setPolicyTab(tabKey) {
       const p = policies[tabKey] || policies.privacy;
       document.getElementById('policy-title').textContent = p.title;
+
+      const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const d = new Date();
+      const currentDateStr = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+      
+      // Update dynamic update header subtitle
+      const policyDateEl = document.getElementById('policy-date');
+      if (policyDateEl) {
+        policyDateEl.textContent = `Updated: ${months[d.getMonth()]} ${d.getFullYear()}`;
+      }
+
+      const renderedContent = p.content.replace(/\{\{CURRENT_DATE\}\}/g, currentDateStr);
+
       document.getElementById('policy-content').innerHTML = `
-        ${p.content}
+        ${renderedContent}
         <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px;">
           For any legal or policy inquiries, please email <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a>.
         </div>
