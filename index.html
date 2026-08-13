@@ -23,171 +23,162 @@
   <!-- Shared Header -->
   <div id="header-root"></div>
 
-  <!-- Hero Section (Wireframe Arch Card & 3 Stats) -->
-  <section class="hero-wireframe-section">
-    <div class="container">
-      <div class="hero-grid">
-        
-        <!-- Left Text Column -->
-        <div class="hero-left">
-          <p class="hero-tagline" id="hero-tagline">Cloud White & Onyx Signature Collection</p>
-          <h1 class="hero-title" id="hero-title">
-            Elevated <br>
-            <span class="italic">Everyday Jewellery</span> & <br>
-            Timeless Beauty.
-          </h1>
-          <p class="hero-description" id="hero-subtitle">
-            Australian heirloom-quality jewellery crafted for moments that endure for generations. Discover sustainably mined Australian gemstones, 18k solid gold, and timeless silhouettes.
-          </p>
+  <!-- Hero Section (Full-Width Image Slideshow) -->
+  <section class="hero-slideshow-section">
+    <!-- Slider Nav Arrows -->
+    <button class="hero-nav-btn prev" onclick="prevHeroSlide()" aria-label="Previous Slide"><i data-lucide="chevron-left"></i></button>
+    <button class="hero-nav-btn next" onclick="nextHeroSlide()" aria-label="Next Slide"><i data-lucide="chevron-right"></i></button>
 
-          <div class="hero-cta-group">
-            <a href="shop.html" class="btn-primary">
+    <!-- Full-Width Slide Wrapper -->
+    <div class="hero-slide-wrapper">
+      <div style="position: relative; width: 100%; height: 100%;">
+        <img id="hero-slide-image" src="assets/earrings.webp" alt="Abel's By Lincy Collection" style="display: block; width: 100%; height: 100%; object-fit: cover;" fetchpriority="high">
+        
+        <!-- Text Overlay Container -->
+        <div class="hero-slide-content-overlay" id="hero-slide-content-container" style="display: none;">
+          <div class="hero-slide-text-box" id="hero-slide-text-box">
+            <p class="hero-slide-tagline" id="hero-slide-tagline"></p>
+            <h2 class="hero-slide-title" id="hero-slide-title"></h2>
+            <p class="hero-slide-desc" id="hero-slide-desc"></p>
+            <a href="shop.html" class="hero-slide-cta" id="hero-slide-cta">
               Shop Collection <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>
             </a>
-            <a href="about.html" class="btn-secondary">
-              Our Story
-            </a>
-          </div>
-
-          <!-- 3-Stat Counter Row (Matching 111+ 111 in wireframe) -->
-          <div class="hero-stats-row">
-            <div class="stat-item">
-              <h4 id="stat-1">111+</h4>
-              <p>Unique Designs</p>
-            </div>
-            <div class="stat-item">
-              <h4 id="stat-2">Ethical</h4>
-              <p>Craftsmanship</p>
-            </div>
-            <div class="stat-item">
-              <h4 id="stat-3">10k+</h4>
-              <p>Happy Clients</p>
-            </div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Right Visual Composition (Arch Photo Card + Floating Badges) -->
-        <div class="hero-right-visual">
-          <div class="hero-arch-card">
-            <img src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=900&h=1200&fit=crop&auto=format" alt="Luxury Abel's By Lincy Jewellery">
-          </div>
+    <!-- Slider Dots -->
+    <div class="hero-dots" id="hero-dots"></div>
+  </section>
 
-          <!-- Floating Circle Badge -->
-          <div class="floating-circle-badge">
-            <div class="badge-inner">
-              <i data-lucide="award" style="width: 22px; height: 22px;"></i>
-              <span class="badge-num">Ethical</span>
-              <span class="badge-lbl">Authentic</span>
-            </div>
-          </div>
-
-          <!-- Floating Pill Card -->
-          <div class="floating-pill-card">
-            <div class="pill-dot"></div>
-            <span class="pill-text">Abel's By Lincy</span>
-          </div>
-        </div>
-
+  <!-- USP / Trust Bar -->
+  <section class="trust-bar-section">
+    <div class="container trust-bar-container">
+      <div class="trust-item">
+        <i data-lucide="award" class="trust-icon"></i>
+        <span>Premium Gold-Plated</span>
+      </div>
+      <div class="trust-item">
+        <i data-lucide="shield-check" class="trust-icon"></i>
+        <span>Anti-Tarnish Warranty</span>
+      </div>
+      <div class="trust-item">
+        <i data-lucide="truck" class="trust-icon"></i>
+        <span>Australia Shipping</span>
+      </div>
+      <div class="trust-item">
+        <i data-lucide="refresh-cw" class="trust-icon"></i>
+        <span>Easy Returns</span>
       </div>
     </div>
   </section>
 
-  <!-- Curated Categories Grid -->
+  <!-- Shop By Category Section -->
   <section class="section-padding" style="background: var(--cloud-white);">
     <div class="container">
       <div class="section-header">
-        <p class="section-subtitle">Curated Categories</p>
-        <h2 class="section-title">Explore Our Collections</h2>
+        <p class="section-subtitle">Curated Catalogue</p>
+        <h2 class="section-title">Shop By Category</h2>
       </div>
-
       <div class="collections-grid" id="home-categories-grid"></div>
     </div>
   </section>
 
-  <!-- Featured Pieces Section -->
+  <!-- Best Sellers Section -->
   <section class="section-padding" style="background: var(--cream);">
     <div class="container">
-      <div style="display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 40px; flex-wrap: wrap; gap: 16px;">
-        <div>
-          <p class="section-subtitle" style="text-align: left;">Artisan Selection</p>
-          <h2 class="section-title" style="text-align: left;">Featured Pieces</h2>
-        </div>
-        <a href="shop.html" class="btn-secondary" style="padding: 10px 24px;">
-          View All Pieces <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
+      <div class="section-header">
+        <p class="section-subtitle">Most Treasured Pieces</p>
+        <h2 class="section-title">Best Sellers</h2>
+      </div>
+      
+      <div class="products-grid" id="home-bestsellers-grid"></div>
+      
+      <div style="text-align: center; margin-top: 48px;">
+        <a href="shop.html" class="btn-primary" style="padding: 12px 36px;">
+          VIEW ALL PRODUCTS <i data-lucide="arrow-right" style="width: 15px; height: 15px; vertical-align: middle; margin-left: 6px;"></i>
         </a>
       </div>
-
-      <div class="products-grid" id="home-featured-grid"></div>
     </div>
   </section>
 
-  <!-- Editorial Promo Banner -->
-  <section class="editorial-banner-section">
-    <img src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=1800&h=700&fit=crop&auto=format" alt="The Riviera Collection" class="editorial-banner-bg">
-    <div class="editorial-banner-overlay"></div>
-    <div class="editorial-content">
-      <p style="font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--gold); margin-bottom: 12px;">Limited Release</p>
-      <h2>The Riviera Diamond & Gold Collection</h2>
-      <p style="font-size: 16px; color: rgba(255, 255, 255, 0.85); line-height: 1.6; margin-bottom: 28px;">
-        A bespoke tribute to Australian coastal light. Hand-selected brilliant diamonds set in fluid 18k gold prongs for extraordinary brilliance.
-      </p>
-      <a href="shop.html?category=bracelets" class="btn-primary">
-        Explore Collection <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
-      </a>
-    </div>
-  </section>
-
-  <!-- Best Sellers Grid -->
-  <section class="section-padding" style="background: var(--cloud-white);">
-    <div class="container">
-      <div class="section-header">
-        <p class="section-subtitle">Most Treasured</p>
-        <h2 class="section-title">Client Favorites & Best Sellers</h2>
+  <!-- Featured Collection Section (Split Layout) -->
+  <section class="featured-collection-section">
+    <div class="featured-split-grid">
+      <div class="featured-split-img-box">
+        <img src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=1200&h=900&fit=crop" alt="The Riviera Collection" class="featured-split-img" loading="lazy">
       </div>
-
-      <div class="products-grid" id="home-bestsellers-grid"></div>
-    </div>
-  </section>
-
-  <!-- Promise Cards -->
-  <section class="promise-section">
-    <div class="container">
-      <div class="section-header">
-        <p class="section-subtitle">Our Promise</p>
-        <h2 class="section-title" style="color: var(--cloud-white);">Why Choose Abel's By Lincy</h2>
-      </div>
-
-      <div class="promise-grid">
-        <div class="promise-card">
-          <div class="promise-icon-box"><i data-lucide="award"></i></div>
-          <h4 class="promise-title">Certified Authenticity</h4>
-          <p class="promise-desc">Every gemstone is conflict-free and certified by recognized Australian gemological institutes.</p>
-        </div>
-        <div class="promise-card">
-          <div class="promise-icon-box"><i data-lucide="shield-check"></i></div>
-          <h4 class="promise-title">Secure Payments</h4>
-          <p class="promise-desc">Encrypted Stripe checkout with Apple Pay, Google Pay, and major credit cards.</p>
-        </div>
-        <div class="promise-card">
-          <div class="promise-icon-box"><i data-lucide="truck"></i></div>
-          <h4 class="promise-title">Fast Metro Dispatch</h4>
-          <p class="promise-desc">Orders placed before 2pm AEST are carefully hand-packed and dispatched the same day.</p>
-        </div>
-        <div class="promise-card">
-          <div class="promise-icon-box"><i data-lucide="refresh-cw"></i></div>
-          <h4 class="promise-title">30-Day Easy Returns</h4>
-          <p class="promise-desc">Complimentary return labels and full refunds or sizing exchanges within 30 days.</p>
-        </div>
+      <div class="featured-split-text-box">
+        <p class="section-subtitle" style="text-align: left;">Limited Release</p>
+        <h2 class="featured-split-title">Featured Collection</h2>
+        <p class="featured-split-desc">
+          Inspired by coastal light and organic geometry. Each piece features heavy 18k gold-plating, hand-finished borders, and brilliant anti-tarnish protective coatings crafted for effortlessness.
+        </p>
+        <a href="shop.html" class="btn-primary">
+          EXPLORE COLLECTION <i data-lucide="arrow-right" style="width: 14px; height: 14px; vertical-align: middle; margin-left: 6px;"></i>
+        </a>
       </div>
     </div>
   </section>
 
-  <!-- Testimonials Carousel -->
-  <section class="section-padding" style="background: var(--cloud-white);">
+  <!-- Our Story Section (Alternating Split Layout) -->
+  <section class="about-story-section">
+    <div class="featured-split-grid story-alternating">
+      <div class="featured-split-text-box">
+        <p class="section-subtitle" style="text-align: left;">Sydney Atelier</p>
+        <h2 class="featured-split-title">Our Story</h2>
+        <p class="featured-split-desc">
+          Born in Sydney, Abel's By Lincy was founded on the philosophy that everyday jewellery should be both exceptionally beautiful and accessible. We design timeless gold-plated jewelry that highlights your style while guaranteeing waterproof, daily durability.
+        </p>
+        <a href="about.html" class="story-link-cta">
+          Our Story <i data-lucide="arrow-right" class="story-arrow"></i>
+        </a>
+      </div>
+      <div class="featured-split-img-box">
+        <img src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1200&h=900&fit=crop" alt="Our Studio Bench" class="featured-split-img" loading="lazy">
+      </div>
+    </div>
+  </section>
+
+  <!-- Why Choose Us Section -->
+  <section class="why-choose-section">
     <div class="container">
       <div class="section-header">
-        <p class="section-subtitle">Client Kind Words</p>
-        <h2 class="section-title">Stories & Testimonials</h2>
+        <p class="section-subtitle">Exquisite Value</p>
+        <h2 class="section-title">Why Choose Us</h2>
+      </div>
+      <div class="why-choose-grid">
+        <div class="why-choose-card">
+          <div class="why-icon-circle"><i data-lucide="sparkles"></i></div>
+          <h4>Gold-Plated</h4>
+          <p>Premium 18k gold layer over durable brass and silver, giving a rich, genuine gold look.</p>
+        </div>
+        <div class="why-choose-card">
+          <div class="why-icon-circle"><i data-lucide="droplet-off"></i></div>
+          <h4>Anti-Tarnish</h4>
+          <p>Special anti-tarnish protective sealing layers that repel water, sweat, and daily wear.</p>
+        </div>
+        <div class="why-choose-card">
+          <div class="why-icon-circle"><i data-lucide="award"></i></div>
+          <h4>Quality</h4>
+          <p>Carefully hand-polished and ethically crafted pieces verified for exceptional shine.</p>
+        </div>
+        <div class="why-choose-card">
+          <div class="why-icon-circle"><i data-lucide="gift"></i></div>
+          <h4>Carefully Packed</h4>
+          <p>Delivered in signature keepsake velvet pouches and luxury packaging, ready for gifting.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Customer Reviews Section -->
+  <section class="section-padding testimonials-section" style="background: var(--cloud-white);">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-subtitle">Kind Words</p>
+        <h2 class="section-title">Customer Reviews</h2>
       </div>
 
       <div class="testimonial-container" id="testimonial-box">
@@ -204,7 +195,7 @@
         </blockquote>
 
         <div class="testimonial-author-row">
-          <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&auto=format" alt="Sophie Reynolds" class="testimonial-avatar" id="testi-avatar">
+          <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&auto=format" alt="Sophie Reynolds" class="testimonial-avatar" id="testi-avatar" loading="lazy">
           <div class="testimonial-info">
             <h5 id="testi-name">Sophie Reynolds</h5>
             <p id="testi-loc">Sydney, NSW</p>
@@ -225,24 +216,36 @@
     </div>
   </section>
 
-  <!-- Instagram Grid -->
-  <section class="section-padding-sm" style="background: var(--cream);">
+  <!-- Follow @AbelsByLincy Section -->
+  <section class="section-padding-sm instagram-section" style="background: var(--cream);">
     <div class="container">
       <div style="text-align: center; margin-bottom: 24px;">
-        <p class="section-subtitle">@abelsbylincy</p>
-        <h3 style="font-family: var(--font-serif); font-size: 26px; font-weight: 500;">Follow Our Jewellery Journey</h3>
+        <p class="section-subtitle">Instagram Journey</p>
+        <h3 style="font-family: var(--font-serif); font-size: 26px; font-weight: 500;">FOLLOW @ABELSBYLINCY</h3>
       </div>
 
-      <div class="insta-grid">
-        <div class="insta-item"><img src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop" alt="Jewellery 1" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
-        <div class="insta-item"><img src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&h=400&fit=crop" alt="Jewellery 2" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
-        <div class="insta-item"><img src="https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&h=400&fit=crop" alt="Jewellery 3" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
-        <div class="insta-item"><img src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400&h=400&fit=crop" alt="Jewellery 4" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
-        <div class="insta-item"><img src="https://images.unsplash.com/photo-1603561591411-07134e71a2a9?w=400&h=400&fit=crop" alt="Jewellery 5" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
-        <div class="insta-item"><img src="https://images.unsplash.com/photo-1611085583191-a3b181a88401?w=400&h=400&fit=crop" alt="Jewellery 6" onerror="this.src='https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop'"></div>
+      <!-- Third-party widget placeholder container -->
+      <div class="instagram-widget-wrapper" id="instagram-widget-container">
+        <!-- Dummy Content showing 6 lifestyle posts -->
+        <div class="insta-grid">
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop" alt="Jewellery style post" loading="lazy"></div>
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&h=400&fit=crop" alt="Ceylon Sapphire Gold Bracelet style post" loading="lazy"></div>
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&h=400&fit=crop" alt="Pearl Stacking style post" loading="lazy"></div>
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400&h=400&fit=crop" alt="Gold Rings Stack style post" loading="lazy"></div>
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1603561591411-07134e71a2a9?w=400&h=400&fit=crop" alt="Keepsake Gift packaging post" loading="lazy"></div>
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1611085583191-a3b181a88401?w=400&h=400&fit=crop" alt="Sidney Atelier gold bench post" loading="lazy"></div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="https://www.instagram.com/abels_by_lincy/" target="_blank" rel="noopener" class="btn-secondary" style="padding: 10px 28px;">
+          FOLLOW US ON INSTAGRAM
+        </a>
       </div>
     </div>
   </section>
+
+
 
   <!-- Shared Footer -->
   <div id="footer-root"></div>
@@ -256,7 +259,7 @@
       if (catContainer) {
         catContainer.innerHTML = window.abl.state.categories.map(cat => `
           <div class="collection-card" onclick="window.location.href='shop.html?category=${cat.id}'">
-            <img src="${cat.image}" alt="${cat.name}">
+            <img src="${cat.image}" alt="${cat.name}" loading="lazy">
             <div class="collection-overlay">
               <span class="collection-count">${cat.count} Pieces</span>
               <h3 class="collection-name">${cat.name}</h3>
@@ -266,35 +269,7 @@
         `).join('');
       }
 
-      // Render Featured Products
-      const featContainer = document.getElementById('home-featured-grid');
-      if (featContainer) {
-        const featured = window.abl.state.products.slice(0, 4);
-        featContainer.innerHTML = featured.map(p => `
-          <div class="product-card" onclick="window.location.href='product.html?id=${p.id}'">
-            <div class="product-img-wrapper">
-              <img src="${p.image}" alt="${p.name}">
-              ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ''}
-              <button class="wishlist-btn ${window.abl.state.wishlist.includes(p.id) ? 'active' : ''}" onclick="event.stopPropagation(); window.abl.toggleWishlist('${p.id}')">
-                <i data-lucide="heart" style="${window.abl.state.wishlist.includes(p.id) ? 'fill: var(--danger);' : ''}"></i>
-              </button>
-              <div class="quick-add-bar">
-                <button class="quick-add-btn" onclick="event.stopPropagation(); window.abl.addToCart('${p.id}')">
-                  <i data-lucide="shopping-bag" style="width: 14px;"></i> Quick Add
-                </button>
-              </div>
-            </div>
-            <div class="product-info">
-              <p class="product-category">${p.category}</p>
-              <h4 class="product-name">${p.name}</h4>
-              <div class="product-price-row">
-                <span class="current-price">${window.abl.formatMoney(p.price)}</span>
-                ${p.originalPrice ? `<span class="original-price">${window.abl.formatMoney(p.originalPrice)}</span>` : ''}
-              </div>
-            </div>
-          </div>
-        `).join('');
-      }
+
 
       // Render Best Sellers
       const bestContainer = document.getElementById('home-bestsellers-grid');
@@ -303,7 +278,7 @@
         bestContainer.innerHTML = best.map(p => `
           <div class="product-card" onclick="window.location.href='product.html?id=${p.id}'">
             <div class="product-img-wrapper">
-              <img src="${p.image}" alt="${p.name}">
+              <img src="${p.image}" alt="${p.name}" loading="lazy">
               ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ''}
               <button class="wishlist-btn ${window.abl.state.wishlist.includes(p.id) ? 'active' : ''}" onclick="event.stopPropagation(); window.abl.toggleWishlist('${p.id}')">
                 <i data-lucide="heart" style="${window.abl.state.wishlist.includes(p.id) ? 'fill: var(--danger);' : ''}"></i>
@@ -323,6 +298,112 @@
             </div>
           </div>
         `).join('');
+      }
+
+      // Hero Slideshow Manager
+      const cms = window.abl.state.cms;
+      const slides = cms.heroSlides || [];
+      let currentSlideIdx = 0;
+      let slideInterval = null;
+      const heroSection = document.querySelector('.hero-slideshow-section');
+
+      function renderHeroSlide(idx) {
+        if (!slides.length || !heroSection) return;
+        const slide = slides[idx];
+        const imgEl = document.getElementById('hero-slide-image');
+        const overlayEl = document.getElementById('hero-slide-content-container');
+        
+        if (imgEl) {
+          imgEl.classList.add('hero-image-transitioning');
+          if (overlayEl) overlayEl.style.opacity = '0';
+          
+          setTimeout(() => {
+            imgEl.src = slide.image;
+            imgEl.alt = slide.title || "Abel's By Lincy Collection";
+
+            if (overlayEl) {
+              const taglineEl = document.getElementById('hero-slide-tagline');
+              const titleEl = document.getElementById('hero-slide-title');
+              const descEl = document.getElementById('hero-slide-desc');
+              const ctaEl = document.getElementById('hero-slide-cta');
+              const textBoxEl = document.getElementById('hero-slide-text-box');
+
+              const hasText = slide.tagline || slide.title || slide.description;
+              if (hasText) {
+                overlayEl.style.display = 'flex';
+                
+                if (textBoxEl) {
+                  textBoxEl.className = `hero-slide-text-box theme-${slide.theme || 'default'}`;
+                }
+                
+                if (taglineEl) taglineEl.innerHTML = slide.tagline || '';
+                if (titleEl) titleEl.innerHTML = slide.title || '';
+                if (descEl) descEl.innerHTML = slide.description || '';
+                if (ctaEl) {
+                  ctaEl.href = slide.ctaLink || 'shop.html';
+                  ctaEl.innerHTML = `${slide.ctaText || 'Shop Collection'} <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>`;
+                }
+                setTimeout(() => {
+                  overlayEl.style.opacity = '1';
+                }, 50);
+              } else {
+                overlayEl.style.display = 'none';
+              }
+            }
+
+            const dots = document.querySelectorAll('#hero-dots .hero-dot');
+            dots.forEach((d, i) => {
+              d.classList.toggle('active', i === idx);
+            });
+
+            if (window.lucide) lucide.createIcons();
+            imgEl.classList.remove('hero-image-transitioning');
+          }, 300);
+        }
+      }
+
+      function startHeroAutoplay() {
+        stopHeroAutoplay();
+        slideInterval = setInterval(() => {
+          currentSlideIdx = (currentSlideIdx + 1) % slides.length;
+          renderHeroSlide(currentSlideIdx);
+        }, 4000);
+      }
+
+      function stopHeroAutoplay() {
+        if (slideInterval) clearInterval(slideInterval);
+      }
+
+      window.nextHeroSlide = function() {
+        stopHeroAutoplay();
+        currentSlideIdx = (currentSlideIdx + 1) % slides.length;
+        renderHeroSlide(currentSlideIdx);
+        startHeroAutoplay();
+      };
+
+      window.prevHeroSlide = function() {
+        stopHeroAutoplay();
+        currentSlideIdx = (currentSlideIdx - 1 + slides.length) % slides.length;
+        renderHeroSlide(currentSlideIdx);
+        startHeroAutoplay();
+      };
+
+      window.goToHeroSlide = function(idx) {
+        stopHeroAutoplay();
+        currentSlideIdx = idx;
+        renderHeroSlide(idx);
+        startHeroAutoplay();
+      };
+
+      if (slides.length > 0) {
+        const dotsContainer = document.getElementById('hero-dots');
+        if (dotsContainer) {
+          dotsContainer.innerHTML = slides.map((_, i) => `
+            <div class="hero-dot ${i === 0 ? 'active' : ''}" onclick="goToHeroSlide(${i})"></div>
+          `).join('');
+        }
+        renderHeroSlide(0);
+        startHeroAutoplay();
       }
 
       if (window.lucide) lucide.createIcons();

@@ -10,7 +10,7 @@ const addProduct = async (req, res, next) => {
   await connection.beginTransaction();
 
   try {
-    const { categoryId, name, slug, shortDescription, description, material, jewelleryType, careInstructions, isFeatured, isNewArrival, variants } = req.body;
+    const { categoryId, name, slug, shortDescription, description, material, jewelleryType, careInstructions, isFeatured, isNewArrival, specifications, colors, variants } = req.body;
 
     if (!categoryId || !name || !slug) {
       return res.status(400).json({ success: false, message: 'Category ID, name, and slug are required.' });
@@ -20,16 +20,49 @@ const addProduct = async (req, res, next) => {
 
     // 1. Insert product record
     const [prodResult] = await connection.query(
-      `INSERT INTO products (uuid, category_id, name, slug, short_description, description, material, jewellery_type, care_instructions, is_featured, is_new_arrival)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [uuid, categoryId, name, slug, shortDescription || null, description || null, material || null, jewelleryType || null, careInstructions || null, isFeatured === 'true', isNewArrival === 'true']
+      `INSERT INTO products (uuid, category_id, name, slug, short_description, description, material, jewellery_type, care_instructions, specifications, colors, is_featured, is_new_arrival)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [uuid, categoryId, name, slug, shortDescription || null, description || null, material || null, jewelleryType || null, careInstructions || null, specifications ? (typeof specifications === 'string' ? specifications : JSON.stringify(specifications)) : null, colors || null, isFeatured === 'true', isNewArrival === 'true']
     );
     const productId = prodResult.insertId;
 
-    // 2. Insert variants
+    // 2. Insert variants (auto-built for color-specific stocks)
     let parsedVariants = [];
     if (variants) {
       parsedVariants = typeof variants === 'string' ? JSON.parse(variants) : variants;
+    } else if (colors) {
+      const colorList = colors.split(',').map(c => c.trim()).filter(Boolean);
+      const basePriceNum = parseFloat(req.body.price) || 0;
+      const salePriceNum = parseFloat(req.body.salePrice) || null;
+      
+      colorList.forEach((col, idx) => {
+        const cleanColName = col.replace(/\s+/g, '_');
+        const stock = parseInt(req.body[`stock_color_${cleanColName}`]) || 0;
+        
+        parsedVariants.push({
+          sku: `ABL-${categoryId}-${cleanColName.substring(0,3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
+          variantName: col,
+          price: salePriceNum || basePriceNum,
+          compareAtPrice: salePriceNum ? basePriceNum : null,
+          stockQuantity: stock,
+          attributes: { color: col },
+          isDefault: idx === 0
+        });
+      });
+    } else {
+      const basePriceNum = parseFloat(req.body.price) || 0;
+      const salePriceNum = parseFloat(req.body.salePrice) || null;
+      const stock = parseInt(req.body.stockQty) || 0;
+      
+      parsedVariants.push({
+        sku: `ABL-${categoryId}-DEF-${Math.floor(100 + Math.random() * 900)}`,
+        variantName: 'Default',
+        price: salePriceNum || basePriceNum,
+        compareAtPrice: salePriceNum ? basePriceNum : null,
+        stockQuantity: stock,
+        attributes: null,
+        isDefault: true
+      });
     }
 
     for (const v of parsedVariants) {
@@ -43,12 +76,19 @@ const addProduct = async (req, res, next) => {
     // 3. Handle image uploads to Cloudinary
     if (req.files && req.files.length > 0) {
       for (let i = 0; i < req.files.length; i++) {
-        const uploadResult = await uploadFromBuffer(req.files[i].buffer, 'products');
+        const file = req.files[i];
+        const uploadResult = await uploadFromBuffer(file.buffer, 'products');
+
+        let imageColor = null;
+        if (file.fieldname.startsWith('images_color_')) {
+          const parts = file.fieldname.split('_');
+          imageColor = parts.slice(2, parts.length - 1).join(' ');
+        }
 
         await connection.query(
-          `INSERT INTO product_images (product_id, cloudinary_public_id, secure_url, width, height, format, sort_order, is_primary)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [productId, uploadResult.public_id, uploadResult.secure_url, uploadResult.width, uploadResult.height, uploadResult.format, i, i === 0]
+          `INSERT INTO product_images (product_id, cloudinary_public_id, secure_url, width, height, format, sort_order, is_primary, color)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [productId, uploadResult.public_id, uploadResult.secure_url, uploadResult.width, uploadResult.height, uploadResult.format, i, i === 0, imageColor]
         );
       }
     }
@@ -66,13 +106,13 @@ const addProduct = async (req, res, next) => {
 const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { categoryId, name, slug, shortDescription, description, material, jewelleryType, careInstructions, isFeatured, isNewArrival, isActive } = req.body;
+    const { categoryId, name, slug, shortDescription, description, material, jewelleryType, careInstructions, specifications, colors, isFeatured, isNewArrival, isActive } = req.body;
 
     await db.query(
       `UPDATE products 
-       SET category_id = ?, name = ?, slug = ?, short_description = ?, description = ?, material = ?, jewellery_type = ?, care_instructions = ?, is_featured = ?, is_new_arrival = ?, is_active = ?
+       SET category_id = ?, name = ?, slug = ?, short_description = ?, description = ?, material = ?, jewellery_type = ?, care_instructions = ?, specifications = ?, colors = ?, is_featured = ?, is_new_arrival = ?, is_active = ?
        WHERE id = ?`,
-      [categoryId, name, slug, shortDescription || null, description || null, material || null, jewelleryType || null, careInstructions || null, isFeatured === 'true', isNewArrival === 'true', isActive === 'true', id]
+      [categoryId, name, slug, shortDescription || null, description || null, material || null, jewelleryType || null, careInstructions || null, specifications ? (typeof specifications === 'string' ? specifications : JSON.stringify(specifications)) : null, colors || null, isFeatured === 'true', isNewArrival === 'true', isActive === 'true', id]
     );
 
     res.status(200).json({ success: true, message: 'Product base info updated successfully.' });

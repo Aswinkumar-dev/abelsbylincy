@@ -323,7 +323,49 @@
     heroSubtitle: 'Australian heirloom-quality jewellery crafted for moments that endure for generations.',
     heroStats1: '111+ Unique Designs',
     heroStats2: 'Ethically Crafted',
-    heroStats3: '10k+ Happy Clients'
+    heroStats3: '10k+ Happy Clients',
+    heroSlides: [
+      {
+        id: 'slide-1',
+        tagline: 'THE BRACELET COLLECTION',
+        title: 'Stack. <b>Style</b>. Shine.',
+        description: 'Your everyday essentials, elevated.',
+        image: 'assets/bracelets.webp',
+        ctaText: 'SHOP BRACELETS',
+        ctaLink: 'shop.html?category=bracelets',
+        theme: 'gold'
+      },
+      {
+        id: 'slide-2',
+        tagline: 'THE NECKLACE COLLECTION',
+        title: 'A Touch of <b>Gold</b>, Made to Shine.',
+        description: 'Discover necklaces designed for effortless elegance.',
+        image: 'assets/necklace.webp',
+        ctaText: 'SHOP NECKLACES',
+        ctaLink: 'shop.html?category=necklaces',
+        theme: 'gold'
+      },
+      {
+        id: 'slide-3',
+        tagline: 'THE EARRING COLLECTION',
+        title: 'Frame Your <b>Style</b>.',
+        description: 'Statement or subtle — make it yours.',
+        image: 'assets/earrings.webp',
+        ctaText: 'SHOP EARRINGS',
+        ctaLink: 'shop.html?category=earrings',
+        theme: 'gold'
+      },
+      {
+        id: 'slide-4',
+        tagline: 'THE BANGLE COLLECTION',
+        title: 'Timeless Around Your <b>Wrist</b>.',
+        description: 'A classic touch of gold for every occasion.',
+        image: 'assets/bangles.webp',
+        ctaText: 'SHOP BANGLES',
+        ctaLink: 'shop.html?category=bangles',
+        theme: 'gold'
+      }
+    ]
   };
 
   // State Manager helper
@@ -390,6 +432,18 @@
     return local;
   }
 
+  function loadCMS() {
+    const local = loadLocal('abl_cms', DEFAULT_CMS);
+    const hasOldData = local && local.heroSlides && (!local.heroSlides[0] || local.heroSlides[0].image !== 'assets/bracelets.webp');
+    if (hasOldData || !local || !local.heroSlides || !Array.isArray(local.heroSlides) || local.heroSlides.length === 0) {
+      const updated = local || {};
+      updated.heroSlides = DEFAULT_CMS.heroSlides;
+      saveLocal('abl_cms', updated);
+      return updated;
+    }
+    return local;
+  }
+
   function saveLocal(key, val) {
     try {
       localStorage.setItem(key, JSON.stringify(val));
@@ -415,7 +469,7 @@
     coupons: loadLocal('abl_coupons', DEFAULT_COUPONS),
     roles: loadRoles(),
     settings: loadLocal('abl_settings', DEFAULT_SETTINGS),
-    cms: loadLocal('abl_cms', DEFAULT_CMS),
+    cms: loadCMS(),
     cart: loadLocal('abl_cart', []),
     wishlist: loadLocal('abl_wishlist', ['p1', 'p2']),
     currentUser: loadLocal('abl_current_user', null), // null if guest
@@ -481,16 +535,13 @@
   function renderSharedHeader(activeNav = '') {
     const cartCount = state.cart.reduce((sum, i) => sum + i.quantity, 0);
     const wishlistCount = state.wishlist.length;
-    const announcementItems = [
-  'Free Australia-wide Shipping $60+',
-  'Anti-Tarnish Gold-Plated Jewellery',
-  'Affordable Luxury Price Range',
-  'Waterproof Everyday Pieces',
-  '30-Day Hassle-Free Returns'
-];
+    const announcementText = state.cms.announcement || 'FREE AUSTRALIA-WIDE SHIPPING $60+ · ANTI-TARNISH GOLD-PLATED JEWELLERY · AFFORDABLE LUXURY · WATERPROOF EVERYDAY PIECES';
+    const announcementItems = announcementText.split('·').map(i => i.trim()).filter(Boolean);
     const announcementMarkup = [...announcementItems, ...announcementItems]
       .map(item => `<span class="announcement-item">${item}</span>`)
       .join('');
+
+    const hasCategory = window.location.search.includes('category=');
 
     return `
       <div class="announcement-bar" aria-label="Store highlights">
@@ -512,7 +563,7 @@
 
             <!-- Brand Logo (Enlarged & Fitted) -->
             <a href="index.html" class="brand-logo-btn">
-              <img src="assets/logo.svg" alt="Abel's By Lincy Logo" class="brand-logo-img">
+              <img src="assets/logo.svg" alt="Abel's By Lincy Logo" class="brand-logo-img" fetchpriority="high">
             </a>
 
             <!-- Navigation Links -->
@@ -522,7 +573,7 @@
                 <a href="index.html">Home</a>
               </div>` : ''}
 
-              <div class="nav-item ${activeNav === 'shop' ? 'active' : ''}">
+              <div class="nav-item ${activeNav === 'shop' && hasCategory ? 'active' : ''}">
                 <a href="shop.html" style="display: flex; align-items: center; gap: 4px;">
                   Shop <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
                 </a>
@@ -536,8 +587,8 @@
                 </div>
               </div>
 
-              <div class="nav-item ${activeNav === 'collections' ? 'active' : ''}">
-                <a href="collections.html">Collections</a>
+              <div class="nav-item ${activeNav === 'collections' || (activeNav === 'shop' && !hasCategory) ? 'active' : ''}">
+                <a href="shop.html">Collections</a>
               </div>
 
               <div class="nav-item ${activeNav === 'about' ? 'active' : ''}">
@@ -546,10 +597,6 @@
 
               <div class="nav-item ${activeNav === 'contact' ? 'active' : ''}">
                 <a href="contact.html">Contact</a>
-              </div>
-
-              <div class="nav-item ${activeNav === 'faq' ? 'active' : ''}">
-                <a href="faq.html">FAQ</a>
               </div>
             </nav>
 
@@ -598,10 +645,9 @@
               <a href="shop.html?category=necklaces">• Necklaces</a>
               <a href="shop.html?category=charms">• Charms</a>
             </div>
-            <a href="collections.html" style="font-weight: 600; font-size: 16px;">Collections</a>
+            <a href="shop.html" style="font-weight: 600; font-size: 16px;">Collections</a>
             <a href="about.html" style="font-weight: 600; font-size: 16px;">About Us</a>
             <a href="contact.html" style="font-weight: 600; font-size: 16px;">Contact</a>
-            <a href="faq.html" style="font-weight: 600; font-size: 16px;">FAQ</a>
             <a href="wishlist.html" style="font-weight: 600; font-size: 16px; border-top: 1px solid var(--border); padding-top: 14px;">My Wishlist</a>
             <a href="account.html" style="font-weight: 600; font-size: 16px; margin-top: -6px;">My Account</a>
           </div>
@@ -672,10 +718,9 @@
 
               <!-- Customer Care -->
               <div class="footer-col">
-                <h5>Client Care</h5>
+                <h5>Customer Care</h5>
                 <ul class="footer-links">
-                  <li><a href="contact.html">Contact Atelier</a></li>
-                  <li><a href="faq.html">FAQ & Ring Sizing</a></li>
+                  <li><a href="faq.html">FAQ</a></li>
                   <li><a href="policy.html?tab=shipping">Shipping & Delivery Policy</a></li>
                   <li><a href="policy.html?tab=refunds">Returns & Refund Policy</a></li>
                   <li><a href="policy.html?tab=privacy">Privacy Policy</a></li>
@@ -685,7 +730,7 @@
 
               <!-- Atelier Contact Details -->
               <div class="footer-col">
-                <h5>Sydney Atelier</h5>
+                <h5>Get In Touch</h5>
                 <div class="footer-contact-info">
                   <p><strong>Email:</strong> <a href="mailto:${state.settings.storeEmail}" style="color: var(--cloud-white);">${state.settings.storeEmail}</a></p>
                   <p><strong>Phone:</strong> +61 435 927 824</p>
@@ -714,7 +759,7 @@
 
       <!-- Floating WhatsApp Integration Button -->
       <a href="https://wa.me/61435927824?text=Hi%20Lincy,%20I'd%20like%20to%20know%20more%20about%20your%20collections" target="_blank" rel="noopener" class="floating-whatsapp-widget">
-        <img src="assets/whatsapp.png" alt="WhatsApp" class="wa-img">
+        <img src="assets/whatsapp.png" alt="WhatsApp" class="wa-img" loading="lazy">
         <span class="wa-label">Chat on WhatsApp</span>
       </a>
     `;
@@ -807,7 +852,7 @@
           <div style="background: var(--cream); border-radius: var(--radius-md); padding: 12px; max-height: 280px; overflow-y: auto;">
             ${matches.map(item => `
               <a href="product.html?id=${item.id}" style="display: flex; align-items: center; gap: 14px; padding: 8px 12px; border-radius: var(--radius-sm); transition: background 0.15s; margin-bottom: 4px;" onmouseover="this.style.background='var(--cloud-white)'" onmouseout="this.style.background='transparent'">
-                <img src="${item.image}" style="width: 42px; height: 42px; border-radius: 6px; object-fit: cover;">
+                <img src="${item.image}" style="width: 42px; height: 42px; border-radius: 6px; object-fit: cover;" loading="lazy">
                 <div style="flex: 1;">
                   <h6 style="font-size: 13px; font-weight: 600; color: var(--onyx);">${item.name}</h6>
                   <p style="font-size: 11px; color: var(--gold);">${item.material} · ${formatMoney(item.price)}</p>

@@ -10,7 +10,7 @@ router.use(authenticateToken);
 router.use(isAdmin);
 
 // Products CRUD
-router.post('/products', upload.array('images', 8), addProduct);
+router.post('/products', upload.any(), addProduct);
 router.put('/products/:id', updateProduct);
 router.delete('/products/:id', deleteProduct);
 
