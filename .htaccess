@@ -13,8 +13,20 @@
     # 2. Force HTTPS secure connection (required for Stripe checkout & trust)
     RewriteCond %{HTTPS} off
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+    # 3. Maintenance Mode (Temporary Redirect)
+    # Only apply maintenance mode if it is not localhost (keep local site working)
+    RewriteCond %{HTTP_HOST} !^localhost [NC]
+    RewriteCond %{HTTP_HOST} !^127\.0\.0\.1
+    # Do not redirect backend api requests
+    RewriteCond %{REQUEST_URI} !^/api/ [NC]
+    # Do not redirect when requesting the maintenance page itself
+    RewriteCond %{REQUEST_URI} !/maintenance\.html$ [NC]
+    # Do not redirect static assets (so styles, logo, etc. load correctly if needed)
+    RewriteCond %{REQUEST_URI} !^/assets/ [NC]
+    # Redirect to maintenance.html
+    RewriteRule ^(.*)$ /maintenance.html [R=302,L]
 
-    # 3. Pretty URLs: Hiding the .html extension (optional, commented out by default)
+    # 4. Pretty URLs: Hiding the .html extension (optional, commented out by default)
     # Uncomment the following lines if you wish to serve pages without .html extensions
     # (e.g. abelsbylincy.com.au/about instead of abelsbylincy.com.au/about.html)
     # Note: If enabled, ensure links in code are also updated.
@@ -22,7 +34,7 @@
     # RewriteCond %{REQUEST_FILENAME}\.html -f
     # RewriteRule ^([^/]+)$ $1.html [L]
 
-    # 4. Custom 404 handler
+    # 5. Custom 404 handler
     # Serve our brand-aligned 404 error page for all broken links
     ErrorDocument 404 /404.html
 </IfModule>

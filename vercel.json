@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/((?!api/|assets/|maintenance\\.html).*)",
+      "destination": "/maintenance.html",
+      "permanent": false
+    }
+  ]
+}
