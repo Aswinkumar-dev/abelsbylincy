@@ -20,6 +20,13 @@ export default function HomePage() {
     return () => clearInterval(slideTimer.current);
   }, [heroSlides.length]);
 
+  // Dynamically ensure Elfsight widget initializes on mount
+  useEffect(() => {
+    if (window.ElfsightApp) {
+      window.ElfsightApp.init();
+    }
+  }, []);
+
   const goSlide = (idx) => {
     setSlideIdx(idx);
     clearInterval(slideTimer.current);
@@ -48,15 +55,6 @@ export default function HomePage() {
     { icon: <Shield />, title: 'Lifetime Quality Promise', desc: 'Every piece crafted to last with premium-grade materials' },
     { icon: <RefreshCcw />, title: '30-Day Easy Returns', desc: 'Hassle-free returns within 30 days of delivery' },
     { icon: <Award />, title: 'Certified Gold Plating', desc: '18K & 22K certified gold plating on all pieces' },
-  ];
-
-  const instagramImages = [
-    'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=300&q=80',
-    'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=300&q=80',
-    'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=300&q=80',
-    'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=300&q=80',
-    'https://images.unsplash.com/photo-1573408301185-9519f94815d7?w=300&q=80',
-    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&q=80',
   ];
 
   return (
@@ -196,23 +194,10 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Instagram Grid */}
+      {/* Elfsight Live Instagram Feed Widget Section */}
       <section className="section section-cream">
         <div className="container">
-          <div className="section-header-center">
-            <p className="section-subtitle">Follow Our Journey</p>
-            <h2 className="section-title">@abelsbylincy</h2>
-          </div>
-          <div className="instagram-grid">
-            {instagramImages.map((img, i) => (
-              <a key={i} href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="instagram-item">
-                <img src={img} alt={`Instagram post ${i + 1}`} loading="lazy" />
-                <div className="instagram-overlay">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-                </div>
-              </a>
-            ))}
-          </div>
+          <div className="elfsight-app-250a2098-72ab-46c7-affc-6d1bad6d683e" data-elfsight-app-lazy></div>
         </div>
       </section>
 
