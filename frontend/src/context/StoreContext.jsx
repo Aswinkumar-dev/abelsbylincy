@@ -155,6 +155,14 @@ export function StoreProvider({ children }) {
       }
       return [...prev, { id, name: product.name, price: product.price, image: product.images?.[0] || product.image, quantity: qty, size }];
     });
+    const product = products.find(p => p.id === id);
+    if (typeof window !== 'undefined' && window.gtag && product) {
+      window.gtag('event', 'add_to_cart', {
+        currency: 'AUD',
+        value: product.price * qty,
+        items: [{ item_id: product.id, item_name: product.name, price: product.price, quantity: qty }]
+      });
+    }
     showToast('Added to bag!', 'check');
   }, [products, setCart, showToast]);
 
@@ -313,6 +321,14 @@ export function StoreProvider({ children }) {
     setCustomers(updatedCustomers);
 
     setCart([]);
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'purchase', {
+        transaction_id: newOrder.id,
+        value: orderSubtotal,
+        currency: 'AUD',
+        items: cart.map(i => ({ item_id: i.id, item_name: i.name, price: i.price, quantity: i.quantity }))
+      });
+    }
     showToast('Payment successful! Order placed.', 'check');
     return newOrder;
   }, [cart, products, orders, customers, setProducts, setOrders, setCustomers, setCart, showToast, formatMoney]);

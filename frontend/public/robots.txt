@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Private & User-Specific Pages (Do NOT Index)
+Disallow: /admin
+Disallow: /cart
+Disallow: /checkout
+Disallow: /account
+Disallow: /wishlist
+
+# Sitemap URL
+Sitemap: https://abelsbylincy.com/sitemap.xml
