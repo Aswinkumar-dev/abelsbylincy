@@ -34,36 +34,95 @@
       const container = document.getElementById('account-view-container');
       const user = window.abl.state.currentUser;
 
+      // Handle page layouts dynamically for Guest vs Logged In
+      let overrideStyle = document.getElementById('auth-layout-override');
+      if (!user) {
+        // Guest mode / Login / Signup view: Hide navbar, footer, whatsapp widget, back-to-top arrow
+        if (!overrideStyle) {
+          overrideStyle = document.createElement('style');
+          overrideStyle.id = 'auth-layout-override';
+          overrideStyle.innerHTML = `
+            #header-root { display: none !important; }
+            #footer-root { display: none !important; }
+            .floating-whatsapp-widget { display: none !important; }
+            .back-to-top-widget { display: none !important; }
+            body { background: var(--off-white) !important; }
+            
+            /* Luxury Entrance and Floating Card styling */
+            .auth-entrance-wrapper {
+              width: 100%;
+              max-width: 480px;
+              display: flex;
+              justify-content: center;
+              animation: authEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+
+            .auth-floating-card {
+              background-color: var(--cloud-white) !important;
+              border: 1px solid var(--border) !important;
+              box-shadow: 0 16px 40px rgba(0, 0, 0, 0.05), 0 0 30px rgba(212, 175, 55, 0.25) !important;
+              animation: authFloat 6s ease-in-out infinite;
+              width: 100%;
+            }
+            
+            @keyframes authEntrance {
+              from {
+                opacity: 0;
+                transform: translateY(24px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+            
+            @keyframes authFloat {
+              0% { transform: translateY(0px); }
+              50% { transform: translateY(-8px); }
+              100% { transform: translateY(0px); }
+            }
+          `;
+          document.head.appendChild(overrideStyle);
+        }
+      } else {
+        // Logged-in mode: Show all normal layout elements
+        if (overrideStyle) {
+          overrideStyle.remove();
+        }
+      }
+
       // If user is guest / not logged in
       if (!user) {
         container.innerHTML = `
-          <div class="page-hero">
-            <div class="container">
-              <p class="section-subtitle">Client Privileges</p>
-              <h1>Sign In or Create Account</h1>
-              <p style="font-size: 14px; color: var(--slate); margin-top: 8px;">Access your bespoke order status, complimentary sizing services, and saved pieces.</p>
-            </div>
-          </div>
-
-          <div class="container section-padding" style="max-width: 520px;">
-            <div class="checkout-card">
+          <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px;">
+            <div class="auth-entrance-wrapper">
+              <div class="checkout-card auth-floating-card" style="border-radius: var(--radius-lg); padding: 32px 40px;">
               
+              <!-- Brand Logo -->
+              <div style="text-align: center; margin-bottom: 28px;">
+                <a href="index.html" style="display: inline-block;">
+                  <img src="assets/logo.svg" alt="Abel's By Lincy" style="height: 60px; margin-bottom: 12px;">
+                </a>
+                <h2 style="font-family: var(--font-serif); font-size: 24px; font-weight: 600; color: var(--onyx); margin-bottom: 6px;">Client Portal</h2>
+                <p style="font-size: 13px; color: var(--slate);">Access your bespoke order status & saved pieces</p>
+              </div>
+
               <!-- Google One-Click Sign In -->
-              <button onclick="window.abl.loginWithGoogle()" style="width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 600; font-size: 14px; background: var(--cloud-white); margin-bottom: 24px; transition: background var(--transition-fast);" onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background='var(--cloud-white)'">
+              <button onclick="window.abl.loginWithGoogle()" style="width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 600; font-size: 14px; background: var(--cloud-white); margin-bottom: 20px; transition: background var(--transition-fast);" onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background='var(--cloud-white)'">
                 <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
                 Continue with Google
               </button>
 
-              <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+              <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
                 <div style="flex: 1; height: 1px; background: var(--border);"></div>
-                <span style="font-size: 11px; text-transform: uppercase; color: var(--slate-light); letter-spacing: 0.1em;">or with email</span>
+                <span style="font-size: 10px; text-transform: uppercase; color: var(--slate-light); letter-spacing: 0.15em;">or with email</span>
                 <div style="flex: 1; height: 1px; background: var(--border);"></div>
               </div>
 
               <!-- Auth Mode Switcher -->
               <div style="display: flex; gap: 8px; margin-bottom: 24px; background: var(--cream); padding: 4px; border-radius: var(--radius-md);">
-                <button onclick="setAuthMode('login')" style="flex: 1; padding: 10px; font-size: 13px; font-weight: 600; border-radius: var(--radius-sm); ${authMode === 'login' ? 'background: var(--cloud-white); box-shadow: var(--shadow-sm);' : ''}">Sign In</button>
-                <button onclick="setAuthMode('register')" style="flex: 1; padding: 10px; font-size: 13px; font-weight: 600; border-radius: var(--radius-sm); ${authMode === 'register' ? 'background: var(--cloud-white); box-shadow: var(--shadow-sm);' : ''}">Create Account</button>
+                <button onclick="setAuthMode('login')" style="flex: 1; padding: 10px; font-size: 13px; font-weight: 600; border-radius: var(--radius-sm); border: none; cursor: pointer; ${authMode === 'login' ? 'background: var(--cloud-white); box-shadow: var(--shadow-sm);' : 'background: transparent; color: var(--slate);'}">Sign In</button>
+                <button onclick="setAuthMode('register')" style="flex: 1; padding: 10px; font-size: 13px; font-weight: 600; border-radius: var(--radius-sm); border: none; cursor: pointer; ${authMode === 'register' ? 'background: var(--cloud-white); box-shadow: var(--shadow-sm);' : 'background: transparent; color: var(--slate);'}">Create Account</button>
               </div>
 
               ${authMode === 'login' ? `
@@ -74,7 +133,12 @@
                   </div>
                   <div class="form-group">
                     <label class="form-label">Password</label>
-                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                    <div style="position: relative; display: flex; align-items: center;">
+                      <input type="password" name="password" id="login-password-input" class="form-control" style="width: 100%; padding-right: 40px;" placeholder="••••••••" required>
+                      <button type="button" onclick="togglePasswordVisibility('login-password-input', this)" style="position: absolute; right: 12px; background: none; border: none; padding: 0; color: var(--slate); cursor: pointer; display: flex; align-items: center;">
+                        <i data-lucide="eye" style="width: 18px; height: 18px;"></i>
+                      </button>
+                    </div>
                   </div>
                   <button type="submit" class="btn-primary" style="width: 100%; margin-top: 8px;">Sign In to Account</button>
                 </form>
@@ -90,14 +154,27 @@
                   </div>
                   <div class="form-group">
                     <label class="form-label">Create Password</label>
-                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                    <div style="position: relative; display: flex; align-items: center;">
+                      <input type="password" name="password" id="register-password-input" class="form-control" style="width: 100%; padding-right: 40px;" placeholder="••••••••" required>
+                      <button type="button" onclick="togglePasswordVisibility('register-password-input', this)" style="position: absolute; right: 12px; background: none; border: none; padding: 0; color: var(--slate); cursor: pointer; display: flex; align-items: center;">
+                        <i data-lucide="eye" style="width: 18px; height: 18px;"></i>
+                      </button>
+                    </div>
                   </div>
                   <button type="submit" class="btn-primary" style="width: 100%; margin-top: 8px;">Create My Account</button>
                 </form>
               `}
 
+              <!-- Back to Home Link -->
+              <div style="text-align: center; margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px;">
+                <a href="index.html" style="font-size: 13px; color: var(--slate); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: color var(--transition-fast);" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--slate)'">
+                  <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i> Back to Homepage
+                </a>
+              </div>
+
             </div>
           </div>
+        </div>
         `;
         if (window.lucide) lucide.createIcons();
         return;
@@ -254,6 +331,26 @@
       activeAccountTab = t;
       renderAccountView();
     }
+
+    // Toggle Password Visibility
+    window.togglePasswordVisibility = function(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) {
+          icon.setAttribute('data-lucide', 'eye-off');
+        }
+      } else {
+        input.type = 'password';
+        if (icon) {
+          icon.setAttribute('data-lucide', 'eye');
+        }
+      }
+      if (window.lucide) lucide.createIcons();
+    };
   </script>
 </body>
 </html>

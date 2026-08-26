@@ -10,6 +10,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+  <script>
+    (function() {
+      try {
+        var userStr = localStorage.getItem('abl_current_user');
+        if (!userStr || userStr === 'null' || userStr === 'undefined') {
+          window.location.replace('account.html');
+        }
+      } catch(e) {}
+    })();
+  </script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="styles.css?v=20260812-4">
 </head>
@@ -81,8 +91,8 @@
       }
 
       const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
-      const shipping = subtotal >= 150 ? 0 : 9.95;
-      const total = subtotal + shipping;
+      const shipping = 0;
+      const total = subtotal;
 
       container.innerHTML = `
         <div class="page-hero">
@@ -307,12 +317,15 @@
                 </div>
                 <div class="summary-row" style="font-size: 13px; margin-bottom: 8px;">
                   <span style="color: var(--slate);">Express Shipping</span>
-                  <span style="font-weight: 600; color: ${shipping === 0 ? 'var(--success)' : 'var(--onyx)'};">${shipping === 0 ? 'FREE' : window.abl.formatMoney(shipping)}</span>
+                  <span style="font-weight: 600; color: var(--success);">FREE (Included)</span>
                 </div>
                 <div class="summary-row summary-total" style="font-size: 16px; margin-top: 10px; padding-top: 10px;">
                   <span>Total</span>
                   <span style="font-size: 18px; font-weight: 700; color: var(--onyx);">${window.abl.formatMoney(total)}</span>
                 </div>
+                <p style="font-size: 11px; color: var(--slate); font-style: italic; margin-top: 8px; text-align: center;">
+                  * Product prices are all-inclusive of GST & Express Shipping. No extra fees.
+                </p>
               </div>
             </div>
 

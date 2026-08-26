@@ -325,28 +325,7 @@
       let reviews = JSON.parse(localStorage.getItem(localKey));
       
       if (!reviews) {
-        reviews = [
-          {
-            id: `r_mock1_${productId}`,
-            user_name: 'Amelia Smith',
-            avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop',
-            rating: 5,
-            title: 'Absolutely Stunning Piece!',
-            review_text: 'Bought this for daily wear. It is exceptionally beautiful, has a gorgeous weight to it, and has not tarnished after weeks of showers. Highly recommend!',
-            is_verified_purchase: true,
-            created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: `r_mock2_${productId}`,
-            user_name: 'Chloe Davis',
-            avatar: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=120&h=120&fit=crop',
-            rating: 4,
-            title: 'Beautiful packaging & shine',
-            review_text: 'The packaging feels very premium. The shine is exquisite. Dropped one star only because delivery took one extra day to Brisbane.',
-            is_verified_purchase: true,
-            created_at: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString()
-          }
-        ];
+        reviews = [];
         localStorage.setItem(localKey, JSON.stringify(reviews));
       }
       return reviews;
@@ -355,7 +334,6 @@
     window.handleWriteReviewClick = function() {
       const user = window.abl.state.currentUser;
       if (!user) {
-        alert('Please login or register to write a review. Redirecting to account page...');
         window.location.href = 'account.html';
         return;
       }
@@ -384,7 +362,6 @@
       event.preventDefault();
       const user = window.abl.state.currentUser;
       if (!user) {
-        alert('Please log in to submit a review.');
         window.location.href = 'account.html';
         return;
       }
@@ -489,106 +466,107 @@
       const root = document.getElementById('zoom-modal-root');
       root.innerHTML = `
         <div class="modal-backdrop" onclick="this.remove()">
-          <div class="modal-content" style="max-width: 680px; max-height: 90vh; overflow-y: auto; padding: 40px 30px; text-align: center; background: var(--cloud-white); border-radius: var(--radius-lg); position: relative; box-shadow: var(--shadow-xl);" onclick="event.stopPropagation()">
-            <button class="modal-close-btn" style="position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; color: var(--onyx);" onclick="document.getElementById('zoom-modal-root').innerHTML=''"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+          <div class="modal-content" style="max-width: 680px; max-height: 90vh; width: 92%; background: var(--cloud-white); border-radius: var(--radius-lg); overflow: hidden; position: relative; box-shadow: var(--shadow-xl); display: flex; flex-direction: column;" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" style="position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; color: var(--onyx); z-index: 10;" onclick="document.getElementById('zoom-modal-root').innerHTML=''"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
             
-            <!-- Brand Logo from assets -->
-            <img src="assets/logo.svg" alt="Abel's By Lincy" style="height: 32px; margin: 0 auto 16px auto; display: block; filter: brightness(0.1);">
-            
-            <!-- Header -->
-            <h3 style="font-family: var(--font-serif); font-size: 26px; font-weight: 500; color: var(--onyx); margin-bottom: 2px;">Find your Ring size</h3>
-            <p style="font-family: var(--font-serif); font-style: italic; font-size: 18px; color: var(--gold-dark); margin-bottom: 24px;">the easy way</p>
-            
-            <!-- Steps Grid -->
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; text-align: left;">
-              <div style="background: var(--cream); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; text-align: center;">
-                <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: var(--gold-dark); color: #fff; border-radius: 50%; font-weight: bold; margin-bottom: 10px; font-size: 12px;">1</span>
-                <p style="font-size: 11.5px; line-height: 1.4; color: var(--slate); margin: 0;">Wrap a thin strip of paper or thread around your finger.</p>
+            <div style="overflow-y: auto; padding: 40px 30px; text-align: center; flex: 1;">
+              <!-- Brand Logo from assets -->
+              <img src="assets/logo.svg" alt="Abel's By Lincy" style="height: 32px; margin: 0 auto 16px auto; display: block; filter: brightness(0.1);">
+              
+              <!-- Header -->
+              <h3 style="font-family: var(--font-serif); font-size: 26px; font-weight: 500; color: var(--onyx); margin-bottom: 24px;">Find your Ring size</h3>
+              
+              <!-- Steps Grid -->
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; text-align: left;">
+                <div style="background: var(--cream); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; text-align: center;">
+                  <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: var(--gold-dark); color: #fff; border-radius: 50%; font-weight: bold; margin-bottom: 10px; font-size: 12px;">1</span>
+                  <p style="font-size: 11.5px; line-height: 1.4; color: var(--slate); margin: 0;">Wrap a thin strip of paper or thread around your finger.</p>
+                </div>
+                <div style="background: var(--cream); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; text-align: center;">
+                  <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: var(--gold-dark); color: #fff; border-radius: 50%; font-weight: bold; margin-bottom: 10px; font-size: 12px;">2</span>
+                  <p style="font-size: 11.5px; line-height: 1.4; color: var(--slate); margin: 0;">Mark the spot where both ends meet precisely.</p>
+                </div>
+                <div style="background: var(--cream); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; text-align: center;">
+                  <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: var(--gold-dark); color: #fff; border-radius: 50%; font-weight: bold; margin-bottom: 10px; font-size: 12px;">3</span>
+                  <p style="font-size: 11.5px; line-height: 1.4; color: var(--slate); margin: 0;">Measure this length using a standard ruler.</p>
+                </div>
               </div>
-              <div style="background: var(--cream); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; text-align: center;">
-                <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: var(--gold-dark); color: #fff; border-radius: 50%; font-weight: bold; margin-bottom: 10px; font-size: 12px;">2</span>
-                <p style="font-size: 11.5px; line-height: 1.4; color: var(--slate); margin: 0;">Mark the spot where both ends meet precisely.</p>
-              </div>
-              <div style="background: var(--cream); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; text-align: center;">
-                <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: var(--gold-dark); color: #fff; border-radius: 50%; font-weight: bold; margin-bottom: 10px; font-size: 12px;">3</span>
-                <p style="font-size: 11.5px; line-height: 1.4; color: var(--slate); margin: 0;">Measure this length using a standard ruler.</p>
-              </div>
-            </div>
 
-            <!-- Conversion Table Header -->
-            <h4 style="font-family: var(--font-serif); font-size: 15px; font-weight: 600; color: var(--onyx); margin-bottom: 12px; text-align: left; border-left: 3px solid var(--gold-dark); padding-left: 8px;">Size Conversion Chart</h4>
-            
-            <!-- Dual Table Layout -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-              <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center;">
-                <thead>
-                  <tr style="background: var(--onyx); color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">Our Size</th>
-                    <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">In Centimeter</th>
-                    <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">In Inches</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${[
-                    { s: 8, cm: '4.80 cm', in: '1.88 in' },
-                    { s: 9, cm: '4.87 cm', in: '1.91 in' },
-                    { s: 10, cm: '5.00 cm', in: '1.96 in' },
-                    { s: 11, cm: '5.12 cm', in: '2.01 in' },
-                    { s: 12, cm: '5.19 cm', in: '2.04 in' },
-                    { s: 13, cm: '5.31 cm', in: '2.09 in' },
-                    { s: 14, cm: '5.44 cm', in: '2.14 in' },
-                    { s: 15, cm: '5.51 cm', in: '2.16 in' },
-                    { s: 16, cm: '5.63 cm', in: '2.21 in' },
-                    { s: 17, cm: '5.70 cm', in: '2.24 in' },
-                    { s: 18, cm: '5.83 cm', in: '2.29 in' }
-                  ].map((row, idx) => `
-                    <tr style="background: ${idx % 2 === 0 ? 'var(--cream)' : 'transparent'}; border-bottom: 1px solid var(--border);">
-                      <td style="padding: 5px; font-weight: 600; color: var(--gold-dark);">${row.s}</td>
-                      <td style="padding: 5px; color: var(--onyx);">${row.cm}</td>
-                      <td style="padding: 5px; color: var(--slate);">${row.in}</td>
+              <!-- Conversion Table Header -->
+              <h4 style="font-family: var(--font-serif); font-size: 15px; font-weight: 600; color: var(--onyx); margin-bottom: 12px; text-align: left; border-left: 3px solid var(--gold-dark); padding-left: 8px;">Size Conversion Chart</h4>
+              
+              <!-- Dual Table Layout -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center;">
+                  <thead>
+                    <tr style="background: var(--onyx); color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">
+                      <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">Our Size</th>
+                      <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">In Centimeter</th>
+                      <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">In Inches</th>
                     </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${[
+                      { s: 8, cm: '4.80 cm', in: '1.88 in' },
+                      { s: 9, cm: '4.87 cm', in: '1.91 in' },
+                      { s: 10, cm: '5.00 cm', in: '1.96 in' },
+                      { s: 11, cm: '5.12 cm', in: '2.01 in' },
+                      { s: 12, cm: '5.19 cm', in: '2.04 in' },
+                      { s: 13, cm: '5.31 cm', in: '2.09 in' },
+                      { s: 14, cm: '5.44 cm', in: '2.14 in' },
+                      { s: 15, cm: '5.51 cm', in: '2.16 in' },
+                      { s: 16, cm: '5.63 cm', in: '2.21 in' },
+                      { s: 17, cm: '5.70 cm', in: '2.24 in' },
+                      { s: 18, cm: '5.83 cm', in: '2.29 in' }
+                    ].map((row, idx) => `
+                      <tr style="background: ${idx % 2 === 0 ? 'var(--cream)' : 'transparent'}; border-bottom: 1px solid var(--border);">
+                        <td style="padding: 5px; font-weight: 600; color: var(--gold-dark);">${row.s}</td>
+                        <td style="padding: 5px; color: var(--onyx);">${row.cm}</td>
+                        <td style="padding: 5px; color: var(--slate);">${row.in}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
 
-              <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center;">
-                <thead>
-                  <tr style="background: var(--onyx); color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">Our Size</th>
-                    <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">In Centimeter</th>
-                    <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">In Inches</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${[
-                    { s: 19, cm: '5.89 cm', in: '2.31 in' },
-                    { s: 20, cm: '6.02 cm', in: '2.37 in' },
-                    { s: 21, cm: '6.08 cm', in: '2.39 in' },
-                    { s: 22, cm: '6.21 cm', in: '2.44 in' },
-                    { s: 23, cm: '6.27 cm', in: '2.46 in' },
-                    { s: 24, cm: '6.40 cm', in: '2.51 in' },
-                    { s: 25, cm: '6.46 cm', in: '2.54 in' },
-                    { s: 26, cm: '6.59 cm', in: '2.59 in' },
-                    { s: 27, cm: '6.72 cm', in: '2.64 in' },
-                    { s: 28, cm: '6.78 cm', in: '2.66 in' }
-                  ].map((row, idx) => `
-                    <tr style="background: ${idx % 2 === 0 ? 'var(--cream)' : 'transparent'}; border-bottom: 1px solid var(--border);">
-                      <td style="padding: 5px; font-weight: 600; color: var(--gold-dark);">${row.s}</td>
-                      <td style="padding: 5px; color: var(--onyx);">${row.cm}</td>
-                      <td style="padding: 5px; color: var(--slate);">${row.in}</td>
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center;">
+                  <thead>
+                    <tr style="background: var(--onyx); color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">
+                      <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">Our Size</th>
+                      <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">In Centimeter</th>
+                      <th style="padding: 6px; font-weight: 500; border-bottom: 1px solid var(--border);">In Inches</th>
                     </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    ${[
+                      { s: 19, cm: '5.89 cm', in: '2.31 in' },
+                      { s: 20, cm: '6.02 cm', in: '2.37 in' },
+                      { s: 21, cm: '6.08 cm', in: '2.39 in' },
+                      { s: 22, cm: '6.21 cm', in: '2.44 in' },
+                      { s: 23, cm: '6.27 cm', in: '2.46 in' },
+                      { s: 24, cm: '6.40 cm', in: '2.51 in' },
+                      { s: 25, cm: '6.46 cm', in: '2.54 in' },
+                      { s: 26, cm: '6.59 cm', in: '2.59 in' },
+                      { s: 27, cm: '6.72 cm', in: '2.64 in' },
+                      { s: 28, cm: '6.78 cm', in: '2.66 in' }
+                    ].map((row, idx) => `
+                      <tr style="background: ${idx % 2 === 0 ? 'var(--cream)' : 'transparent'}; border-bottom: 1px solid var(--border);">
+                        <td style="padding: 5px; font-weight: 600; color: var(--gold-dark);">${row.s}</td>
+                        <td style="padding: 5px; color: var(--onyx);">${row.cm}</td>
+                        <td style="padding: 5px; color: var(--slate);">${row.in}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
 
-            <!-- Notes -->
-            <ul style="text-align: left; font-size: 11px; line-height: 1.5; color: var(--slate); padding-left: 18px; display: flex; flex-direction: column; gap: 4px; margin: 0;">
-              <li>Wrap a thin strip of thread/paper around your finger.</li>
-              <li>Mark the spot where both ends meet, measure this length using a ruler.</li>
-              <li>The length is the circumference of the ring, find the ring size corresponding to this circumference from the table.</li>
-              <li>If you do not want your ring to fit too snugly and would like to leave some room, buy a ring that is one size bigger.</li>
-            </ul>
+              <!-- Notes -->
+              <ul style="text-align: left; font-size: 11px; line-height: 1.5; color: var(--slate); padding-left: 18px; display: flex; flex-direction: column; gap: 4px; margin: 0;">
+                <li>Wrap a thin strip of thread/paper around your finger.</li>
+                <li>Mark the spot where both ends meet, measure this length using a ruler.</li>
+                <li>The length is the circumference of the ring, find the ring size corresponding to this circumference from the table.</li>
+                <li>If you do not want your ring to fit too snugly and would like to leave some room, buy a ring that is one size bigger.</li>
+              </ul>
+            </div>
           </div>
         </div>
       `;

@@ -54,28 +54,65 @@
 
   <!-- USP / Trust Bar -->
   <section class="trust-bar-section">
-    <div class="container trust-bar-container">
-      <div class="trust-item">
-        <i data-lucide="award" class="trust-icon"></i>
-        <span>Premium Gold-Plated</span>
+    <div class="trust-bar-wrapper">
+      <div class="trust-bar-track">
+        <div class="trust-item">
+          <i data-lucide="award" class="trust-icon"></i>
+          <span>Premium Gold-Plated</span>
+        </div>
+        <div class="trust-item">
+          <i data-lucide="shield-check" class="trust-icon"></i>
+          <span>Anti-Tarnish Warranty</span>
+        </div>
+        <div class="trust-item">
+          <i data-lucide="truck" class="trust-icon"></i>
+          <span>Australia Shipping</span>
+        </div>
+        <div class="trust-item">
+          <i data-lucide="refresh-cw" class="trust-icon"></i>
+          <span>Easy Returns</span>
+        </div>
+        <!-- Duplicate items for smooth continuous loop on mobile -->
+        <div class="trust-item trust-item-dup">
+          <i data-lucide="award" class="trust-icon"></i>
+          <span>Premium Gold-Plated</span>
+        </div>
+        <div class="trust-item trust-item-dup">
+          <i data-lucide="shield-check" class="trust-icon"></i>
+          <span>Anti-Tarnish Warranty</span>
+        </div>
+        <div class="trust-item trust-item-dup">
+          <i data-lucide="truck" class="trust-icon"></i>
+          <span>Australia Shipping</span>
+        </div>
+        <div class="trust-item trust-item-dup">
+          <i data-lucide="refresh-cw" class="trust-icon"></i>
+          <span>Easy Returns</span>
+        </div>
       </div>
-      <div class="trust-item">
-        <i data-lucide="shield-check" class="trust-icon"></i>
-        <span>Anti-Tarnish Warranty</span>
+    </div>
+  </section>
+
+  <!-- New Arrivals Section -->
+  <section class="section-padding new-arrivals-section" id="new-arrivals-section" style="background: var(--off-white); display: none;">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-subtitle" id="new-arrivals-subtitle">Just Dropped</p>
+        <h2 class="section-title" id="new-arrivals-title">New Arrivals</h2>
       </div>
-      <div class="trust-item">
-        <i data-lucide="truck" class="trust-icon"></i>
-        <span>Australia Shipping</span>
-      </div>
-      <div class="trust-item">
-        <i data-lucide="refresh-cw" class="trust-icon"></i>
-        <span>Easy Returns</span>
+      
+      <div class="bs-grid" id="home-newarrivals-grid"></div>
+      
+      <div style="text-align: center; margin-top: 48px;">
+        <a href="shop.html?sort=newest" class="btn-primary" style="padding: 12px 36px;">
+          VIEW NEW ARRIVALS <i data-lucide="arrow-right" style="width: 15px; height: 15px; vertical-align: middle; margin-left: 6px;"></i>
+        </a>
       </div>
     </div>
   </section>
 
   <!-- Shop By Category Section -->
-  <section class="section-padding" style="background: var(--cloud-white);">
+  <section class="section-padding shop-by-category-section" style="background: var(--cloud-white);">
     <div class="container">
       <div class="section-header">
         <p class="section-subtitle">Curated Catalogue</p>
@@ -86,14 +123,14 @@
   </section>
 
   <!-- Best Sellers Section -->
-  <section class="section-padding" style="background: var(--cream);">
+  <section class="section-padding bs-section" style="background: var(--cream);">
     <div class="container">
       <div class="section-header">
         <p class="section-subtitle">Most Treasured Pieces</p>
         <h2 class="section-title">Best Sellers</h2>
       </div>
       
-      <div class="products-grid" id="home-bestsellers-grid"></div>
+      <div class="bs-grid" id="home-bestsellers-grid"></div>
       
       <div style="text-align: center; margin-top: 48px;">
         <a href="shop.html" class="btn-primary" style="padding: 12px 36px;">
@@ -103,40 +140,32 @@
     </div>
   </section>
 
-  <!-- Featured Collection Section (Split Layout) -->
-  <section class="featured-collection-section">
-    <div class="featured-split-grid">
-      <div class="featured-split-img-box">
-        <img src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=1200&h=900&fit=crop" alt="The Riviera Collection" class="featured-split-img" loading="lazy">
-      </div>
-      <div class="featured-split-text-box">
-        <p class="section-subtitle" style="text-align: left;">Limited Release</p>
-        <h2 class="featured-split-title">Featured Collection</h2>
-        <p class="featured-split-desc">
-          Inspired by coastal light and organic geometry. Each piece features heavy 18k gold-plating, hand-finished borders, and brilliant anti-tarnish protective coatings crafted for effortlessness.
-        </p>
-        <a href="shop.html" class="btn-primary">
-          EXPLORE COLLECTION <i data-lucide="arrow-right" style="width: 14px; height: 14px; vertical-align: middle; margin-left: 6px;"></i>
-        </a>
-      </div>
-    </div>
-  </section>
 
-  <!-- Our Story Section (Alternating Split Layout) -->
-  <section class="about-story-section">
-    <div class="featured-split-grid story-alternating">
-      <div class="featured-split-text-box">
-        <p class="section-subtitle" style="text-align: left;">Sydney Atelier</p>
-        <h2 class="featured-split-title">Our Story</h2>
-        <p class="featured-split-desc">
-          Born in Sydney, Abel's By Lincy was founded on the philosophy that everyday jewellery should be both exceptionally beautiful and accessible. We design timeless gold-plated jewelry that highlights your style while guaranteeing waterproof, daily durability.
-        </p>
-        <a href="about.html" class="story-link-cta">
-          Our Story <i data-lucide="arrow-right" class="story-arrow"></i>
-        </a>
+  <!-- Follow @AbelsByLincy Section -->
+  <section class="section-padding-sm instagram-section" style="background: var(--off-white);">
+    <div class="container">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <p class="section-subtitle">Instagram Journey</p>
+        <h3 style="font-family: var(--font-serif); font-size: 26px; font-weight: 500;">FOLLOW @ABELSBYLINCY</h3>
       </div>
-      <div class="featured-split-img-box">
-        <img src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1200&h=900&fit=crop" alt="Our Studio Bench" class="featured-split-img" loading="lazy">
+
+      <!-- Third-party widget placeholder container -->
+      <div class="instagram-widget-wrapper" id="instagram-widget-container">
+        <!-- Dummy Content showing 6 lifestyle posts -->
+        <div class="insta-grid">
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop" alt="Jewellery style post" loading="lazy"></div>
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&h=400&fit=crop" alt="Ceylon Sapphire Gold Bracelet style post" loading="lazy"></div>
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&h=400&fit=crop" alt="Pearl Stacking style post" loading="lazy"></div>
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400&h=400&fit=crop" alt="Gold Rings Stack style post" loading="lazy"></div>
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1603561591411-07134e71a2a9?w=400&h=400&fit=crop" alt="Keepsake Gift packaging post" loading="lazy"></div>
+          <div class="insta-item"><img src="https://images.unsplash.com/photo-1611085583191-a3b181a88401?w=400&h=400&fit=crop" alt="Sidney Atelier gold bench post" loading="lazy"></div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 32px;">
+        <a href="https://www.instagram.com/abels_by_lincy/" target="_blank" rel="noopener" class="btn-secondary" style="padding: 10px 28px;">
+          FOLLOW US ON INSTAGRAM
+        </a>
       </div>
     </div>
   </section>
@@ -144,30 +173,68 @@
   <!-- Why Choose Us Section -->
   <section class="why-choose-section">
     <div class="container">
-      <div class="section-header">
+      <div class="section-header" style="margin-bottom: 70px;">
         <p class="section-subtitle">Exquisite Value</p>
         <h2 class="section-title">Why Choose Us</h2>
+        <p class="section-desc" style="max-width: 600px; margin: 12px auto 0; color: var(--slate); font-size: 15px; line-height: 1.6;">
+          We're committed to delivering more than just jewellery — <br>we deliver trust, care, and timeless elegance.
+        </p>
       </div>
       <div class="why-choose-grid">
+        <!-- Card 1 -->
         <div class="why-choose-card">
-          <div class="why-icon-circle"><i data-lucide="sparkles"></i></div>
+          <div class="why-icon-outer">
+            <div class="why-icon-inner">
+              <i data-lucide="sparkles"></i>
+            </div>
+          </div>
+          <div class="why-choose-line"></div>
           <h4>Gold-Plated</h4>
-          <p>Premium 18k gold layer over durable brass and silver, giving a rich, genuine gold look.</p>
+          <div class="why-title-divider"></div>
+          <p>Premium 18K gold plating over durable base metals for long-lasting brilliance.</p>
+          <div class="why-card-number">01</div>
         </div>
+
+        <!-- Card 2 -->
         <div class="why-choose-card">
-          <div class="why-icon-circle"><i data-lucide="droplet-off"></i></div>
+          <div class="why-icon-outer">
+            <div class="why-icon-inner">
+              <i data-lucide="droplet-off"></i>
+            </div>
+          </div>
+          <div class="why-choose-line"></div>
           <h4>Anti-Tarnish</h4>
-          <p>Special anti-tarnish protective sealing layers that repel water, sweat, and daily wear.</p>
+          <div class="why-title-divider"></div>
+          <p>Special anti-tarnish coating to keep your jewellery shiny, fresh, and worry-free.</p>
+          <div class="why-card-number">02</div>
         </div>
+
+        <!-- Card 3 -->
         <div class="why-choose-card">
-          <div class="why-icon-circle"><i data-lucide="award"></i></div>
+          <div class="why-icon-outer">
+            <div class="why-icon-inner">
+              <i data-lucide="award"></i>
+            </div>
+          </div>
+          <div class="why-choose-line"></div>
           <h4>Quality</h4>
-          <p>Carefully hand-polished and ethically crafted pieces verified for exceptional shine.</p>
+          <div class="why-title-divider"></div>
+          <p>Crafted by skilled artisans with strict quality checks at every step.</p>
+          <div class="why-card-number">03</div>
         </div>
+
+        <!-- Card 4 -->
         <div class="why-choose-card">
-          <div class="why-icon-circle"><i data-lucide="gift"></i></div>
+          <div class="why-icon-outer">
+            <div class="why-icon-inner">
+              <i data-lucide="gift"></i>
+            </div>
+          </div>
+          <div class="why-choose-line"></div>
           <h4>Carefully Packed</h4>
-          <p>Delivered in signature keepsake velvet pouches and luxury packaging, ready for gifting.</p>
+          <div class="why-title-divider"></div>
+          <p>Your jewellery is packed with love and care to ensure it reaches you safely.</p>
+          <div class="why-card-number">04</div>
         </div>
       </div>
     </div>
@@ -216,35 +283,6 @@
     </div>
   </section>
 
-  <!-- Follow @AbelsByLincy Section -->
-  <section class="section-padding-sm instagram-section" style="background: var(--cream);">
-    <div class="container">
-      <div style="text-align: center; margin-bottom: 24px;">
-        <p class="section-subtitle">Instagram Journey</p>
-        <h3 style="font-family: var(--font-serif); font-size: 26px; font-weight: 500;">FOLLOW @ABELSBYLINCY</h3>
-      </div>
-
-      <!-- Third-party widget placeholder container -->
-      <div class="instagram-widget-wrapper" id="instagram-widget-container">
-        <!-- Dummy Content showing 6 lifestyle posts -->
-        <div class="insta-grid">
-          <div class="insta-item"><img src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&h=400&fit=crop" alt="Jewellery style post" loading="lazy"></div>
-          <div class="insta-item"><img src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&h=400&fit=crop" alt="Ceylon Sapphire Gold Bracelet style post" loading="lazy"></div>
-          <div class="insta-item"><img src="https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&h=400&fit=crop" alt="Pearl Stacking style post" loading="lazy"></div>
-          <div class="insta-item"><img src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400&h=400&fit=crop" alt="Gold Rings Stack style post" loading="lazy"></div>
-          <div class="insta-item"><img src="https://images.unsplash.com/photo-1603561591411-07134e71a2a9?w=400&h=400&fit=crop" alt="Keepsake Gift packaging post" loading="lazy"></div>
-          <div class="insta-item"><img src="https://images.unsplash.com/photo-1611085583191-a3b181a88401?w=400&h=400&fit=crop" alt="Sidney Atelier gold bench post" loading="lazy"></div>
-        </div>
-      </div>
-
-      <div style="text-align: center; margin-top: 32px;">
-        <a href="https://www.instagram.com/abels_by_lincy/" target="_blank" rel="noopener" class="btn-secondary" style="padding: 10px 28px;">
-          FOLLOW US ON INSTAGRAM
-        </a>
-      </div>
-    </div>
-  </section>
-
 
 
   <!-- Shared Footer -->
@@ -254,19 +292,61 @@
   <script src="app.js?v=20260812-4"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Render Dynamic Categories
+      // Render Dynamic Categories (Rubans Inspiration Design)
       const catContainer = document.getElementById('home-categories-grid');
       if (catContainer) {
         catContainer.innerHTML = window.abl.state.categories.map(cat => `
           <div class="collection-card" onclick="window.location.href='shop.html?category=${cat.id}'">
             <img src="${cat.image}" alt="${cat.name}" loading="lazy">
             <div class="collection-overlay">
-              <span class="collection-count">${cat.count} Pieces</span>
-              <h3 class="collection-name">${cat.name}</h3>
-              <p class="collection-desc">${cat.description}</p>
+              <span class="collection-link-text">${cat.name} &rarr;</span>
             </div>
           </div>
         `).join('');
+      }
+
+      // Render New Arrivals
+      const cms = window.abl.state.cms;
+      const newArrivalsSection = document.getElementById('new-arrivals-section');
+      if (newArrivalsSection) {
+        if (cms.newArrivalsEnabled !== false) {
+          newArrivalsSection.style.display = 'block';
+
+          const subtitleEl = document.getElementById('new-arrivals-subtitle');
+          const titleEl = document.getElementById('new-arrivals-title');
+          if (subtitleEl) subtitleEl.textContent = cms.newArrivalsSubtitle || 'Just Dropped';
+          if (titleEl) titleEl.textContent = cms.newArrivalsTitle || 'New Arrivals';
+
+          const newContainer = document.getElementById('home-newarrivals-grid');
+          if (newContainer) {
+            const newProducts = window.abl.state.products.filter(p => p.badge === 'new').slice(0, 8);
+            newContainer.innerHTML = newProducts.map(p => `
+              <div class="bs-card" onclick="window.location.href='product.html?id=${p.id}'">
+                <div class="bs-card-img-wrap">
+                  <img src="${p.image}" alt="${p.name}" loading="lazy">
+                  ${p.badge ? `<span class="bs-badge badge-${p.badge}">${p.badge === 'new' ? 'New' : p.badge}</span>` : ''}
+                  <div class="bs-rating-overlay">
+                    <span class="bs-star-icon">★</span>
+                    <span class="bs-rating-val">${(p.rating || 0).toFixed(1)}</span>
+                  </div>
+                  <button class="wishlist-btn ${window.abl.state.wishlist.includes(p.id) ? 'active' : ''}" onclick="event.stopPropagation(); window.abl.toggleWishlist('${p.id}')">
+                    <i data-lucide="heart" style="${window.abl.state.wishlist.includes(p.id) ? 'fill: var(--danger);' : ''}"></i>
+                  </button>
+                </div>
+                <div class="bs-card-body">
+                  <h4 class="bs-product-name">${p.name}</h4>
+                  <p class="bs-product-price">${window.abl.formatMoney(p.price)}</p>
+                </div>
+                <button class="bs-add-to-cart-btn" onclick="event.stopPropagation(); window.abl.addToCart('${p.id}')">
+                  Add To Cart
+                </button>
+              </div>
+            `).join('');
+            if (window.lucide) window.lucide.createIcons();
+          }
+        } else {
+          newArrivalsSection.style.display = 'none';
+        }
       }
 
 
@@ -274,34 +354,42 @@
       // Render Best Sellers
       const bestContainer = document.getElementById('home-bestsellers-grid');
       if (bestContainer) {
-        const best = window.abl.state.products.filter(p => p.badge === 'bestseller' || p.badge === 'sale').slice(0, 4);
-        bestContainer.innerHTML = best.map(p => `
-          <div class="product-card" onclick="window.location.href='product.html?id=${p.id}'">
-            <div class="product-img-wrapper">
+        const best = window.abl.state.products.filter(p => p.badge === 'bestseller' || p.badge === 'sale').slice(0, 8);
+        bestContainer.innerHTML = best.map(p => {
+          const fullStars = Math.floor(p.rating || 0);
+          const hasHalf = (p.rating || 0) - fullStars >= 0.5;
+          const starsHtml = Array.from({length: 5}, (_, i) => {
+            if (i < fullStars) return `<i data-lucide="star" style="width:12px;height:12px;fill:var(--gold);color:var(--gold);"></i>`;
+            if (i === fullStars && hasHalf) return `<i data-lucide="star-half" style="width:12px;height:12px;fill:var(--gold);color:var(--gold);"></i>`;
+            return `<i data-lucide="star" style="width:12px;height:12px;color:var(--gold);opacity:0.35;"></i>`;
+          }).join('');
+          const badgeLabel = p.badge === 'bestseller' ? 'Best Seller' : p.badge === 'sale' ? 'On Sale' : p.badge;
+          return `
+          <div class="bs-card" onclick="window.location.href='product.html?id=${p.id}'">
+            <div class="bs-card-img-wrap">
               <img src="${p.image}" alt="${p.name}" loading="lazy">
-              ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ''}
+              ${p.badge ? `<span class="bs-badge badge-${p.badge}">${badgeLabel}</span>` : ''}
+              <div class="bs-rating-overlay">
+                <span class="bs-star-icon">★</span>
+                <span class="bs-rating-val">${(p.rating || 0).toFixed(1)}</span>
+              </div>
               <button class="wishlist-btn ${window.abl.state.wishlist.includes(p.id) ? 'active' : ''}" onclick="event.stopPropagation(); window.abl.toggleWishlist('${p.id}')">
                 <i data-lucide="heart" style="${window.abl.state.wishlist.includes(p.id) ? 'fill: var(--danger);' : ''}"></i>
               </button>
-              <div class="quick-add-bar">
-                <button class="quick-add-btn" onclick="event.stopPropagation(); window.abl.addToCart('${p.id}')">
-                  <i data-lucide="shopping-bag" style="width: 14px;"></i> Quick Add
-                </button>
-              </div>
             </div>
-            <div class="product-info">
-              <p class="product-category">${p.category}</p>
-              <h4 class="product-name">${p.name}</h4>
-              <div class="product-price-row">
-                <span class="current-price">${window.abl.formatMoney(p.price)}</span>
-              </div>
+            <div class="bs-card-body">
+              <h4 class="bs-product-name">${p.name}</h4>
+              <p class="bs-product-price">${window.abl.formatMoney(p.price)}</p>
             </div>
-          </div>
-        `).join('');
+            <button class="bs-add-to-cart-btn" onclick="event.stopPropagation(); window.abl.addToCart('${p.id}')">
+              Add To Cart
+            </button>
+          </div>`;
+        }).join('');
+        if (window.lucide) window.lucide.createIcons();
       }
 
       // Hero Slideshow Manager
-      const cms = window.abl.state.cms;
       const slides = cms.heroSlides || [];
       let currentSlideIdx = 0;
       let slideInterval = null;
@@ -434,6 +522,8 @@
       tIdx = (tIdx - 1 + testimonials.length) % testimonials.length;
       updateTestimonialView();
     }
+
   </script>
+
 </body>
 </html>

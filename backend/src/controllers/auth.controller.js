@@ -426,11 +426,30 @@ const googleLogin = async (req, res, next) => {
   }
 };
 
+/**
+ * Logout user by deleting their session from the database
+ */
+const logout = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (refreshToken) {
+      const refreshHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+      await db.query('DELETE FROM auth_sessions WHERE refresh_token_hash = ?', [refreshHash]);
+    }
+
+    res.status(200).json({ success: true, message: 'Logged out successfully.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   verifyEmail,
   login,
   forgotPassword,
   resetPassword,
-  googleLogin
+  googleLogin,
+  logout
 };

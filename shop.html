@@ -148,15 +148,34 @@
     }
 
     function renderFilters() {
-      // Category List (Reference Image 2)
-      const categories = ['all', 'rings', 'necklaces', 'earrings', 'bracelets'];
+      // Category List
+      const categories = [
+        { id: 'all', label: 'All Pieces' },
+        { id: 'new-arrivals', label: 'New Arrivals' },
+        { id: 'best-sellers', label: 'Best Sellers' },
+        { id: 'necklaces', label: 'Necklaces' },
+        { id: 'bangles', label: 'Bangles' },
+        { id: 'rings', label: 'Rings' },
+        { id: 'bracelets', label: 'Bracelets' },
+        { id: 'earrings', label: 'Earrings' },
+        { id: 'charms', label: 'Charms' },
+        { id: 'silver-collections', label: 'Silver Collections' },
+        { id: 'seasonal-collections', label: 'Seasonal Collections' }
+      ];
       const catListEl = document.getElementById('category-filter-list');
       if (catListEl) {
-        catListEl.innerHTML = categories.map(cat => {
-          const count = cat === 'all' ? window.abl.state.products.length : window.abl.state.products.filter(p => p.category.toLowerCase() === cat).length;
+        catListEl.innerHTML = categories.map(catItem => {
+          const cat = catItem.id;
+          const count = cat === 'all' 
+            ? window.abl.state.products.length 
+            : cat === 'new-arrivals' 
+              ? window.abl.state.products.filter(p => p.badge === 'new').length 
+              : cat === 'best-sellers'
+                ? window.abl.state.products.filter(p => p.badge === 'bestseller').length
+                : window.abl.state.products.filter(p => p.category.toLowerCase() === cat).length;
           return `
             <li class="filter-option ${activeCategory === cat ? 'active' : ''}" onclick="setCategory('${cat}')">
-              <span style="text-transform: capitalize;">${cat}</span>
+              <span>${catItem.label}</span>
               <span style="font-weight: 600; color: ${activeCategory === cat ? 'var(--gold)' : 'var(--slate)'};">${count}</span>
             </li>
           `;
@@ -369,7 +388,13 @@
 
     function renderShopProducts() {
       let filtered = window.abl.state.products.filter(p => {
-        if (activeCategory !== 'all' && p.category.toLowerCase() !== activeCategory) return false;
+        if (activeCategory === 'new-arrivals' || activeCategory === 'new') {
+          if (p.badge !== 'new') return false;
+        } else if (activeCategory === 'best-sellers' || activeCategory === 'bestseller' || activeCategory === 'bestsellers') {
+          if (p.badge !== 'bestseller') return false;
+        } else if (activeCategory !== 'all' && p.category.toLowerCase() !== activeCategory) {
+          return false;
+        }
         if (selectedMaterials.length > 0 && !selectedMaterials.some(m => p.material.toLowerCase().includes(m.toLowerCase()))) return false;
         if (selectedGemstones.length > 0 && !selectedGemstones.includes(p.gemstone)) return false;
         if (p.price > maxPrice) return false;

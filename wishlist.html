@@ -10,6 +10,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+  <script>
+    (function() {
+      try {
+        var userStr = localStorage.getItem('abl_current_user');
+        if (!userStr || userStr === 'null' || userStr === 'undefined') {
+          window.location.replace('account.html');
+        }
+      } catch(e) {}
+    })();
+  </script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="styles.css?v=20260812-4">
 </head>

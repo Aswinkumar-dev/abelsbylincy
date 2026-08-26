@@ -10,6 +10,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+  <script>
+    (function() {
+      try {
+        var userStr = localStorage.getItem('abl_current_user');
+        if (!userStr || userStr === 'null' || userStr === 'undefined') {
+          window.location.replace('account.html');
+        }
+      } catch(e) {}
+    })();
+  </script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="styles.css?v=20260812-4">
 </head>
@@ -64,13 +74,8 @@
       }
 
       const discountedSubtotal = Math.max(0, subtotal - discount);
-      const freeShippingThreshold = window.abl.state.settings.freeShippingThreshold || 150;
-      let shipping = discountedSubtotal >= freeShippingThreshold ? 0 : 9.95;
-      if (appliedCoupon && appliedCoupon.discountType === 'shipping') shipping = 0;
-
-      const total = discountedSubtotal + shipping;
-      const freeShippingRemaining = Math.max(0, freeShippingThreshold - subtotal);
-      const progressPercent = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100));
+      let shipping = 0;
+      const total = discountedSubtotal;
 
       container.innerHTML = `
         <div class="page-hero">
@@ -165,14 +170,17 @@
                 ` : ''}
 
                 <div class="summary-row">
-                  <span>Estimated Shipping</span>
-                  <span>${shipping === 0 ? '<strong style="color: var(--success);">FREE</strong>' : window.abl.formatMoney(shipping)}</span>
+                  <span>Express Shipping</span>
+                  <span style="color: var(--success); font-weight: 600;">FREE (Included)</span>
                 </div>
 
                 <div class="summary-row summary-total">
                   <span>Total (${window.abl.state.settings.primaryCurrency})</span>
                   <span>${window.abl.formatMoney(total)}</span>
                 </div>
+                <p style="font-size: 11px; color: var(--slate); font-style: italic; margin-top: 8px; text-align: center;">
+                  * All product prices are inclusive of GST & Express Shipping. No extra fees.
+                </p>
 
                 <a href="checkout.html" class="btn-primary" style="width: 100%; margin-top: 24px; padding: 18px; text-align: center;">
                   Proceed to Secure Checkout <i data-lucide="lock" style="width: 16px; height: 16px;"></i>

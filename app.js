@@ -260,16 +260,266 @@
         'IGI Certificate of Diamond Grading included'
       ],
       sizes: ['16cm', '18cm', '20cm']
+    },
+    {
+      id: 'p9',
+      name: 'Bloom Rose Quartz Pendant Necklace',
+      price: 175,
+      originalPrice: 220,
+      category: 'necklaces',
+      material: 'Sterling Silver',
+      gemstone: 'Rose Quartz',
+      image: 'https://images.unsplash.com/photo-1506630448388-4e683c67ddb0?auto=format&fit=crop&w=800&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1506630448388-4e683c67ddb0?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1611085583191-a3b181a88401?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=800&q=80'
+      ],
+      rating: 4.6,
+      reviews: 34,
+      badge: 'new',
+      inStock: true,
+      stockQty: 10,
+      sku: 'ABL-N003',
+      description: 'A blush-pink rose quartz teardrop pendant set in sterling silver, perfect for everyday romance.',
+      details: [
+        'Sterling Silver 925 with Gold-Dipped Bail',
+        'Natural Rose Quartz teardrop cabochon (12mm)',
+        '45cm fine rolo chain included',
+        'Hypoallergenic & nickel-free',
+        'Luxury gift box included'
+      ],
+      sizes: ['40cm', '45cm', '50cm']
+    },
+    {
+      id: 'p10',
+      name: 'Lumina Moonstone Stud Earrings',
+      price: 135,
+      originalPrice: 170,
+      category: 'earrings',
+      material: 'Sterling Silver',
+      gemstone: 'Moonstone',
+      image: 'https://images.unsplash.com/photo-1588444837495-c6cfeb53f32d?auto=format&fit=crop&w=800&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1588444837495-c6cfeb53f32d?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1635767798638-3e25273a8236?auto=format&fit=crop&w=800&q=80'
+      ],
+      rating: 4.8,
+      reviews: 52,
+      badge: 'new',
+      inStock: true,
+      stockQty: 15,
+      sku: 'ABL-E003',
+      description: 'Adularescent moonstone studs in rhodium-plated sterling silver bezels — ethereal and elegant.',
+      details: [
+        'Sterling Silver 925 Rhodium-Plated Bezel',
+        'Natural Rainbow Moonstone (8mm round)',
+        'Push-back butterfly closure',
+        'Hypoallergenic & nickel-free',
+        'Anti-tarnish pouch included'
+      ],
+      sizes: ['Standard Stud']
+    },
+    {
+      id: 'p11',
+      name: 'Serenity Amethyst Bangle',
+      price: 210,
+      originalPrice: 265,
+      category: 'bangles',
+      material: '18k Gold',
+      gemstone: 'Amethyst',
+      image: 'https://images.unsplash.com/photo-1602751584552-8ba73aad10e1?auto=format&fit=crop&w=800&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1602751584552-8ba73aad10e1?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1598560917807-1bae44bd2be8?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80'
+      ],
+      rating: 4.7,
+      reviews: 28,
+      badge: 'new',
+      inStock: true,
+      stockQty: 9,
+      sku: 'ABL-BG001',
+      description: 'An open-ended bangle set with natural amethyst stones in 18k gold-plated sterling silver.',
+      details: [
+        '18k Gold-Plated Sterling Silver 925',
+        'Natural Amethyst Accent Stones',
+        'Open-ended adjustable bangle (fits most wrists)',
+        'Anti-tarnish treatment',
+        'Velvet pouch included'
+      ],
+      sizes: ['One Size']
+    },
+    {
+      id: 'p12',
+      name: 'Cascade Labradorite Charm Anklet',
+      price: 98,
+      originalPrice: 125,
+      category: 'anklets',
+      material: 'Sterling Silver',
+      gemstone: 'Labradorite',
+      image: 'https://images.unsplash.com/photo-1543294001-f7cbfe92237e?auto=format&fit=crop&w=800&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1543294001-f7cbfe92237e?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1602751584552-8ba73aad10e1?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=800&q=80'
+      ],
+      rating: 4.5,
+      reviews: 19,
+      badge: 'new',
+      inStock: true,
+      stockQty: 20,
+      sku: 'ABL-AK001',
+      description: 'A delicate sterling silver anklet featuring labradorite charm drops that catch the light beautifully.',
+      details: [
+        'Sterling Silver 925',
+        'Natural Labradorite Charm Drops',
+        '23cm + 5cm extender chain',
+        'Lobster clasp closure',
+        'Waterproof & anti-tarnish'
+      ],
+      sizes: ['One Size']
+    },
+    {
+      id: 'p13',
+      name: 'Celestial Star Gold Charm Pendant',
+      price: 148,
+      originalPrice: 185,
+      category: 'charms',
+      material: '18k Gold',
+      gemstone: 'None',
+      image: 'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?auto=format&fit=crop&w=800&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1611085583191-a3b181a88401?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=800&q=80'
+      ],
+      rating: 4.9,
+      reviews: 41,
+      badge: 'new',
+      inStock: true,
+      stockQty: 18,
+      sku: 'ABL-CH001',
+      description: 'A hand-polished 18k gold star charm — perfect for adding to your favourite chain or bracelet.',
+      details: [
+        '18k Solid Yellow Gold',
+        'Hand-polished celestial star motif',
+        'Compatible with all standard charm bracelets',
+        'Artisan hallmarks',
+        'Luxury gift-ready pouch'
+      ],
+      sizes: ['One Size']
+    },
+    {
+      id: 'p14',
+      name: 'Petal Garnet Gold Ring',
+      price: 255,
+      originalPrice: 310,
+      category: 'rings',
+      material: '18k Gold',
+      gemstone: 'Garnet',
+      image: 'https://images.unsplash.com/photo-1598560917505-59a3ad559071?auto=format&fit=crop&w=800&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1598560917505-59a3ad559071?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=800&q=80'
+      ],
+      rating: 4.7,
+      reviews: 22,
+      badge: 'new',
+      inStock: true,
+      stockQty: 7,
+      sku: 'ABL-R003',
+      description: 'A deep-red garnet set in a floral petal 18k gold setting — bold, romantic, and utterly unique.',
+      details: [
+        '18k Solid Yellow Gold Petal Setting',
+        'Natural Deep Red Garnet (1.5ct)',
+        'Anti-tarnish gold plating',
+        'Sizes 5 through 10',
+        'Certificate of Gemological Origin'
+      ],
+      sizes: ['5', '6', '7', '8', '9', '10']
+    },
+    {
+      id: 'p15',
+      name: 'Mist Aquamarine Layering Necklace',
+      price: 325,
+      originalPrice: 395,
+      category: 'necklaces',
+      material: '18k White Gold',
+      gemstone: 'Aquamarine',
+      image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=800&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1506630448388-4e683c67ddb0?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1611085583191-a3b181a88401?auto=format&fit=crop&w=800&q=80'
+      ],
+      rating: 4.8,
+      reviews: 17,
+      badge: 'new',
+      inStock: true,
+      stockQty: 11,
+      sku: 'ABL-N004',
+      description: 'A sky-blue aquamarine suspended on a fine 18k white gold chain — ethereal and layering-friendly.',
+      details: [
+        '18k Solid White Gold',
+        'Natural Aquamarine Briolette Drop (2.0ct)',
+        '40cm + 5cm extender chain',
+        'Secure spring ring clasp',
+        'Certificate of Authenticity'
+      ],
+      sizes: ['40cm', '45cm', '50cm']
+    },
+    {
+      id: 'p16',
+      name: 'Veil Pearl & Gold Ear Cuff',
+      price: 88,
+      originalPrice: 115,
+      category: 'earrings',
+      material: '18k Gold',
+      gemstone: 'Pearl',
+      image: 'https://images.unsplash.com/photo-1635767798638-3e25273a8236?auto=format&fit=crop&w=800&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1635767798638-3e25273a8236?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1588444837495-c6cfeb53f32d?auto=format&fit=crop&w=800&q=80'
+      ],
+      rating: 4.6,
+      reviews: 33,
+      badge: 'new',
+      inStock: true,
+      stockQty: 25,
+      sku: 'ABL-E004',
+      description: 'A no-pierce ear cuff featuring a single freshwater pearl accent in 18k gold — minimal and modern.',
+      details: [
+        '18k Gold-Plated Sterling Silver',
+        'Single AAA Freshwater Pearl Accent (6mm)',
+        'No-pierce adjustable cuff — fits all ear sizes',
+        'Hypoallergenic & nickel-free',
+        'Luxury velvet pouch included'
+      ],
+      sizes: ['One Size']
     }
   ];
 
   const DEFAULT_CATEGORIES = [
-    { id: 'earrings', name: 'Earrings', description: 'Studs, hoops, and drops — anti-tarnish gold-plated for everyday wear.', image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&h=600&fit=crop', count: 31 },
-    { id: 'bangles', name: 'Bangles', description: 'Classic and contemporary bangles that never fade or tarnish.', image: 'https://images.unsplash.com/photo-1602751584552-8ba73aad10e1?w=800&h=600&fit=crop', count: 16 },
-    { id: 'rings', name: 'Rings', description: 'Stackable, statement, and everyday rings in anti-tarnish gold plating.', image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=800&h=600&fit=crop', count: 24 },
-    { id: 'bracelets', name: 'Bracelets', description: 'Layering bracelets and chains crafted to last without tarnishing.', image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=800&h=600&fit=crop', count: 15 },
-    { id: 'necklaces', name: 'Necklaces', description: 'Pendant necklaces and chains in durable anti-tarnish gold plating.', image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800&h=600&fit=crop', count: 18 },
-    { id: 'charms', name: 'Charms', description: 'Curated charm collections to personalise your look every day.', image: 'https://images.unsplash.com/photo-1630019852942-f89202989a59?w=800&h=600&fit=crop', count: 12 }
+    { id: 'necklaces', name: 'Necklaces', description: 'Pendant necklaces and chains in durable anti-tarnish gold plating.', image: 'assets/necklace collection category.png', count: 18 },
+    { id: 'bangles', name: 'Bangles', description: 'Classic and contemporary bangles that never fade or tarnish.', image: 'assets/Bangle Category.png', count: 16 },
+    { id: 'rings', name: 'Rings', description: 'Stackable, statement, and everyday rings in anti-tarnish gold plating.', image: 'assets/Ring Category.png', count: 24 },
+    { id: 'bracelets', name: 'Bracelets', description: 'Layering bracelets and chains crafted to last without tarnishing.', image: 'assets/Bracelet - category.png', count: 15 },
+    { id: 'earrings', name: 'Earrings', description: 'Studs, hoops, and drops — anti-tarnish gold-plated for everyday wear.', image: 'assets/Earrings Category.png', count: 31 },
+    { id: 'charms', name: 'Charms', description: 'Curated charm collections to personalise your look every day.', image: 'assets/charm collection category.png', count: 12 },
+    { id: 'silver-collections', name: 'Silver Collections', description: 'Pure 925 sterling silver and silver-plated jewellery designed for timeless elegance.', image: 'assets/silver collection category.png', count: 20 },
+    { id: 'seasonal-collections', name: 'Seasonal Collections', description: 'Limited-edition festive and seasonal jewellery collections.', image: 'assets/Sesonal collections category.png', count: 14 }
   ];
 
   const DEFAULT_ORDERS = [
@@ -324,6 +574,11 @@
     heroStats1: '111+ Unique Designs',
     heroStats2: 'Ethically Crafted',
     heroStats3: '10k+ Happy Clients',
+    newArrivalsEnabled: true,
+    newArrivalsSubtitle: 'Just Dropped',
+    newArrivalsTitle: 'New Arrivals',
+    newArrivalsLimit: 10,
+    newArrivalsVisible: 5,
     heroSlides: [
       {
         id: 'slide-1',
@@ -378,14 +633,25 @@
     }
   }
 
+
   function loadProducts() {
     const local = loadLocal('abl_products', null);
     if (!local || !Array.isArray(local) || local.length === 0) {
       saveLocal('abl_products', DEFAULT_PRODUCTS);
       return DEFAULT_PRODUCTS;
     }
-    // Clean any broken fallback URLs in product list
+    // If the stored list is missing new default products (e.g. stale cache), merge them in
+    let updated = false;
+    DEFAULT_PRODUCTS.forEach(defP => {
+      if (!local.some(p => p.id === defP.id)) {
+        local.push(defP);
+        updated = true;
+      }
+    });
+    // Set default reviews count and rating to 0 for all products
     local.forEach(p => {
+      p.reviews = 0;
+      p.rating = 0;
       if (p.image && p.image.includes('1573408301185-9519f94815b5')) {
         p.image = 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&w=800&q=80';
       }
@@ -393,28 +659,46 @@
         p.images = p.images.map(img => img.includes('1573408301185-9519f94815b5') ? 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&w=800&q=80' : img);
       }
     });
+    saveLocal('abl_products', local);
     return local;
   }
 
+
   function loadCategories() {
-    const local = loadLocal('abl_categories', DEFAULT_CATEGORIES);
-    // Reset if old category structure detected (missing bangles or charms)
-    const hasNewCategories = Array.isArray(local) &&
-      local.some(c => c.id === 'bangles' || c.id === 'charms');
-    if (!hasNewCategories) {
+    let local = loadLocal('abl_categories', DEFAULT_CATEGORIES);
+    // Reset to DEFAULT_CATEGORIES if old order or old anklets/pendants categories are present
+    const isOldOrder = !Array.isArray(local) || local.length === 0 || local[0].id !== 'necklaces' || local.some(c => c.id === 'anklets' || c.id === 'pendants');
+    if (isOldOrder) {
       saveLocal('abl_categories', DEFAULT_CATEGORIES);
       return DEFAULT_CATEGORIES;
     }
-    if (Array.isArray(local)) {
-      local.forEach(cat => {
-        if (!cat.image || cat.image.includes('1573408301185-9519f94815b5')) {
-          cat.image = 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=800&h=600&fit=crop';
-        }
-      });
+    let updated = false;
+    DEFAULT_CATEGORIES.forEach(defCat => {
+      if (!local.some(c => c.id === defCat.id)) {
+        local.push(defCat);
+        updated = true;
+      }
+    });
+    const categoryImageMap = {
+      earrings: 'assets/Earrings Category.png',
+      bangles: 'assets/Bangle Category.png',
+      rings: 'assets/Ring Category.png',
+      bracelets: 'assets/Bracelet - category.png',
+      necklaces: 'assets/necklace collection category.png',
+      charms: 'assets/charm collection category.png',
+      'silver-collections': 'assets/silver collection category.png',
+      'seasonal-collections': 'assets/Sesonal collections category.png'
+    };
+    local.forEach(cat => {
+      if (categoryImageMap[cat.id] && cat.image !== categoryImageMap[cat.id]) {
+        cat.image = categoryImageMap[cat.id];
+        updated = true;
+      }
+    });
+    if (updated) {
       saveLocal('abl_categories', local);
-      return local;
     }
-    return DEFAULT_CATEGORIES;
+    return local;
   }
 
   function loadRoles() {
@@ -434,12 +718,24 @@
 
   function loadCMS() {
     const local = loadLocal('abl_cms', DEFAULT_CMS);
+    let updated = false;
+    if (local && typeof local === 'object') {
+      for (const key in DEFAULT_CMS) {
+        if (local[key] === undefined) {
+          local[key] = DEFAULT_CMS[key];
+          updated = true;
+        }
+      }
+    }
     const hasOldData = local && local.heroSlides && (!local.heroSlides[0] || local.heroSlides[0].image !== 'assets/bracelets.webp');
     if (hasOldData || !local || !local.heroSlides || !Array.isArray(local.heroSlides) || local.heroSlides.length === 0) {
-      const updated = local || {};
-      updated.heroSlides = DEFAULT_CMS.heroSlides;
-      saveLocal('abl_cms', updated);
-      return updated;
+      const res = local || {};
+      res.heroSlides = DEFAULT_CMS.heroSlides;
+      saveLocal('abl_cms', res);
+      return res;
+    }
+    if (updated) {
+      saveLocal('abl_cms', local);
     }
     return local;
   }
@@ -470,8 +766,8 @@
     roles: loadRoles(),
     settings: loadLocal('abl_settings', DEFAULT_SETTINGS),
     cms: loadCMS(),
-    cart: loadLocal('abl_cart', []),
-    wishlist: loadLocal('abl_wishlist', ['p1', 'p2']),
+    cart: loadLocal('abl_current_user', null) ? loadLocal('abl_cart', []) : [],
+    wishlist: loadLocal('abl_current_user', null) ? loadLocal('abl_wishlist', []) : [],
     currentUser: loadLocal('abl_current_user', null), // null if guest
     adminLoggedIn: loadLocal('abl_admin_auth', false),
     adminUser: loadLocal('abl_admin_user', null),
@@ -578,12 +874,16 @@
                   Shop <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
                 </a>
                 <div class="nav-dropdown">
-                  <a href="shop.html?category=earrings" class="dropdown-link">Earrings</a>
+                  <a href="shop.html?category=new-arrivals" class="dropdown-link">New Arrivals</a>
+                  <a href="shop.html?category=best-sellers" class="dropdown-link">Best Sellers</a>
+                  <a href="shop.html?category=necklaces" class="dropdown-link">Necklaces</a>
                   <a href="shop.html?category=bangles" class="dropdown-link">Bangles</a>
                   <a href="shop.html?category=rings" class="dropdown-link">Rings</a>
                   <a href="shop.html?category=bracelets" class="dropdown-link">Bracelets</a>
-                  <a href="shop.html?category=necklaces" class="dropdown-link">Necklaces</a>
+                  <a href="shop.html?category=earrings" class="dropdown-link">Earrings</a>
                   <a href="shop.html?category=charms" class="dropdown-link">Charms</a>
+                  <a href="shop.html?category=silver-collections" class="dropdown-link">Silver Collections</a>
+                  <a href="shop.html?category=seasonal-collections" class="dropdown-link">Seasonal Collections</a>
                 </div>
               </div>
 
@@ -606,16 +906,35 @@
                 <i data-lucide="search"></i>
               </button>
 
-              <a href="wishlist.html" class="action-btn" title="Wishlist">
+              <a href="wishlist.html" class="action-btn" title="Wishlist" onclick="window.abl.handleWishlistNavigation(event)">
                 <i data-lucide="heart"></i>
                 ${wishlistCount > 0 ? `<span class="badge-count">${wishlistCount}</span>` : ''}
               </a>
 
-              <a href="account.html" class="action-btn" title="My Account / Sign In">
-                <i data-lucide="user"></i>
-              </a>
+              <div class="user-menu-wrapper" style="position: relative; display: inline-block;">
+                <a href="account.html" class="action-btn" title="My Account / Sign In">
+                  <i data-lucide="user"></i>
+                </a>
+                ${state.currentUser ? `
+                  <div class="login-alert-tooltip logged-in-dropdown">
+                    <div class="dropdown-user-info">
+                      <span class="user-name">Hi, ${state.currentUser.name.split(' ')[0]}</span>
+                    </div>
+                    <a href="account.html" class="dropdown-item">
+                      <i data-lucide="layout-dashboard" style="width: 14px; height: 14px; margin-right: 8px;"></i> My Account
+                    </a>
+                    <a href="#" onclick="event.preventDefault(); window.abl.logoutUser();" class="dropdown-item logout-link" style="color: var(--danger) !important;">
+                      <i data-lucide="log-out" style="width: 14px; height: 14px; margin-right: 8px;"></i> Sign Out
+                    </a>
+                  </div>
+                ` : `
+                  <div class="login-alert-tooltip">
+                    <a href="account.html" class="tooltip-login-btn">Login</a>
+                  </div>
+                `}
+              </div>
 
-              <a href="cart.html" class="action-btn" title="Shopping Bag">
+              <a href="cart.html" class="action-btn" title="Shopping Bag" onclick="window.abl.handleCartNavigation(event)">
                 <i data-lucide="shopping-bag"></i>
                 ${cartCount > 0 ? `<span class="badge-count">${cartCount}</span>` : ''}
               </a>
@@ -636,20 +955,39 @@
         <div id="mobile-drawer" style="display: none; background: var(--cloud-white); border-top: 1px solid var(--border); padding: 20px 24px;">
           <div style="display: flex; flex-direction: column; gap: 16px;">
             ${activeNav !== 'home' ? '<a href="index.html" style="font-weight: 600; font-size: 16px;">Home</a>' : ''}
-            <a href="shop.html" style="font-weight: 600; font-size: 16px;">Shop All Jewellery</a>
-            <div style="padding-left: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; color: var(--slate);">
-              <a href="shop.html?category=earrings">• Earrings</a>
-              <a href="shop.html?category=bangles">• Bangles</a>
-              <a href="shop.html?category=rings">• Rings</a>
-              <a href="shop.html?category=bracelets">• Bracelets</a>
-              <a href="shop.html?category=necklaces">• Necklaces</a>
-              <a href="shop.html?category=charms">• Charms</a>
+            
+            <div class="mobile-nav-accordion">
+              <button type="button" class="mobile-accordion-toggle" onclick="window.abl.toggleMobileCategoryAccordion(this)">
+                <span>Shop By Category</span>
+                <span class="acc-chevron">▼</span>
+              </button>
+              <div class="mobile-accordion-content" id="mobile-cat-accordion" style="display: none;">
+                <a href="shop.html?category=new-arrivals" class="mobile-cat-link">New Arrivals</a>
+                <a href="shop.html?category=best-sellers" class="mobile-cat-link">Best Sellers</a>
+                <a href="shop.html?category=necklaces" class="mobile-cat-link">Necklaces</a>
+                <a href="shop.html?category=bangles" class="mobile-cat-link">Bangles</a>
+                <a href="shop.html?category=rings" class="mobile-cat-link">Rings</a>
+                <a href="shop.html?category=bracelets" class="mobile-cat-link">Bracelets</a>
+                <a href="shop.html?category=earrings" class="mobile-cat-link">Earrings</a>
+                <a href="shop.html?category=charms" class="mobile-cat-link">Charms</a>
+                <a href="shop.html?category=silver-collections" class="mobile-cat-link">Silver Collections</a>
+                <a href="shop.html?category=seasonal-collections" class="mobile-cat-link">Seasonal Collections</a>
+              </div>
             </div>
+
             <a href="shop.html" style="font-weight: 600; font-size: 16px;">Collections</a>
             <a href="about.html" style="font-weight: 600; font-size: 16px;">About Us</a>
             <a href="contact.html" style="font-weight: 600; font-size: 16px;">Contact</a>
-            <a href="wishlist.html" style="font-weight: 600; font-size: 16px; border-top: 1px solid var(--border); padding-top: 14px;">My Wishlist</a>
-            <a href="account.html" style="font-weight: 600; font-size: 16px; margin-top: -6px;">My Account</a>
+            <a href="wishlist.html" onclick="window.abl.handleWishlistNavigation(event)" style="font-weight: 600; font-size: 16px; border-top: 1px solid var(--border); padding-top: 14px;">My Wishlist</a>
+            <a href="cart.html" onclick="window.abl.handleCartNavigation(event)" style="font-weight: 600; font-size: 16px; margin-top: -6px;">My Cart</a>
+            <a href="account.html" style="font-weight: 600; font-size: 16px; margin-top: -6px;">
+              My Account ${!state.currentUser ? '<span style="font-size: 11px; color: var(--gold-dark); margin-left: 8px;">(Login)</span>' : ''}
+            </a>
+            ${state.currentUser ? `
+              <a href="#" onclick="event.preventDefault(); window.abl.logoutUser();" style="font-weight: 600; font-size: 16px; color: var(--danger); margin-top: -6px;">
+                Sign Out
+              </a>
+            ` : ''}
           </div>
         </div>
       </header>
@@ -836,6 +1174,37 @@
       }
     },
 
+    handleCartNavigation: (e) => {
+      if (!state.currentUser) {
+        if (e && e.preventDefault) e.preventDefault();
+        window.location.href = 'account.html';
+      } else {
+        if (e && e.preventDefault) e.preventDefault();
+        window.location.href = 'cart.html';
+      }
+    },
+
+    handleWishlistNavigation: (e) => {
+      if (!state.currentUser) {
+        if (e && e.preventDefault) e.preventDefault();
+        window.location.href = 'account.html';
+      } else {
+        if (e && e.preventDefault) e.preventDefault();
+        window.location.href = 'wishlist.html';
+      }
+    },
+
+    toggleMobileCategoryAccordion: (btn) => {
+      const content = document.getElementById('mobile-cat-accordion');
+      if (content) {
+        const isHidden = content.style.display === 'none' || content.style.display === '';
+        content.style.display = isHidden ? 'flex' : 'none';
+        if (btn) {
+          btn.classList.toggle('active', isHidden);
+        }
+      }
+    },
+
     handleSearch: (val) => {
       const box = document.getElementById('search-results-box');
       if (!box) return;
@@ -868,6 +1237,10 @@
 
     // Cart Operations
     addToCart: (productId, quantity = 1, size = null) => {
+      if (!state.currentUser) {
+        window.location.href = 'account.html';
+        return;
+      }
       const product = state.products.find(p => p.id === productId);
       if (!product) return;
       const selectedSize = size || (product.sizes ? product.sizes[0] : 'Standard');
@@ -919,6 +1292,10 @@
 
     // Wishlist
     toggleWishlist: (productId) => {
+      if (!state.currentUser) {
+        window.location.href = 'account.html';
+        return;
+      }
       if (state.wishlist.includes(productId)) {
         state.wishlist = state.wishlist.filter(id => id !== productId);
         showToast('Removed from wishlist');
@@ -979,8 +1356,27 @@
     },
 
     logoutUser: () => {
+      const refreshToken = localStorage.getItem('abl_refresh_token');
+
+      // Clear local state and localStorage
       state.currentUser = null;
       saveLocal('abl_current_user', null);
+      saveLocal('abl_cart', []);
+      saveLocal('abl_wishlist', []);
+      localStorage.removeItem('abl_refresh_token');
+      localStorage.removeItem('abl_access_token');
+
+      // Optional: notify backend to invalidate session
+      if (refreshToken) {
+        fetch('http://localhost:5000/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ refreshToken })
+        }).catch(err => console.error('Failed to notify backend of logout:', err));
+      }
+
       showToast('Signed out');
       window.location.href = 'account.html';
     },
@@ -1071,6 +1467,14 @@
 
   // Render shared header/footer if elements exist on the page
   document.addEventListener('DOMContentLoaded', () => {
+    const user = state.currentUser;
+    const path = window.location.pathname.toLowerCase();
+    const isRestrictedPage = path.includes('cart.html') || path.includes('wishlist.html') || path.includes('checkout.html');
+    if (!user && isRestrictedPage) {
+      window.location.href = 'account.html';
+      return;
+    }
+
     const headerContainer = document.getElementById('header-root');
     const footerContainer = document.getElementById('footer-root');
     const activeNav = document.body.dataset.page || '';

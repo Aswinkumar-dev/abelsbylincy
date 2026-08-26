@@ -751,7 +751,31 @@
                   <label class="form-label">Top Ribbon Announcement Bar (Separate phrases with · for scrolling ticker)</label>
                   <input type="text" class="form-control" name="announcement" value="${window.abl.state.cms.announcement || ''}">
                 </div>
-                <button type="submit" class="btn-primary" style="padding: 10px 20px; font-size: 12px;">Update Announcement</button>
+                
+                <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin: 24px 0 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">New Arrivals Section Configuration</h3>
+                
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                  <input type="checkbox" id="newArrivalsEnabled" name="newArrivalsEnabled" ${window.abl.state.cms.newArrivalsEnabled !== false ? 'checked' : ''} style="width: 16px; height: 16px;">
+                  <label for="newArrivalsEnabled" class="form-label" style="margin: 0; cursor: pointer;">Enable New Arrivals Section on Homepage</label>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                  <div class="form-group">
+                    <label class="form-label">Section Subtitle</label>
+                    <input type="text" class="form-control" name="newArrivalsSubtitle" value="${window.abl.state.cms.newArrivalsSubtitle || 'Just Dropped'}">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Section Title</label>
+                    <input type="text" class="form-control" name="newArrivalsTitle" value="${window.abl.state.cms.newArrivalsTitle || 'New Arrivals'}">
+                  </div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                  <label class="form-label">Maximum Products Limit (Max: 10)</label>
+                  <input type="number" class="form-control" name="newArrivalsLimit" min="1" max="10" value="${window.abl.state.cms.newArrivalsLimit || 10}">
+                </div>
+
+                <button type="submit" class="btn-primary" style="padding: 10px 20px; font-size: 12px;">Update CMS Settings</button>
               </form>
             </div>
 
@@ -2211,8 +2235,13 @@
 
     window.saveGlobalCMS = function(form) {
       window.abl.state.cms.announcement = form.announcement.value;
+      window.abl.state.cms.newArrivalsEnabled = form.newArrivalsEnabled.checked;
+      window.abl.state.cms.newArrivalsSubtitle = form.newArrivalsSubtitle.value.trim();
+      window.abl.state.cms.newArrivalsTitle = form.newArrivalsTitle.value.trim();
+      window.abl.state.cms.newArrivalsLimit = parseInt(form.newArrivalsLimit.value) || 10;
+
       localStorage.setItem('abl_cms', JSON.stringify(window.abl.state.cms));
-      window.abl.showToast('Announcement updated live');
+      window.abl.showToast('CMS settings updated live');
       renderAdminApp();
     };
 
