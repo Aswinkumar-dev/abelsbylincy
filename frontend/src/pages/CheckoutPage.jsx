@@ -77,7 +77,7 @@ export default function CheckoutPage() {
         <p className="section-subtitle" style={{ color: 'var(--success)', marginBottom: 8 }}>Payment Successful</p>
         <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 600, marginBottom: 14 }}>Order Confirmed!</h1>
         <p style={{ fontSize: 15, color: 'var(--slate)', marginBottom: 24, lineHeight: 1.6 }}>
-          Thank you, <strong>{formData.firstName || 'Valued Client'}</strong>. Your bespoke jewellery order <strong>{completedOrder.id}</strong> has been received. A tax invoice and dispatch tracker have been dispatched to <strong>{formData.email || 'your email'}</strong>.
+          Thank you, <strong>{formData.firstName || 'Valued Client'}</strong>. Your gold-plated jewellery order <strong>{completedOrder.id}</strong> has been received. A tax invoice and dispatch tracker have been dispatched to <strong>{formData.email || 'your email'}</strong>.
         </p>
         <div style={{ background: 'var(--cream)', borderRadius: 'var(--radius-lg)', padding: 20, textAlign: 'left', fontSize: 13, marginBottom: 28, lineHeight: 1.6 }}>
           <p style={{ marginBottom: 6 }}><strong>Delivery Address:</strong> {formData.address}, {formData.city} {formData.postcode} NSW</p>

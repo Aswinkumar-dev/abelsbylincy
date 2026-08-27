@@ -528,7 +528,7 @@ export default function AdminPage() {
           {activeTab === 'messages' && (
             <div>
               <div style={{ marginBottom: 24 }}>
-                <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 600 }}>Atelier Inquiries Inbox ({messages.length})</h2>
+                <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 600 }}>Client Inquiries Inbox ({messages.length})</h2>
               </div>
               <div className="admin-table-card">
                 <table className="admin-table">

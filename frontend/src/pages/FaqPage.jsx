@@ -17,7 +17,7 @@ export default function FaqPage() {
     {
       category: 'Returns & Refunds',
       items: [
-        { q: 'What is your return policy?', a: 'We offer a 30-day change-of-mind return policy on unworn, unaltered items in original packaging. Items showing signs of wear, or custom-made pieces, are not eligible for change-of-mind returns. Your statutory rights under Australian Consumer Law always apply.' },
+        { q: 'What is your return policy?', a: 'We offer a 30-day change-of-mind return policy on unworn, unaltered items in original packaging. Items showing signs of wear are not eligible for change-of-mind returns. Your statutory rights under Australian Consumer Law always apply.' },
         { q: 'How do I request a refund?', a: 'Email us at lincytitus8@gmail.com with your order number, name, reason for return, and supporting photos. We will respond within 1-2 business days with return instructions.' },
       ]
     },

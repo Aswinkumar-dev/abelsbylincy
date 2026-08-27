@@ -17,7 +17,7 @@ export default function HomePage() {
       tagline: 'THE BRACELET COLLECTION',
       title: 'Stack. <b>Style</b>. Shine.',
       description: 'Your everyday essentials, elevated.',
-      image: '/assets/bracelets- hero.webp',
+      image: '/assets/bracelets-hero.webp',
       ctaText: 'SHOP BRACELETS',
       ctaLink: '/shop?category=bracelets',
       theme: 'gold'
@@ -63,6 +63,14 @@ export default function HomePage() {
     }, 5000);
     return () => clearInterval(slideTimer.current);
   }, [heroSlides.length]);
+
+  // Auto-advance testimonial slider every 4.5 seconds (4500ms)
+  useEffect(() => {
+    const testimonialTimer = setInterval(() => {
+      setTestimonialIdx(i => (i + 1) % 6);
+    }, 4500);
+    return () => clearInterval(testimonialTimer);
+  }, []);
 
   // Ensure Elfsight initializes on mount
   useEffect(() => {
@@ -237,7 +245,9 @@ export default function HomePage() {
                   }}
                 />
                 <div className="collection-overlay">
-                  <h3 className="collection-name">{cat.name}</h3>
+                  <h3 className="collection-name">
+                    {cat.name} <ArrowRight style={{ width: 16, height: 16, transition: 'transform 0.25s ease' }} />
+                  </h3>
                 </div>
               </Link>
             ))}
@@ -341,43 +351,91 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Customer Reviews Section */}
-      <section className="section-padding testimonials-section" style={{ background: 'var(--cloud-white)' }}>
+      {/* Customer Love Testimonial Section - Auto Slider View */}
+      <section className="section-padding testimonials-section" style={{ background: 'var(--cream)', borderTop: '1px solid var(--border)' }}>
         <div className="container">
-          <div className="section-header">
-            <p className="section-subtitle">Kind Words</p>
-            <h2 className="section-title">Customer Reviews</h2>
+          <div className="section-header" style={{ marginBottom: 40, textAlign: 'center' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <span style={{ height: 1, width: 28, background: 'var(--gold-dark)', display: 'inline-block' }} />
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--gold-dark)', fontFamily: 'var(--font-sans)' }}>
+                CUSTOMER LOVE <span style={{ color: 'var(--gold-dark)', fontSize: 13, marginLeft: 2 }}>♥</span>
+              </span>
+              <span style={{ height: 1, width: 28, background: 'var(--gold-dark)', display: 'inline-block' }} />
+            </div>
+            <h2 className="section-title" style={{ fontFamily: 'var(--font-serif)', fontSize: 38, fontWeight: 500, color: 'var(--onyx)', marginTop: 4 }}>
+              What Our Customers Say
+            </h2>
+            <p style={{ fontSize: 15, color: 'var(--slate)', marginTop: 8 }}>
+              Real feedback from our happy customers.
+            </p>
           </div>
 
-          <div className="testimonial-container">
-            <div className="stars" style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 16, color: 'var(--gold)' }}>
-              {[...Array(currentTestimonial.rating)].map((_, i) => (
-                <Star key={i} style={{ width: 18, height: 18, fill: 'var(--gold)', color: 'var(--gold)' }} />
-              ))}
-            </div>
-
-            <p className="testimonial-quote">"{currentTestimonial.quote}"</p>
-
-            <div className="testimonial-author-row">
-              <img src={currentTestimonial.avatar} alt={currentTestimonial.name} className="testimonial-avatar" />
-              <div className="testimonial-info" style={{ textAlign: 'left' }}>
-                <h5>{currentTestimonial.name}</h5>
-                <p>{currentTestimonial.location}</p>
-              </div>
-            </div>
-
-            <p className="testimonial-product">{currentTestimonial.product}</p>
-
-            <div className="testimonial-nav">
-              {testimonials.map((_, i) => (
-                <button
-                  key={i}
-                  className={`hero-dot${i === testimonialIdx ? ' active' : ''}`}
-                  onClick={() => setTestimonialIdx(i)}
-                  aria-label={`Testimonial ${i + 1}`}
+          {/* Testimonial Slide Container - Compact Clean Frame */}
+          <div style={{ position: 'relative', maxWidth: 620, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {/* Zero-Flicker Compact Black Backdrop Card */}
+            <div
+              style={{
+                width: '100%',
+                height: 520,
+                background: '#1A1A1A',
+                borderRadius: 20,
+                padding: '16px 20px',
+                border: '1px solid rgba(212, 175, 55, 0.45)',
+                boxShadow: '0 12px 36px rgba(0, 0, 0, 0.25)',
+                position: 'relative',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxSizing: 'border-box'
+              }}
+            >
+              {[0, 1, 2, 3, 4, 5].map((idx) => (
+                <img
+                  key={idx}
+                  src={`/assets/Testimonial-${idx + 1}.png`}
+                  alt={`Customer Feedback ${idx + 1}`}
+                  style={{
+                    position: 'absolute',
+                    maxWidth: 'calc(100% - 32px)',
+                    maxHeight: '488px',
+                    width: 'auto',
+                    height: 'auto',
+                    objectFit: 'contain',
+                    borderRadius: 14,
+                    display: 'block',
+                    opacity: idx === testimonialIdx ? 1 : 0,
+                    visibility: idx === testimonialIdx ? 'visible' : 'hidden',
+                    transition: 'opacity 0.5s ease-in-out, visibility 0.5s ease-in-out',
+                    willChange: 'opacity'
+                  }}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = `/assets/product images/Testimonial-${idx + 1}.png`;
+                  }}
                 />
               ))}
             </div>
+          </div>
+
+          {/* Dots Indicator */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 28 }}>
+            {[0, 1, 2, 3, 4, 5].map((idx) => (
+              <button
+                key={idx}
+                onClick={() => setTestimonialIdx(idx)}
+                aria-label={`Go to slide ${idx + 1}`}
+                style={{
+                  width: idx === testimonialIdx ? 24 : 10,
+                  height: 10,
+                  borderRadius: 10,
+                  border: 'none',
+                  background: idx === testimonialIdx ? 'var(--gold-dark)' : 'rgba(212, 175, 55, 0.3)',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+              />
+            ))}
           </div>
         </div>
       </section>
