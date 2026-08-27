@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Phone, Mail, Clock, Send, MessageSquare } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Send, CheckCircle2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export default function ContactPage() {
@@ -28,118 +28,136 @@ export default function ContactPage() {
       <div className="container" style={{ paddingBottom: 80, paddingTop: 40 }}>
         <div className="contact-layout">
 
-          {/* Contact Info Cards */}
+          {/* Contact Info Cards Column */}
           <div>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600, marginBottom: 12 }}>Get in Touch</h2>
-            <p style={{ color: 'var(--slate)', fontSize: 14, marginBottom: 32, lineHeight: 1.6 }}>
+            <p className="section-subtitle" style={{ textAlign: 'left' }}>Direct Client Services</p>
+            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 600, marginBottom: 16, color: 'var(--onyx)' }}>Get in Touch</h2>
+            <p style={{ color: 'var(--slate)', fontSize: 14, marginBottom: 36, lineHeight: 1.7 }}>
               Whether you have a question about custom sizing, bespoke design requests, or order tracking, our Sydney jewellery specialists are here to assist.
             </p>
 
-            <div className="contact-info-cards">
-              <div className="contact-info-card">
-                <MapPin className="contact-info-icon" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div className="contact-card-item">
+                <div className="contact-icon-box">
+                  <MapPin style={{ width: 22, height: 22 }} />
+                </div>
                 <div>
-                  <h4 className="contact-info-title">Atelier Location</h4>
-                  <p className="contact-info-text">Sydney, New South Wales, Australia</p>
-                  <p style={{ fontSize: 12, color: 'var(--slate)' }}>By appointment only</p>
+                  <h4 style={{ fontSize: 15, fontWeight: 700, color: 'var(--onyx)', marginBottom: 4 }}>Atelier Location</h4>
+                  <p style={{ fontSize: 14, color: 'var(--slate)', margin: 0 }}>Sydney, New South Wales, Australia</p>
+                  <p style={{ fontSize: 12, color: 'var(--gold-dark)', margin: '2px 0 0 0', fontWeight: 600 }}>By appointment only</p>
                 </div>
               </div>
 
-              <div className="contact-info-card">
-                <Phone className="contact-info-icon" />
+              <div className="contact-card-item">
+                <div className="contact-icon-box">
+                  <Phone style={{ width: 22, height: 22 }} />
+                </div>
                 <div>
-                  <h4 className="contact-info-title">Phone &amp; WhatsApp</h4>
-                  <p className="contact-info-text">
-                    <a href="tel:+61435927824" style={{ color: 'inherit' }}>+61 435 927 824</a>
+                  <h4 style={{ fontSize: 15, fontWeight: 700, color: 'var(--onyx)', marginBottom: 4 }}>Phone &amp; WhatsApp</h4>
+                  <p style={{ fontSize: 14, color: 'var(--slate)', margin: 0 }}>
+                    <a href="tel:+61435927824" style={{ color: 'inherit', textDecoration: 'underline' }}>+61 435 927 824</a>
                   </p>
-                  <p style={{ fontSize: 12, color: 'var(--slate)' }}>Mon–Fri: 9am – 5pm AEST</p>
+                  <p style={{ fontSize: 12, color: 'var(--slate-light)', margin: '2px 0 0 0' }}>Mon–Fri: 9am – 5pm AEST</p>
                 </div>
               </div>
 
-              <div className="contact-info-card">
-                <Mail className="contact-info-icon" />
+              <div className="contact-card-item">
+                <div className="contact-icon-box">
+                  <Mail style={{ width: 22, height: 22 }} />
+                </div>
                 <div>
-                  <h4 className="contact-info-title">Direct Email</h4>
-                  <p className="contact-info-text">
-                    <a href="mailto:lincytitus8@gmail.com" style={{ color: 'var(--gold)' }}>lincytitus8@gmail.com</a>
+                  <h4 style={{ fontSize: 15, fontWeight: 700, color: 'var(--onyx)', marginBottom: 4 }}>Direct Email</h4>
+                  <p style={{ fontSize: 14, color: 'var(--gold-dark)', margin: 0, fontWeight: 600 }}>
+                    <a href="mailto:lincytitus8@gmail.com" style={{ color: 'inherit', textDecoration: 'underline' }}>lincytitus8@gmail.com</a>
                   </p>
-                  <p style={{ fontSize: 12, color: 'var(--slate)' }}>Replies within 24 hours</p>
+                  <p style={{ fontSize: 12, color: 'var(--slate-light)', margin: '2px 0 0 0' }}>Replies within 24 hours</p>
                 </div>
               </div>
 
-              <div className="contact-info-card">
-                <Clock className="contact-info-icon" />
+              <div className="contact-card-item">
+                <div className="contact-icon-box">
+                  <Clock style={{ width: 22, height: 22 }} />
+                </div>
                 <div>
-                  <h4 className="contact-info-title">Client Care Hours</h4>
-                  <p className="contact-info-text">Monday – Saturday: 9:00am – 6:00pm</p>
-                  <p style={{ fontSize: 12, color: 'var(--slate)' }}>Sunday: Closed</p>
+                  <h4 style={{ fontSize: 15, fontWeight: 700, color: 'var(--onyx)', marginBottom: 4 }}>Client Care Hours</h4>
+                  <p style={{ fontSize: 14, color: 'var(--slate)', margin: 0 }}>Monday – Saturday: 9:00am – 6:00pm</p>
+                  <p style={{ fontSize: 12, color: 'var(--slate-light)', margin: '2px 0 0 0' }}>Sunday: Closed</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Contact Form */}
-          <div className="checkout-card">
-            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 600, marginBottom: 20 }}>Send a Message</h3>
+          {/* Contact Form Card Column */}
+          <div style={{ background: '#FFFFFF', padding: 36, borderRadius: 16, border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)' }}>
+            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 600, marginBottom: 8, color: 'var(--onyx)' }}>Send a Message</h3>
+            <p style={{ fontSize: 13, color: 'var(--slate)', marginBottom: 24 }}>Fill out the form below and our atelier team will get back to you promptly.</p>
 
             {submitted && (
-              <div style={{ background: 'var(--success-bg)', color: 'var(--success)', padding: 16, borderRadius: 'var(--radius-md)', marginBottom: 20, fontSize: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <MessageSquare style={{ width: 18 }} />
-                <span>Thank you! Your message has been sent. We'll reply within 24 hours.</span>
+              <div style={{ background: 'var(--cream)', color: 'var(--onyx)', border: '1px solid var(--gold)', padding: 16, borderRadius: 8, marginBottom: 24, fontSize: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <CheckCircle2 style={{ width: 20, height: 20, color: 'var(--gold)' }} />
+                <span>Thank you! Your message has been sent. We will reply within 24 hours.</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label className="form-label">Your Name *</label>
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
+                  Your Name *
+                </label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Sarah Mitchell"
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                   value={formData.name}
                   onChange={e => setFormData(f => ({ ...f, name: e.target.value }))}
                   required
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Email Address *</label>
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
+                  Email Address *
+                </label>
                 <input
                   type="email"
                   className="form-control"
-                  placeholder="sarah@example.com"
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                   value={formData.email}
                   onChange={e => setFormData(f => ({ ...f, email: e.target.value }))}
                   required
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Subject *</label>
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
+                  Subject *
+                </label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="e.g. Ring sizing enquiry / Custom design request"
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                   value={formData.subject}
                   onChange={e => setFormData(f => ({ ...f, subject: e.target.value }))}
                   required
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Message *</label>
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
+                  Message *
+                </label>
                 <textarea
                   className="form-control"
                   rows={5}
-                  placeholder="How can we assist you today?"
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                   value={formData.message}
                   onChange={e => setFormData(f => ({ ...f, message: e.target.value }))}
                   required
                 />
               </div>
 
-              <button type="submit" className="btn-primary" style={{ width: '100%' }}>
-                Send Message <Send style={{ width: 14 }} />
+              <button type="submit" className="btn-primary" style={{ width: '100%', padding: '15px 28px', fontSize: 13, letterSpacing: '0.1em' }}>
+                Send Message <Send style={{ width: 14, height: 14, marginLeft: 6, display: 'inline-block', verticalAlign: 'middle' }} />
               </button>
             </form>
           </div>

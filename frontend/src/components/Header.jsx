@@ -45,7 +45,9 @@ export default function Header() {
       <div className="announcement-bar" aria-label="Store highlights">
         <div className="announcement-marquee">
           <div className="announcement-track">
-            <span className="announcement-item">{announcements[announcementIdx % announcements.length]}</span>
+            {[...announcements, ...announcements, ...announcements, ...announcements].map((text, i) => (
+              <span key={i} className="announcement-item">{text}</span>
+            ))}
           </div>
         </div>
       </div>
