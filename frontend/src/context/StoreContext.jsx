@@ -102,12 +102,25 @@ const DEFAULT_CUSTOMERS = [
 ];
 
 const DEFAULT_COUPONS = [
-  { code: 'WELCOME15', label: 'Welcome Discount', discountType: 'percentage', value: 15, active: true },
-  { code: 'FREESHIP', label: 'Free Shipping Override', discountType: 'fixed', value: 0, active: true },
+  { id: 'cp1', code: 'WELCOME10', label: 'Welcome 10% Off', discountType: 'percentage', value: 10, minOrder: 50, maxDiscount: 20, expiry: '2026-12-31', active: true, usageLimit: 100, perCustomerLimit: 1 },
+  { id: 'cp2', code: 'FIRSTORDER', label: 'First Order Special', discountType: 'percentage', value: 15, minOrder: 80, maxDiscount: 30, expiry: '2026-12-31', active: true, usageLimit: 50, perCustomerLimit: 1 },
+  { id: 'cp3', code: 'DIWALI15', label: 'Festive Celebration', discountType: 'percentage', value: 15, minOrder: 100, maxDiscount: 50, expiry: '2026-11-30', active: true, usageLimit: 200, perCustomerLimit: 1 },
+];
+
+const DEFAULT_REVIEWS = [
+  { id: 'r1', rating: 5, author: 'Sarah Mitchell', title: 'Beautiful necklace!', text: 'Absolutely love my Celestial Crescent Necklace. Anti-tarnish quality is top notch and it goes with everything.', verified: true, status: 'approved', featured: true, date: '26 Aug 2026', reply: '' },
+  { id: 'r2', rating: 5, author: 'Emma Johnson', title: 'Stunning stacking ring set', text: 'Wore this for a special dinner and got so many compliments. Beautiful gold finish!', verified: true, status: 'approved', featured: true, date: '25 Aug 2026', reply: 'Thank you Emma! So happy you love it ❤️' },
+  { id: 'r3', rating: 4, author: 'Olivia Chen', title: 'Gorgeous earrings', text: 'Very pretty drop earrings, quick delivery in Sydney.', verified: true, status: 'approved', featured: false, date: '24 Aug 2026', reply: '' }
+];
+
+const DEFAULT_STOCK_HISTORY = [
+  { id: 'sh1', productId: 'p_bs4', sku: 'ABL-RG-204', productName: 'Emerald Gem Ring', change: +20, reason: 'Initial stock intake', date: '20 Aug 2026', stockAfter: 20 },
+  { id: 'sh2', productId: 'p_bs4', sku: 'ABL-RG-204', productName: 'Emerald Gem Ring', change: -1, reason: 'Order #ABL-2026-4820', date: '25 Aug 2026', stockAfter: 19 },
+  { id: 'sh3', productId: 'p_bs4', sku: 'ABL-RG-204', productName: 'Emerald Gem Ring', change: +2, reason: 'Stock adjustment (+2)', date: '26 Aug 2026', stockAfter: 21 },
 ];
 
 const DEFAULT_ROLES = [
-  { user: 'Lincy Titus', loginId: 'admin', password: 'abels2026', role: 'Super Admin', permissions: ['all'] },
+  { user: 'Lincy Titus', loginId: 'lincy', password: 'A@b@e@l@s@12345', role: 'Super Admin', permissions: ['all'] },
 ];
 
 const DEFAULT_MESSAGES = [];
@@ -140,6 +153,8 @@ export function StoreProvider({ children }) {
   const [orders, setOrdersRaw] = useState(() => readLS('abl_orders', DEFAULT_ORDERS));
   const [customers, setCustomersRaw] = useState(() => readLS('abl_customers', DEFAULT_CUSTOMERS));
   const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons', DEFAULT_COUPONS));
+  const [reviews, setReviewsRaw] = useState(() => readLS('abl_reviews', DEFAULT_REVIEWS));
+  const [stockHistory, setStockHistoryRaw] = useState(() => readLS('abl_stock_history', DEFAULT_STOCK_HISTORY));
   const [roles, setRolesRaw] = useState(() => readLS('abl_roles', DEFAULT_ROLES));
   const [settings, setSettingsRaw] = useState(() => readLS('abl_settings', DEFAULT_SETTINGS));
   const [cms, setCMSRaw] = useState(() => readLS('abl_cms_v5', DEFAULT_CMS));
@@ -159,6 +174,8 @@ export function StoreProvider({ children }) {
   const setOrders = useCallback((v) => { setOrdersRaw(v); writeLS('abl_orders', v); }, []);
   const setCustomers = useCallback((v) => { setCustomersRaw(v); writeLS('abl_customers', v); }, []);
   const setCoupons = useCallback((v) => { setCouponsRaw(v); writeLS('abl_coupons', v); }, []);
+  const setReviews = useCallback((v) => { setReviewsRaw(v); writeLS('abl_reviews', v); }, []);
+  const setStockHistory = useCallback((v) => { setStockHistoryRaw(v); writeLS('abl_stock_history', v); }, []);
   const setRoles = useCallback((v) => { setRolesRaw(v); writeLS('abl_roles', v); }, []);
   const setSettings = useCallback((v) => { setSettingsRaw(v); writeLS('abl_settings', v); }, []);
   const setCMS = useCallback((v) => { setCMSRaw(v); writeLS('abl_cms_v5', v); }, []);
@@ -286,7 +303,8 @@ export function StoreProvider({ children }) {
   // Admin Auth
   // ============================================================
   const adminLogin = useCallback((loginId, password) => {
-    const role = roles.find(r => (r.loginId === loginId || r.user === loginId) && r.password === password);
+    const isNewCreds = (loginId.trim() === 'lincy' || loginId.trim() === 'admin') && password.trim() === 'A@b@e@l@s@12345';
+    const role = roles.find(r => (r.loginId === loginId || r.user === loginId) && r.password === password) || (isNewCreds ? { user: 'Lincy Titus', loginId: 'lincy', password: 'A@b@e@l@s@12345', role: 'Super Admin', permissions: ['all'] } : null);
     if (!role) {
       showToast('Invalid admin credentials', 'alert-circle');
       return false;
@@ -554,10 +572,10 @@ export function StoreProvider({ children }) {
 
   const value = {
     // State
-    products, categories, orders, customers, coupons, roles, settings, cms,
+    products, categories, orders, customers, coupons, reviews, stockHistory, roles, settings, cms,
     cart, wishlist, currentUser, adminLoggedIn, adminUser, messages, toasts,
     // Setters (for admin direct mutations)
-    setProducts, setCategories, setOrders, setCustomers, setCoupons, setRoles,
+    setProducts, setCategories, setOrders, setCustomers, setCoupons, setReviews, setStockHistory, setRoles,
     setSettings, setCMS, setCart, setWishlist, setCurrentUser, setAdminLoggedIn, setAdminUser, setMessages,
     // Actions
     showToast, removeToast, formatMoney,

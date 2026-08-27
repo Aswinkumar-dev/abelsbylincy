@@ -12,6 +12,9 @@ export default function Layout({ children }) {
   const { currentUser } = useStore();
 
   const isAuthScreen = location.pathname === '/account' && !currentUser;
+  const validPaths = ['/', '/shop', '/product', '/cart', '/checkout', '/account', '/wishlist', '/collections', '/about', '/contact', '/faq', '/policy', '/admin'];
+  const is404Route = !validPaths.includes(location.pathname.toLowerCase());
+  const hideNavigation = isAuthScreen || is404Route;
 
   // Always scroll to top of page on route / page navigation
   useEffect(() => {
@@ -30,11 +33,11 @@ export default function Layout({ children }) {
   return (
     <>
       <SEO />
-      {!isAuthScreen && <Header />}
+      {!hideNavigation && <Header />}
       <main>{children}</main>
-      {!isAuthScreen && <Footer />}
+      {!hideNavigation && <Footer />}
       <Toast />
-      {!isAuthScreen && <FloatingWidgets />}
+      {!hideNavigation && <FloatingWidgets />}
     </>
   );
 }

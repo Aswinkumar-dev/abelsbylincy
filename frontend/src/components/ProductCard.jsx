@@ -50,7 +50,16 @@ export default function ProductCard({ product }) {
           <span className="review-count" style={{ fontSize: 11, color: 'var(--slate-light)' }}>(0)</span>
         </div>
 
-        <div className="bs-product-price">{formatMoney(product.price)}</div>
+        <div className="bs-product-price" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {product.salePrice && product.salePrice > 0 && Number(product.salePrice) < Number(product.price) ? (
+            <>
+              <span style={{ textDecoration: 'line-through', color: 'var(--slate-light)', fontSize: 13, fontWeight: 400 }}>{formatMoney(product.price)}</span>
+              <span style={{ fontWeight: 700, color: 'var(--onyx)' }}>{formatMoney(product.salePrice)}</span>
+            </>
+          ) : (
+            <span style={{ fontWeight: 700, color: 'var(--onyx)' }}>{formatMoney(product.price)}</span>
+          )}
+        </div>
       </div>
 
       <button

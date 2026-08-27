@@ -14,6 +14,7 @@ export default function ProductPage() {
 
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
   const [qty, setQty] = useState(1);
   const [openTab, setOpenTab] = useState('craftsmanship');
   const [zoomOpen, setZoomOpen] = useState(false);
@@ -28,6 +29,8 @@ export default function ProductPage() {
     if (!product) { navigate('/shop'); return; }
     setSelectedImageIdx(0);
     setSelectedSize(product?.sizes?.[0] || '');
+    const defaultColor = product?.colors?.[0] || (product?.colorImages ? Object.keys(product.colorImages)[0] : '');
+    setSelectedColor(defaultColor || '');
     try {
       const stored = localStorage.getItem(`abl_reviews_${productId}`);
       setReviews(stored ? JSON.parse(stored) : []);
@@ -56,7 +59,9 @@ export default function ProductPage() {
     return [...sameCategory, ...sameMaterialOrGem, ...fallbackOther].slice(0, 4);
   }, [product, products]);
 
-  const images = product.images?.length > 0 ? product.images : [product.image];
+  // Determine active images gallery (color-specific images if available, else base images)
+  const availableColorImgs = (selectedColor && product.colorImages?.[selectedColor]?.filter(Boolean)) || [];
+  const images = availableColorImgs.length > 0 ? availableColorImgs : (product.images?.length > 0 ? product.images : [product.image]);
 
   const handleAddToCart = () => {
     if (product.sizes?.length > 0 && !selectedSize) {
@@ -145,8 +150,15 @@ export default function ProductPage() {
               <span className="review-count" style={{ fontSize: 13, color: 'var(--slate)' }}>({reviews.length} reviews)</span>
             </div>
 
-            <div className="pdp-price-row">
-              <span className="pdp-price">{formatMoney(product.price)}</span>
+            <div className="pdp-price-row" style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+              {product.salePrice && product.salePrice > 0 && Number(product.salePrice) < Number(product.price) ? (
+                <>
+                  <span style={{ textDecoration: 'line-through', color: 'var(--slate)', fontSize: 20, fontWeight: 400 }}>{formatMoney(product.price)}</span>
+                  <span className="pdp-price" style={{ fontSize: 28, fontWeight: 700, color: 'var(--onyx)' }}>{formatMoney(product.salePrice)}</span>
+                </>
+              ) : (
+                <span className="pdp-price" style={{ fontSize: 28, fontWeight: 700, color: 'var(--onyx)' }}>{formatMoney(product.price)}</span>
+              )}
             </div>
 
             <p className="pdp-description">{product.description}</p>
@@ -163,6 +175,37 @@ export default function ProductPage() {
                 <RefreshCcw style={{ width: 15, color: 'var(--gold)' }} /> 30-Day Returns
               </span>
             </div>
+
+            {/* Color Variant Options */}
+            {(product.colors?.length > 0 || (product.colorImages && Object.keys(product.colorImages).length > 0)) && (
+              <div className="pdp-option-group" style={{ marginBottom: 20 }}>
+                <span className="pdp-option-label" style={{ display: 'block', marginBottom: 8, fontWeight: 700 }}>
+                  Color: {selectedColor || product.colors?.[0] || Object.keys(product.colorImages || {})[0]}
+                </span>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {(product.colors || Object.keys(product.colorImages || {})).map(col => (
+                    <button
+                      key={col}
+                      className={`btn-secondary${selectedColor === col ? ' active' : ''}`}
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        borderColor: selectedColor === col ? 'var(--gold)' : 'var(--border)',
+                        background: selectedColor === col ? 'var(--gold)' : 'transparent',
+                        color: selectedColor === col ? '#FFFFFF' : 'var(--onyx)'
+                      }}
+                      onClick={() => {
+                        setSelectedColor(col);
+                        setSelectedImageIdx(0);
+                      }}
+                    >
+                      {col}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Size Options */}
             {product.sizes?.length > 0 && (
