@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { User, ShoppingBag, Heart, Award, Eye, EyeOff, LogOut, Lock, Mail, ArrowRight } from 'lucide-react';
+import { User, ShoppingBag, Heart, Award, Eye, EyeOff, LogOut } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export default function AccountPage() {
-  const { currentUser, loginWithEmail, registerUser, loginWithGoogle, logoutUser, orders, wishlist, formatMoney, showToast } = useStore();
+  const { currentUser, loginWithEmail, registerUser, loginWithGoogle, logoutUser, orders, wishlist } = useStore();
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -16,159 +16,482 @@ export default function AccountPage() {
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
 
+  // Inline Validation Error states
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [nameError, setNameError] = useState('');
+
+  // Animation shake state
+  const [isShaking, setIsShaking] = useState(false);
+
   const userOrders = orders.filter(o => o.email?.toLowerCase() === currentUser?.email?.toLowerCase() || currentUser);
+
+  const triggerShake = () => {
+    setIsShaking(true);
+    setTimeout(() => setIsShaking(false), 550);
+  };
+
+  const switchMode = (mode) => {
+    setAuthMode(mode);
+    setEmailError('');
+    setPasswordError('');
+    setNameError('');
+  };
+
+  // Validation Helpers
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email.trim());
+  };
+
+  const validatePassword = (pass) => {
+    if (
+      !pass ||
+      pass.length < 8 ||
+      !/[A-Z]/.test(pass) ||
+      !/[0-9]/.test(pass) ||
+      !/[!@#$%^&*(),.?":{}|<>_\-\\\/\[\]]/.test(pass)
+    ) {
+      return 'Password must be at least 8 characters and include 1 uppercase letter, 1 number, and 1 special character.';
+    }
+    return null;
+  };
 
   const handleLoginSubmit = (e) => {
     e.preventDefault();
-    loginWithEmail(loginEmail, loginPassword);
+    setEmailError('');
+    setPasswordError('');
+
+    let valid = true;
+    if (!validateEmail(loginEmail)) {
+      setEmailError('Please enter a valid email address.');
+      valid = false;
+    }
+    const passErr = validatePassword(loginPassword);
+    if (passErr) {
+      setPasswordError(passErr);
+      valid = false;
+    }
+
+    if (!valid) {
+      triggerShake();
+      return;
+    }
+
+    const success = loginWithEmail(loginEmail, loginPassword);
+    if (!success) {
+      setPasswordError('Invalid email or password credentials.');
+      triggerShake();
+    }
   };
 
   const handleRegisterSubmit = (e) => {
     e.preventDefault();
-    if (!regName || !regEmail || !regPassword) return;
-    registerUser(regName, regEmail, regPassword);
+    setNameError('');
+    setEmailError('');
+    setPasswordError('');
+
+    let valid = true;
+    if (!regName.trim()) {
+      setNameError('Please enter your full name.');
+      valid = false;
+    }
+    if (!validateEmail(regEmail)) {
+      setEmailError('Please enter a valid email address.');
+      valid = false;
+    }
+    const passErr = validatePassword(regPassword);
+    if (passErr) {
+      setPasswordError(passErr);
+      valid = false;
+    }
+
+    if (!valid) {
+      triggerShake();
+      return;
+    }
+
+    const success = registerUser(regName.trim(), regEmail.trim(), regPassword);
+    if (!success) {
+      setEmailError('An account with this email address already exists.');
+      triggerShake();
+    }
   };
 
-  // If GUEST (Not logged in) -> Full Auth Overlay / Form
+  // ============================================================
+  // GUEST VIEW: Floating Gold Login Card on Clean Off-White Page Background
+  // ============================================================
   if (!currentUser) {
     return (
-      <div className="account-guest-wrapper">
-        <div className="account-auth-card">
-          <div className="auth-brand">
-            <span className="logo-name">ABEL'S</span>
-            <span className="logo-tagline">BY LINCY · SYDNEY</span>
-          </div>
+      <>
+        <style>{`
+          @keyframes floatCard {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+          }
+          @keyframes cardShake {
+            0%, 100% { transform: translateX(0px); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+          }
+          .floating-auth-card {
+            animation: floatCard 4.5s ease-in-out infinite;
+          }
+          .floating-auth-card.shake {
+            animation: cardShake 0.35s ease-in-out !important;
+          }
+        `}</style>
 
-          {/* Mode Switcher */}
-          <div className="auth-tab-group">
-            <button
-              className={`auth-tab-btn${authMode === 'login' ? ' active' : ''}`}
-              onClick={() => setAuthMode('login')}
-            >
-              Sign In
-            </button>
-            <button
-              className={`auth-tab-btn${authMode === 'register' ? ' active' : ''}`}
-              onClick={() => setAuthMode('register')}
-            >
-              Create Account
-            </button>
-          </div>
+        <div style={{
+          minHeight: '100vh',
+          width: '100vw',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#FAF9F6',
+          padding: '32px 16px',
+          boxSizing: 'border-box'
+        }}>
+          {/* Floating Card with Gold Theme & Shadow & Shake Animation */}
+          <div className={`floating-auth-card${isShaking ? ' shake' : ''}`} style={{
+            width: '100%',
+            maxWidth: 440,
+            background: 'linear-gradient(135deg, #FAF4E8 0%, #F5E6CC 100%)',
+            borderRadius: 20,
+            padding: '40px 32px',
+            boxShadow: '0 24px 60px rgba(184, 134, 11, 0.25), 0 12px 28px rgba(0, 0, 0, 0.08)',
+            border: '1.5px solid #D4AF37',
+            position: 'relative'
+          }}>
+            {/* Brand Logo Header */}
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 700, letterSpacing: '0.15em', color: 'var(--onyx)', margin: '0 0 4px 0' }}>
+                ABEL'S
+              </h1>
+              <p style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold-dark)', fontWeight: 600, margin: 0, textAlign: 'center' }}>
+                BY LINCY
+              </p>
+            </div>
 
-          {/* Login Form */}
-          {authMode === 'login' ? (
-            <form onSubmit={handleLoginSubmit} className="auth-form">
-              <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  placeholder="client@example.com"
-                  value={loginEmail}
-                  onChange={e => setLoginEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Password</label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="form-control"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={e => setLoginPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle-btn"
-                    onClick={() => setShowPassword(s => !s)}
-                  >
-                    {showPassword ? <EyeOff style={{ width: 16 }} /> : <Eye style={{ width: 16 }} />}
-                  </button>
-                </div>
-              </div>
-
-              <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: 8 }}>
-                Sign In to Account <ArrowRight style={{ width: 14 }} />
-              </button>
-
-              <div className="auth-divider"><span>OR</span></div>
-
+            {/* Mode Switcher Tabs */}
+            <div style={{ display: 'flex', background: 'rgba(212, 175, 55, 0.12)', borderRadius: 10, padding: 4, marginBottom: 28 }}>
               <button
                 type="button"
-                className="btn-google-auth"
-                onClick={loginWithGoogle}
+                onClick={() => switchMode('login')}
+                style={{
+                  flex: 1,
+                  padding: '10px 0',
+                  border: 'none',
+                  borderRadius: 8,
+                  background: authMode === 'login' ? '#D4AF37' : 'transparent',
+                  color: authMode === 'login' ? '#FFFFFF' : 'var(--onyx)',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  letterSpacing: '0.05em',
+                  cursor: 'pointer',
+                  transition: 'all 0.25s ease'
+                }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-                Continue with Google
+                Sign In
               </button>
-            </form>
-          ) : (
-            /* Register Form */
-            <form onSubmit={handleRegisterSubmit} className="auth-form">
-              <div className="form-group">
-                <label className="form-label">Full Name</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Sarah Mitchell"
-                  value={regName}
-                  onChange={e => setRegName(e.target.value)}
-                  required
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => switchMode('register')}
+                style={{
+                  flex: 1,
+                  padding: '10px 0',
+                  border: 'none',
+                  borderRadius: 8,
+                  background: authMode === 'register' ? '#D4AF37' : 'transparent',
+                  color: authMode === 'register' ? '#FFFFFF' : 'var(--onyx)',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  letterSpacing: '0.05em',
+                  cursor: 'pointer',
+                  transition: 'all 0.25s ease'
+                }}
+              >
+                Create Account
+              </button>
+            </div>
 
-              <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  placeholder="client@example.com"
-                  value={regEmail}
-                  onChange={e => setRegEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Password</label>
-                <div style={{ position: 'relative' }}>
+            {/* Sign In Form */}
+            {authMode === 'login' ? (
+              <form noValidate onSubmit={handleLoginSubmit}>
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
+                    EMAIL ADDRESS
+                  </label>
                   <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="form-control"
-                    placeholder="••••••••"
-                    value={regPassword}
-                    onChange={e => setRegPassword(e.target.value)}
-                    required
+                    type="email"
+                    value={loginEmail}
+                    onChange={e => { setLoginEmail(e.target.value); setEmailError(''); }}
+                    style={{
+                      width: '100%',
+                      height: 48,
+                      padding: '0 16px',
+                      borderRadius: 8,
+                      border: emailError ? '1.5px solid #D9534F' : '1px solid rgba(212, 175, 55, 0.4)',
+                      background: '#FFFFFF',
+                      fontSize: 14,
+                      color: 'var(--onyx)',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
                   />
-                  <button
-                    type="button"
-                    className="password-toggle-btn"
-                    onClick={() => setShowPassword(s => !s)}
-                  >
-                    {showPassword ? <EyeOff style={{ width: 16 }} /> : <Eye style={{ width: 16 }} />}
-                  </button>
+                  {emailError && (
+                    <p style={{ color: '#D9534F', fontSize: 12, marginTop: 6, fontWeight: 600, margin: '6px 0 0 0' }}>
+                      {emailError}
+                    </p>
+                  )}
                 </div>
-              </div>
 
-              <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: 8 }}>
-                Create Atelier Account <ArrowRight style={{ width: 14 }} />
-              </button>
-            </form>
-          )}
+                <div style={{ marginBottom: 22 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
+                    PASSWORD
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={loginPassword}
+                      onChange={e => { setLoginPassword(e.target.value); setPasswordError(''); }}
+                      style={{
+                        width: '100%',
+                        height: 48,
+                        padding: '0 44px 0 16px',
+                        borderRadius: 8,
+                        border: passwordError ? '1.5px solid #D9534F' : '1px solid rgba(212, 175, 55, 0.4)',
+                        background: '#FFFFFF',
+                        fontSize: 14,
+                        color: 'var(--onyx)',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(s => !s)}
+                      style={{
+                        position: 'absolute',
+                        right: 12,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--slate)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      {showPassword ? <EyeOff style={{ width: 18, height: 18 }} /> : <Eye style={{ width: 18, height: 18 }} />}
+                    </button>
+                  </div>
+                  {passwordError && (
+                    <p style={{ color: '#D9534F', fontSize: 12, marginTop: 6, fontWeight: 600, margin: '6px 0 0 0' }}>
+                      {passwordError}
+                    </p>
+                  )}
+                </div>
 
-          <div style={{ marginTop: 24, textCenter: 'center', fontSize: 12, color: 'var(--slate)', textAlign: 'center' }}>
-            <Link to="/" style={{ color: 'var(--gold)', textDecoration: 'underline' }}>← Return to Storefront</Link>
+                <button
+                  type="submit"
+                  style={{
+                    width: '100%',
+                    height: 50,
+                    background: 'var(--onyx)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    letterSpacing: '0.15em',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                  }}
+                >
+                  SUBMIT
+                </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', gap: 12 }}>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(212, 175, 55, 0.3)' }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold-dark)', letterSpacing: '0.1em' }}>OR</span>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(212, 175, 55, 0.3)' }} />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={loginWithGoogle}
+                  style={{
+                    width: '100%',
+                    height: 48,
+                    background: '#FFFFFF',
+                    color: 'var(--onyx)',
+                    border: '1px solid rgba(212, 175, 55, 0.4)',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 10
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                  Continue with Google
+                </button>
+              </form>
+            ) : (
+              /* Register Form */
+              <form noValidate onSubmit={handleRegisterSubmit}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
+                    FULL NAME
+                  </label>
+                  <input
+                    type="text"
+                    value={regName}
+                    onChange={e => { setRegName(e.target.value); setNameError(''); }}
+                    style={{
+                      width: '100%',
+                      height: 48,
+                      padding: '0 16px',
+                      borderRadius: 8,
+                      border: nameError ? '1.5px solid #D9534F' : '1px solid rgba(212, 175, 55, 0.4)',
+                      background: '#FFFFFF',
+                      fontSize: 14,
+                      color: 'var(--onyx)',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  {nameError && (
+                    <p style={{ color: '#D9534F', fontSize: 12, marginTop: 6, fontWeight: 600, margin: '6px 0 0 0' }}>
+                      {nameError}
+                    </p>
+                  )}
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
+                    EMAIL ADDRESS
+                  </label>
+                  <input
+                    type="email"
+                    value={regEmail}
+                    onChange={e => { setRegEmail(e.target.value); setEmailError(''); }}
+                    style={{
+                      width: '100%',
+                      height: 48,
+                      padding: '0 16px',
+                      borderRadius: 8,
+                      border: emailError ? '1.5px solid #D9534F' : '1px solid rgba(212, 175, 55, 0.4)',
+                      background: '#FFFFFF',
+                      fontSize: 14,
+                      color: 'var(--onyx)',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  {emailError && (
+                    <p style={{ color: '#D9534F', fontSize: 12, marginTop: 6, fontWeight: 600, margin: '6px 0 0 0' }}>
+                      {emailError}
+                    </p>
+                  )}
+                </div>
+
+                <div style={{ marginBottom: 22 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
+                    PASSWORD
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={regPassword}
+                      onChange={e => { setRegPassword(e.target.value); setPasswordError(''); }}
+                      style={{
+                        width: '100%',
+                        height: 48,
+                        padding: '0 44px 0 16px',
+                        borderRadius: 8,
+                        border: passwordError ? '1.5px solid #D9534F' : '1px solid rgba(212, 175, 55, 0.4)',
+                        background: '#FFFFFF',
+                        fontSize: 14,
+                        color: 'var(--onyx)',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(s => !s)}
+                      style={{
+                        position: 'absolute',
+                        right: 12,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--slate)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      {showPassword ? <EyeOff style={{ width: 18, height: 18 }} /> : <Eye style={{ width: 18, height: 18 }} />}
+                    </button>
+                  </div>
+                  {passwordError && (
+                    <p style={{ color: '#D9534F', fontSize: 12, marginTop: 6, fontWeight: 600, margin: '6px 0 0 0' }}>
+                      {passwordError}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  style={{
+                    width: '100%',
+                    height: 50,
+                    background: 'var(--onyx)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    letterSpacing: '0.15em',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                  }}
+                >
+                  SUBMIT
+                </button>
+              </form>
+            )}
+
+            <div style={{ marginTop: 24, textAlign: 'center' }}>
+              <Link to="/" style={{ fontSize: 13, color: 'var(--gold-dark)', fontWeight: 600, textDecoration: 'underline' }}>
+                ← Return to Store
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
-  // LOGGED IN VIEW
+  // ============================================================
+  // LOGGED IN VIEW (Standard Account Dashboard)
+  // ============================================================
   return (
     <>
       <div className="page-hero">

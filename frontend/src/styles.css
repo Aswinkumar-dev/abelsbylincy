@@ -307,14 +307,14 @@ input, select, textarea {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
 .action-btn {
   position: relative;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1044,17 +1044,19 @@ input, select, textarea {
   padding: 24px 16px;
 }
 
-.collection-link-text {
+.collection-link-text, .collection-name {
   color: #ffffff;
   font-family: var(--font-sans);
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
   transition: transform 0.25s ease;
+  margin: 0;
+  text-align: center;
 }
 
-.collection-card:hover .collection-link-text {
+.collection-card:hover .collection-link-text, .collection-card:hover .collection-name {
   transform: scale(1.05);
 }
 
@@ -1741,8 +1743,32 @@ input, select, textarea {
   cursor: pointer;
 }
 
-.sort-select:focus {
-  border-color: var(--gold);
+.breadcrumb-bar {
+  background: var(--off-white);
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--slate);
+}
+
+.breadcrumb-link {
+  color: var(--slate);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.breadcrumb-link:hover {
+  color: var(--gold-dark);
+}
+
+.breadcrumb-sep {
+  margin: 0 8px;
+  color: var(--slate-light);
+}
+
+.breadcrumb-current {
+  color: var(--onyx);
+  font-weight: 600;
 }
 
 /* ==========================================================================
@@ -4107,7 +4133,9 @@ input, select, textarea {
 .bs-card-img-wrap img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 6px;
+  background: var(--cream);
   display: block;
   transition: transform 0.65s cubic-bezier(0.25, 1, 0.5, 1);
 }
@@ -4339,5 +4367,27 @@ input, select, textarea {
 .mobile-cat-link:hover {
   color: var(--gold-dark);
 }
+
+/* ── Elfsight Free Badge & Gap Fix ── */
+a[href*="elfsight.com"],
+div[class*="elfsight-app"] a,
+[class*="eapps-link"],
+[class*="eapps-instagram-feed"] a[target="_blank"] {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+}
+
+.instagram-section {
+  padding: 30px 0 10px !important;
+}
+
+.why-choose-section {
+  padding: 48px 0 60px !important;
+}
+
 
 

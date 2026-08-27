@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal, ArrowUpDown, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { SlidersHorizontal, ArrowUpDown, X, ChevronDown } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import ProductCard from '../components/ProductCard';
 
@@ -25,7 +25,6 @@ export default function ShopPage() {
   const [maxPrice, setMaxPrice] = useState(500);
   const [currentSort, setCurrentSort] = useState('featured');
   const [filterOpen, setFilterOpen] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
   const [searchQuery] = useState(searchParams.get('q') || '');
 
   useEffect(() => {
@@ -45,14 +44,6 @@ export default function ShopPage() {
     { id: 'charms', label: 'Charms' },
     { id: 'silver-collections', label: 'Silver Collections' },
     { id: 'seasonal-collections', label: 'Seasonal Collections' },
-  ];
-
-  const sortOptions = [
-    { value: 'featured', label: 'Featured' },
-    { value: 'price-asc', label: 'Price: Low to High' },
-    { value: 'price-desc', label: 'Price: High to Low' },
-    { value: 'newest', label: 'Newest First' },
-    { value: 'name-asc', label: 'Name A–Z' },
   ];
 
   const toggleMaterial = (m) => setSelectedMaterials(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
@@ -99,7 +90,7 @@ export default function ShopPage() {
 
   return (
     <>
-      {/* Page Hero */}
+      {/* Page Hero Header */}
       <div className="page-hero">
         <div className="container">
           <p className="section-subtitle">Curated Fine Jewellery</p>
@@ -115,173 +106,134 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Shop Layout */}
-      <div className="container shop-layout">
+      {/* Main Shop Page Layout */}
+      <div className="container">
+        <div className="shop-page-layout">
 
-        {/* Sidebar */}
-        <aside className="shop-sidebar">
-          {/* Categories */}
-          <div className="sidebar-section">
-            <h4 className="sidebar-section-title">Categories</h4>
-            <ul className="sidebar-category-list">
-              {sidebarCategories.map(cat => (
-                <li key={cat.id}>
-                  <button
-                    className={`sidebar-cat-btn${activeCategory === cat.id ? ' active' : ''}`}
-                    onClick={() => handleCategoryClick(cat.id)}
-                  >
-                    {cat.label}
-                    <span className="sidebar-cat-count">
-                      {cat.id === 'all' ? products.length :
-                       cat.id === 'new-arrivals' ? products.filter(p => p.newArrival).length :
-                       cat.id === 'best-sellers' ? products.filter(p => p.bestSeller).length :
-                       products.filter(p => p.category === cat.id).length}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Sidebar Filters */}
+          <aside className="shop-sidebar">
 
-          {/* Materials */}
-          <div className="sidebar-section">
-            <h4 className="sidebar-section-title">Material</h4>
-            {ALL_MATERIALS.map(m => (
-              <label key={m} className="filter-checkbox-label">
-                <input
-                  type="checkbox"
-                  className="filter-checkbox"
-                  checked={selectedMaterials.includes(m)}
-                  onChange={() => toggleMaterial(m)}
-                />
-                <span>{m}</span>
-              </label>
-            ))}
-          </div>
-
-          {/* Gemstones */}
-          <div className="sidebar-section">
-            <h4 className="sidebar-section-title">Gemstone</h4>
-            {ALL_GEMSTONES.map(g => (
-              <label key={g} className="filter-checkbox-label">
-                <input
-                  type="checkbox"
-                  className="filter-checkbox"
-                  checked={selectedGemstones.includes(g)}
-                  onChange={() => toggleGemstone(g)}
-                />
-                <span>{g}</span>
-              </label>
-            ))}
-          </div>
-
-          {/* Price Range */}
-          <div className="sidebar-section">
-            <h4 className="sidebar-section-title">
-              Max Price: <span style={{ color: 'var(--gold)', fontWeight: 700 }}>${maxPrice}</span>
-            </h4>
-            <input
-              type="range"
-              min={50}
-              max={500}
-              step={10}
-              value={maxPrice}
-              onChange={e => setMaxPrice(Number(e.target.value))}
-              className="price-range-slider"
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--slate)' }}>
-              <span>$50</span><span>$500</span>
+            {/* Categories */}
+            <div className="filter-block">
+              <h4 className="filter-title">Categories</h4>
+              <ul className="filter-list">
+                {sidebarCategories.map(cat => {
+                  const count = cat.id === 'all' ? products.length :
+                                cat.id === 'new-arrivals' ? products.filter(p => p.newArrival).length :
+                                cat.id === 'best-sellers' ? products.filter(p => p.bestSeller).length :
+                                products.filter(p => p.category === cat.id).length;
+                  return (
+                    <li
+                      key={cat.id}
+                      className={`filter-option${activeCategory === cat.id ? ' active' : ''}`}
+                      onClick={() => handleCategoryClick(cat.id)}
+                    >
+                      <span>{cat.label}</span>
+                      <span style={{ fontSize: 12, opacity: 0.7 }}>({count})</span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-          </div>
 
-          {hasActiveFilters && (
-            <button className="btn-secondary" style={{ width: '100%', fontSize: 13 }} onClick={clearFilters}>
-              Clear All Filters <X style={{ width: 13, height: 13 }} />
-            </button>
-          )}
-        </aside>
-
-        {/* Products Grid */}
-        <div className="shop-main">
-          {/* Top Bar */}
-          <div className="shop-topbar">
-            <p className="shop-count">{filteredProducts.length} piece{filteredProducts.length !== 1 ? 's' : ''} found</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              {/* Mobile filter */}
-              <button className="mobile-filter-btn" onClick={() => setFilterOpen(true)}>
-                <SlidersHorizontal style={{ width: 16, height: 16 }} /> Filters
-              </button>
-              {/* Sort */}
-              <div style={{ position: 'relative' }}>
-                <button className="sort-btn" onClick={() => setSortOpen(s => !s)}>
-                  <ArrowUpDown style={{ width: 14, height: 14 }} />
-                  {sortOptions.find(s => s.value === currentSort)?.label}
-                  <ChevronDown style={{ width: 13, height: 13 }} />
-                </button>
-                {sortOpen && (
-                  <div className="sort-dropdown">
-                    {sortOptions.map(opt => (
-                      <button
-                        key={opt.value}
-                        className={`sort-option${currentSort === opt.value ? ' active' : ''}`}
-                        onClick={() => { setCurrentSort(opt.value); setSortOpen(false); }}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {filteredProducts.length === 0 ? (
-            <div className="shop-empty">
-              <p>No products found matching your filters.</p>
-              <button className="btn-primary" onClick={clearFilters}>Clear Filters</button>
-            </div>
-          ) : (
-            <div className="products-grid">
-              {filteredProducts.map(p => <ProductCard key={p.id} product={p} />)}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Mobile Filter Drawer */}
-      {filterOpen && (
-        <div className="mobile-drawer-overlay" onClick={() => setFilterOpen(false)}>
-          <div className="mobile-filter-drawer" onClick={e => e.stopPropagation()}>
-            <div className="drawer-header">
-              <h3>Filters</h3>
-              <button onClick={() => setFilterOpen(false)}><X style={{ width: 20, height: 20 }} /></button>
-            </div>
-            <div className="drawer-body">
-              <div className="sidebar-section">
-                <h4 className="sidebar-section-title">Categories</h4>
-                {sidebarCategories.map(cat => (
-                  <button key={cat.id} className={`sidebar-cat-btn${activeCategory === cat.id ? ' active' : ''}`} onClick={() => { handleCategoryClick(cat.id); setFilterOpen(false); }}>
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-              <div className="sidebar-section">
-                <h4 className="sidebar-section-title">Material</h4>
+            {/* Material */}
+            <div className="filter-block">
+              <h4 className="filter-title">Material</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {ALL_MATERIALS.map(m => (
                   <label key={m} className="filter-checkbox-label">
-                    <input type="checkbox" className="filter-checkbox" checked={selectedMaterials.includes(m)} onChange={() => toggleMaterial(m)} />
-                    <span>{m}</span>
+                    <input
+                      type="checkbox"
+                      className="filter-checkbox"
+                      checked={selectedMaterials.includes(m)}
+                      onChange={() => toggleMaterial(m)}
+                    />
+                    <span style={{ fontSize: 13, color: 'var(--slate)' }}>{m}</span>
                   </label>
                 ))}
               </div>
             </div>
-            <div className="drawer-footer">
-              <button className="btn-primary" style={{ flex: 2 }} onClick={() => setFilterOpen(false)}>Apply Filters</button>
-              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => { clearFilters(); setFilterOpen(false); }}>Clear</button>
+
+            {/* Gemstone */}
+            <div className="filter-block">
+              <h4 className="filter-title">Gemstone</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {ALL_GEMSTONES.map(g => (
+                  <label key={g} className="filter-checkbox-label">
+                    <input
+                      type="checkbox"
+                      className="filter-checkbox"
+                      checked={selectedGemstones.includes(g)}
+                      onChange={() => toggleGemstone(g)}
+                    />
+                    <span style={{ fontSize: 13, color: 'var(--slate)' }}>{g}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+
+            {/* Price Slider */}
+            <div className="filter-block">
+              <h4 className="filter-title">Max Price: ${maxPrice}</h4>
+              <input
+                type="range"
+                min={50}
+                max={500}
+                step={10}
+                value={maxPrice}
+                onChange={e => setMaxPrice(Number(e.target.value))}
+                className="price-range-slider"
+              />
+              <div className="price-slider-values">
+                <span>$50</span><span>$500</span>
+              </div>
+            </div>
+
+            {hasActiveFilters && (
+              <button className="btn-secondary" style={{ width: '100%', fontSize: 12, padding: '10px 16px' }} onClick={clearFilters}>
+                Clear All Filters <X style={{ width: 13, height: 13, marginLeft: 4 }} />
+              </button>
+            )}
+          </aside>
+
+          {/* Products Column */}
+          <main>
+            {/* Toolbar */}
+            <div className="shop-toolbar">
+              <p style={{ fontSize: 14, color: 'var(--slate)' }}>
+                Showing <strong>{filteredProducts.length}</strong> piece{filteredProducts.length !== 1 ? 's' : ''}
+              </p>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 13, color: 'var(--slate)' }}>Sort By:</span>
+                <select
+                  className="sort-select"
+                  value={currentSort}
+                  onChange={e => setCurrentSort(e.target.value)}
+                >
+                  <option value="featured">Featured</option>
+                  <option value="price-asc">Price: Low to High</option>
+                  <option value="price-desc">Price: High to Low</option>
+                  <option value="newest">Newest First</option>
+                  <option value="name-asc">Name A–Z</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Products Grid */}
+            {filteredProducts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 0' }}>
+                <p style={{ fontSize: 16, color: 'var(--slate)', marginBottom: 20 }}>No products found matching your filters.</p>
+                <button className="btn-primary" onClick={clearFilters}>Clear Filters</button>
+              </div>
+            ) : (
+              <div className="bs-grid">
+                {filteredProducts.map(p => <ProductCard key={p.id} product={p} />)}
+              </div>
+            )}
+          </main>
         </div>
-      )}
+      </div>
     </>
   );
 }

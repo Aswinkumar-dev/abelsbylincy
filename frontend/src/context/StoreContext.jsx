@@ -4,21 +4,32 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 // Default seed data (mirrors app.js initial state)
 // ============================================================
 const DEFAULT_PRODUCTS = [
-  { id: 'p1', sku: 'ABL-NK-001', name: 'Celestial Crescent Necklace', category: 'necklaces', price: 189, material: '18K Gold Plated', gemstone: 'Cubic Zirconia', inStock: true, stockQty: 15, sizes: [], colors: ['Gold', 'Rose Gold'], image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&q=80', images: ['https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&q=80'], description: 'A delicate crescent pendant adorned with cubic zirconia stones, hand-set in 18K gold-plated sterling silver.', featured: true, bestSeller: true, newArrival: true, tags: ['necklaces', 'celestial', 'crescent'] },
-  { id: 'p2', sku: 'ABL-RG-001', name: 'Aurora Stacking Ring Set', category: 'rings', price: 149, material: '18K Gold Plated', gemstone: 'Pearl', inStock: true, stockQty: 22, sizes: ['6', '7', '8', '9'], colors: ['Gold'], image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&q=80', images: ['https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400&q=80'], description: 'Set of three delicate stacking rings featuring freshwater pearl accents in 18K gold plating.', featured: true, bestSeller: true, newArrival: false, tags: ['rings', 'stacking', 'pearl'] },
-  { id: 'p3', sku: 'ABL-ER-001', name: 'Lumière Drop Earrings', category: 'earrings', price: 129, material: '18K Gold Plated', gemstone: 'Diamond CZ', inStock: true, stockQty: 30, sizes: [], colors: ['Gold', 'Silver'], image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&q=80', images: ['https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&q=80'], description: 'Elegant teardrop earrings featuring brilliant-cut CZ diamonds suspended from delicate gold chains.', featured: true, bestSeller: false, newArrival: true, tags: ['earrings', 'drop', 'cz'] },
-  { id: 'p4', sku: 'ABL-BG-001', name: 'Soleil Gold Bangle', category: 'bangles', price: 219, material: '22K Gold Plated', gemstone: 'None', inStock: true, stockQty: 12, sizes: ['S', 'M', 'L'], colors: ['Gold'], image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400&q=80', images: ['https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400&q=80'], description: 'A statement bangle crafted in 22K gold plating with an artisanal hammered finish.', featured: true, bestSeller: true, newArrival: false, tags: ['bangles', 'gold', 'statement'] },
-  { id: 'p5', sku: 'ABL-BR-001', name: 'Pearl Strand Bracelet', category: 'bracelets', price: 169, material: '18K Gold Plated', gemstone: 'Freshwater Pearl', inStock: true, stockQty: 8, sizes: [], colors: ['Gold', 'Rose Gold'], image: 'https://images.unsplash.com/photo-1573408301185-9519f94815d7?w=400&q=80', images: ['https://images.unsplash.com/photo-1573408301185-9519f94815d7?w=400&q=80'], description: 'Freshwater pearls strung on a delicate gold-plated chain with a lobster clasp.', featured: false, bestSeller: true, newArrival: true, tags: ['bracelets', 'pearl'] },
-  { id: 'p6', sku: 'ABL-CH-001', name: 'Vintage Compass Charm', category: 'charms', price: 89, material: '18K Gold Plated', gemstone: 'None', inStock: true, stockQty: 45, sizes: [], colors: ['Gold'], image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80', images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80'], description: 'A vintage-inspired compass charm in 18K gold plating, perfect for a charm bracelet.', featured: false, bestSeller: false, newArrival: false, tags: ['charms', 'vintage'] },
+  // New Arrivals (All hosted on Cloudinary CDN)
+  { id: 'p_na1', sku: 'ABL-NK-101', name: 'Red Heart Shaped Necklace', category: 'necklaces', price: 179, material: '18K Gold Plated', gemstone: 'Red Gem', inStock: true, stockQty: 15, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796749/abels_by_lincy/Red_heart_shaped_necklace_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796749/abels_by_lincy/Red_heart_shaped_necklace_-_new_arrival.webp'], description: 'A striking red heart-shaped pendant suspended on a fine 18K gold-plated chain.', featured: true, bestSeller: false, newArrival: true, tags: ['necklaces', 'heart', 'red'] },
+  { id: 'p_na2', sku: 'ABL-BR-102', name: 'Butterfly Bracelet', category: 'bracelets', price: 149, material: '18K Gold Plated', gemstone: 'Cubic Zirconia', inStock: true, stockQty: 20, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796731/abels_by_lincy/butterfly_bracelete_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796731/abels_by_lincy/butterfly_bracelete_-_new_arrival.webp'], description: 'Delicate butterfly motif bracelet featuring sparkling cubic zirconia accents.', featured: true, bestSeller: false, newArrival: true, tags: ['bracelets', 'butterfly'] },
+  { id: 'p_na3', sku: 'ABL-CH-103', name: 'Charm Collection', category: 'charms', price: 129, material: '18K Gold Plated', gemstone: 'None', inStock: true, stockQty: 18, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp'], description: 'Artisanal charm set designed to pair beautifully with gold bracelets and chains.', featured: true, bestSeller: false, newArrival: true, tags: ['charms', 'collection'] },
+  { id: 'p_na4', sku: 'ABL-ER-104', name: 'Cherry Drop Earrings', category: 'earrings', price: 119, material: '18K Gold Plated', gemstone: 'Enamel & CZ', inStock: true, stockQty: 12, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796735/abels_by_lincy/cherry_earring_-_new_arrival.jpg', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796735/abels_by_lincy/cherry_earring_-_new_arrival.jpg'], description: 'Playful and elegant cherry drop earrings with vibrant enamel and 18K gold plating.', featured: true, bestSeller: false, newArrival: true, tags: ['earrings', 'cherry'] },
+  { id: 'p_na5', sku: 'ABL-BR-105', name: 'Green Gem Bracelet', category: 'bracelets', price: 169, material: '18K Gold Plated', gemstone: 'Emerald CZ', inStock: true, stockQty: 10, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796741/abels_by_lincy/green_gem_bracelete_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796741/abels_by_lincy/green_gem_bracelete_-_new_arrival.webp'], description: 'Lush green emerald CZ gemstones bezel-set along an 18K gold-plated link bracelet.', featured: true, bestSeller: false, newArrival: true, tags: ['bracelets', 'emerald'] },
+  { id: 'p_na6', sku: 'ABL-BR-106', name: 'Heart Shaped Bracelet', category: 'bracelets', price: 139, material: '18K Gold Plated', gemstone: 'Cubic Zirconia', inStock: true, stockQty: 25, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796742/abels_by_lincy/heart_shaped_bracelete_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796742/abels_by_lincy/heart_shaped_bracelete_-_new_arrival.webp'], description: 'Charming heart link bracelet crafted in high-lustre 18K gold plating.', featured: true, bestSeller: false, newArrival: true, tags: ['bracelets', 'heart'] },
+
+  // Best Sellers (All hosted on Cloudinary CDN)
+  { id: 'p_bs1', sku: 'ABL-NK-201', name: 'Bug Shaped Multi Gems Necklace', category: 'necklaces', price: 219, material: '18K Gold Plated', gemstone: 'Multi Gems', inStock: true, stockQty: 14, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796729/abels_by_lincy/Bug_shaped_multi_gems_neckalace_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796729/abels_by_lincy/Bug_shaped_multi_gems_neckalace_-_best_seller.webp'], description: 'Statement beetle pendant encrusted with multi-colored gemstones in 18K gold setting.', featured: true, bestSeller: true, newArrival: false, tags: ['necklaces', 'gemstones'] },
+  { id: 'p_bs2', sku: 'ABL-BR-202', name: 'Black Heart Gold Bracelet', category: 'bracelets', price: 159, material: '18K Gold Plated', gemstone: 'Black Onyx CZ', inStock: true, stockQty: 16, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796724/abels_by_lincy/black_hearted_gold_shape_bracelete_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796724/abels_by_lincy/black_hearted_gold_shape_bracelete_-_best_seller.webp'], description: 'Elegant black heart motif bracelet framed by radiant 18K gold plating.', featured: true, bestSeller: true, newArrival: false, tags: ['bracelets', 'onyx'] },
+  { id: 'p_bs3', sku: 'ABL-BR-203', name: 'Butterfly Gold Bracelet', category: 'bracelets', price: 149, material: '18K Gold Plated', gemstone: 'Cubic Zirconia', inStock: true, stockQty: 15, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796730/abels_by_lincy/butterfly_bracelete_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796730/abels_by_lincy/butterfly_bracelete_-_best_seller.webp'], description: 'Artisanal butterfly charm bracelet in 18K gold plating.', featured: true, bestSeller: true, newArrival: false, tags: ['bracelets', 'butterfly'] },
+  { id: 'p_bs4', sku: 'ABL-RG-204', name: 'Emerald Gem Ring', category: 'rings', price: 179, material: '18K Gold Plated', gemstone: 'Emerald CZ', inStock: true, stockQty: 12, sizes: ['6', '7', '8', '9'], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796740/abels_by_lincy/gem_ring_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796740/abels_by_lincy/gem_ring_-_best_seller.webp'], description: 'Vibrant emerald CZ gemstone set on an 18K gold-plated band.', featured: true, bestSeller: true, newArrival: false, tags: ['rings', 'emerald'] },
+  { id: 'p_bs5', sku: 'ABL-NK-205', name: 'Soleil Gold Necklace', category: 'necklaces', price: 189, material: '22K Gold Plated', gemstone: 'None', inStock: true, stockQty: 22, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796745/abels_by_lincy/necklace_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796745/abels_by_lincy/necklace_-_best_seller.webp'], description: 'Artisanal sun-inspired medallion necklace with a rich 22K gold-plated finish.', featured: true, bestSeller: true, newArrival: false, tags: ['necklaces', 'soleil'] },
+  { id: 'p_bs6', sku: 'ABL-RG-206', name: 'Royal Solitaire Ring', category: 'rings', price: 169, material: '18K Gold Plated', gemstone: 'Diamond CZ', inStock: true, stockQty: 19, sizes: ['6', '7', '8', '9'], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796750/abels_by_lincy/ring_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796750/abels_by_lincy/ring_-_best_seller.webp'], description: 'Classic solitaire ring featuring a brilliant-cut CZ diamond set in 18K gold plating.', featured: true, bestSeller: true, newArrival: false, tags: ['rings', 'diamond'] },
 ];
 
 const DEFAULT_CATEGORIES = [
-  { id: 'rings', name: 'Rings', image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=600&q=80' },
-  { id: 'necklaces', name: 'Necklaces', image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=600&q=80' },
-  { id: 'earrings', name: 'Earrings', image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600&q=80' },
-  { id: 'bracelets', name: 'Bracelets', image: 'https://images.unsplash.com/photo-1573408301185-9519f94815d7?w=600&q=80' },
-  { id: 'bangles', name: 'Bangles', image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=600&q=80' },
-  { id: 'charms', name: 'Charms', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
+  { id: 'rings', name: 'Rings', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796753/abels_by_lincy/Ring_Category.png' },
+  { id: 'necklaces', name: 'Necklaces', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp' },
+  { id: 'earrings', name: 'Earrings', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796736/abels_by_lincy/Earrings_Category.webp' },
+  { id: 'bracelets', name: 'Bracelets', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796726/abels_by_lincy/Bracelet_-_category.webp' },
+  { id: 'bangles', name: 'Bangles', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796721/abels_by_lincy/Bangle_Category.webp' },
+  { id: 'charms', name: 'Charms', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp' },
+  { id: 'silver-collections', name: 'Silver Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp' },
+  { id: 'seasonal-collections', name: 'Seasonal Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png' },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -36,9 +47,46 @@ const DEFAULT_CMS = {
   newArrivalsTitle: 'New Arrivals',
   newArrivalsLimit: 10,
   heroSlides: [
-    { id: 's1', image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1400&q=80', tagline: 'New Collection 2026', title: 'Lumière Diamond Series', description: 'Discover our newest collection of hand-crafted 18K gold-plated diamond CZ jewellery.', ctaText: 'Shop Now', ctaLink: '/shop' },
-    { id: 's2', image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=1400&q=80', tagline: 'Exclusively Yours', title: 'Aurora Pearl Collection', description: 'Freshwater pearls paired with artisanal gold settings for timeless elegance.', ctaText: 'Explore Pearls', ctaLink: '/shop?category=necklaces' },
-    { id: 's3', image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=1400&q=80', tagline: 'Complimentary Express Shipping', title: 'Delivered to Your Door', description: 'Every order arrives in our signature velvet box with complimentary express shipping.', ctaText: 'Shop Collections', ctaLink: '/collections' },
+    {
+      id: 'slide-1',
+      tagline: 'THE BRACELET COLLECTION',
+      title: 'Stack. <b>Style</b>. Shine.',
+      description: 'Your everyday essentials, elevated.',
+      image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796728/abels_by_lincy/bracelets-hero.webp',
+      ctaText: 'SHOP BRACELETS',
+      ctaLink: '/shop?category=bracelets',
+      theme: 'gold'
+    },
+    {
+      id: 'slide-2',
+      tagline: 'THE NECKLACE COLLECTION',
+      title: 'A Touch of <b>Gold</b>, Made to Shine.',
+      description: 'Discover necklaces designed for effortless elegance.',
+      image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp',
+      ctaText: 'SHOP NECKLACES',
+      ctaLink: '/shop?category=necklaces',
+      theme: 'gold'
+    },
+    {
+      id: 'slide-3',
+      tagline: 'THE EARRING COLLECTION',
+      title: 'Frame Your <b>Style</b>.',
+      description: 'Statement or subtle — make it yours.',
+      image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796737/abels_by_lincy/earrings-hero.webp',
+      ctaText: 'SHOP EARRINGS',
+      ctaLink: '/shop?category=earrings',
+      theme: 'gold'
+    },
+    {
+      id: 'slide-4',
+      tagline: 'THE BANGLE COLLECTION',
+      title: 'Timeless Around Your <b>Wrist</b>.',
+      description: 'A classic touch of gold for every occasion.',
+      image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796723/abels_by_lincy/bangles-hero.webp',
+      ctaText: 'SHOP BANGLES',
+      ctaLink: '/shop?category=bangles',
+      theme: 'gold'
+    }
   ],
 };
 
@@ -87,14 +135,14 @@ const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
   // State mirrors app.js `state` object
-  const [products, setProductsRaw] = useState(() => readLS('abl_products', DEFAULT_PRODUCTS));
-  const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories', DEFAULT_CATEGORIES));
+  const [products, setProductsRaw] = useState(() => readLS('abl_products_v5', DEFAULT_PRODUCTS));
+  const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
   const [orders, setOrdersRaw] = useState(() => readLS('abl_orders', DEFAULT_ORDERS));
   const [customers, setCustomersRaw] = useState(() => readLS('abl_customers', DEFAULT_CUSTOMERS));
   const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons', DEFAULT_COUPONS));
   const [roles, setRolesRaw] = useState(() => readLS('abl_roles', DEFAULT_ROLES));
   const [settings, setSettingsRaw] = useState(() => readLS('abl_settings', DEFAULT_SETTINGS));
-  const [cms, setCMSRaw] = useState(() => readLS('abl_cms', DEFAULT_CMS));
+  const [cms, setCMSRaw] = useState(() => readLS('abl_cms_v5', DEFAULT_CMS));
   const [cart, setCartRaw] = useState(() => readLS('abl_cart', []));
   const [wishlist, setWishlistRaw] = useState(() => readLS('abl_wishlist', []));
   const [currentUser, setCurrentUserRaw] = useState(() => readLS('abl_current_user', null));
@@ -106,14 +154,14 @@ export function StoreProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
   // Persisting helpers
-  const setProducts = useCallback((v) => { setProductsRaw(v); writeLS('abl_products', v); }, []);
-  const setCategories = useCallback((v) => { setCategoriesRaw(v); writeLS('abl_categories', v); }, []);
+  const setProducts = useCallback((v) => { setProductsRaw(v); writeLS('abl_products_v5', v); }, []);
+  const setCategories = useCallback((v) => { setCategoriesRaw(v); writeLS('abl_categories_v5', v); }, []);
   const setOrders = useCallback((v) => { setOrdersRaw(v); writeLS('abl_orders', v); }, []);
   const setCustomers = useCallback((v) => { setCustomersRaw(v); writeLS('abl_customers', v); }, []);
   const setCoupons = useCallback((v) => { setCouponsRaw(v); writeLS('abl_coupons', v); }, []);
   const setRoles = useCallback((v) => { setRolesRaw(v); writeLS('abl_roles', v); }, []);
   const setSettings = useCallback((v) => { setSettingsRaw(v); writeLS('abl_settings', v); }, []);
-  const setCMS = useCallback((v) => { setCMSRaw(v); writeLS('abl_cms', v); }, []);
+  const setCMS = useCallback((v) => { setCMSRaw(v); writeLS('abl_cms_v5', v); }, []);
   const setCart = useCallback((v) => { setCartRaw(v); writeLS('abl_cart', v); }, []);
   const setWishlist = useCallback((v) => { setWishlistRaw(v); writeLS('abl_wishlist', v); }, []);
   const setCurrentUser = useCallback((v) => { setCurrentUserRaw(v); writeLS('abl_current_user', v); }, []);

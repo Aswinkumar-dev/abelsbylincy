@@ -3,9 +3,13 @@ import { useLocation } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
 import Toast from './Toast';
+import { useStore } from '../context/StoreContext';
 
 export default function Layout({ children }) {
   const location = useLocation();
+  const { currentUser } = useStore();
+
+  const isAuthScreen = location.pathname === '/account' && !currentUser;
 
   // Automatic Pageview Tracking across React SPA navigation
   useEffect(() => {
@@ -18,9 +22,9 @@ export default function Layout({ children }) {
 
   return (
     <>
-      <Header />
+      {!isAuthScreen && <Header />}
       <main>{children}</main>
-      <Footer />
+      {!isAuthScreen && <Footer />}
       <Toast />
     </>
   );

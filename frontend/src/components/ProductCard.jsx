@@ -1,57 +1,67 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Heart, ShoppingBag, Star } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export default function ProductCard({ product }) {
   const { addToCart, toggleWishlist, wishlist, formatMoney } = useStore();
+  const navigate = useNavigate();
   const isWishlisted = wishlist.includes(product.id);
 
+  const handleCardClick = () => {
+    navigate(`/product?id=${product.id}`);
+  };
+
   return (
-    <div className="product-card">
-      <div className="product-card-image-wrap">
-        <Link to={`/product?id=${product.id}`}>
-          <img
-            src={product.images?.[0] || product.image}
-            alt={product.name}
-            className="product-card-img"
-            loading="lazy"
-          />
-        </Link>
-        {product.newArrival && <span className="product-badge product-badge-new">New</span>}
-        {product.bestSeller && !product.newArrival && <span className="product-badge product-badge-best">Best Seller</span>}
-        {!product.inStock && <span className="product-badge product-badge-out">Sold Out</span>}
+    <div className="bs-card" onClick={handleCardClick}>
+      <div className="bs-card-img-wrap">
+        <img
+          src={product.images?.[0] || product.image}
+          alt={product.name}
+          loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            const filename = (product.images?.[0] || product.image).split('/').pop();
+            e.target.onerror = null;
+            e.target.src = `/assets/${decodeURIComponent(filename)}`;
+          }}
+        />
+        {product.bestSeller && <span className="bs-badge badge-bestseller">BEST SELLER</span>}
+        {product.newArrival && !product.bestSeller && <span className="bs-badge badge-new">NEW</span>}
 
         <button
+          type="button"
           className={`wishlist-btn${isWishlisted ? ' active' : ''}`}
-          onClick={() => toggleWishlist(product.id)}
-          aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          onClick={(e) => { e.stopPropagation(); toggleWishlist(product.id); }}
+          title={isWishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
         >
-          <Heart style={{ width: 16, height: 16, fill: isWishlisted ? 'currentColor' : 'none' }} />
+          <Heart style={{ width: 14, height: 14, fill: isWishlisted ? 'var(--danger)' : 'none', color: isWishlisted ? 'var(--danger)' : 'currentColor' }} />
         </button>
       </div>
 
-      <div className="product-card-body">
-        <p className="product-card-category">{product.category}</p>
-        <Link to={`/product?id=${product.id}`} className="product-card-title">{product.name}</Link>
+      <div className="bs-card-body">
+        <p className="product-category" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 4 }}>{product.category}</p>
+        <h4 className="bs-product-name">{product.name}</h4>
 
-        <div className="product-card-rating">
-          {[1,2,3,4,5].map(i => <Star key={i} style={{ width: 11, height: 11, fill: 'var(--gold)', color: 'var(--gold)' }} />)}
-          <span className="product-card-reviews">(24)</span>
+        <div className="product-rating-row" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+          <div className="stars" style={{ display: 'flex', color: 'var(--gold)' }}>
+            {[1,2,3,4,5].map(i => <Star key={i} style={{ width: 12, height: 12, fill: 'var(--gold)', color: 'var(--gold)' }} />)}
+          </div>
+          <span className="review-count" style={{ fontSize: 11, color: 'var(--slate-light)' }}>(0)</span>
         </div>
 
-        <div className="product-card-footer">
-          <span className="product-card-price">{formatMoney(product.price)}</span>
-          <button
-            className="btn-primary product-card-atc"
-            onClick={() => addToCart(product.id, 1)}
-            disabled={!product.inStock}
-          >
-            <ShoppingBag style={{ width: 14, height: 14 }} />
-            {product.inStock ? 'Add to Bag' : 'Sold Out'}
-          </button>
-        </div>
+        <div className="bs-product-price">{formatMoney(product.price)}</div>
       </div>
+
+      <button
+        type="button"
+        className="bs-add-to-cart-btn"
+        onClick={(e) => { e.stopPropagation(); addToCart(product.id, 1); }}
+        disabled={!product.inStock}
+      >
+        <ShoppingBag style={{ width: 13, height: 13, display: 'inline-block', verticalAlign: 'middle', marginRight: 6 }} />
+        {product.inStock ? 'ADD TO BAG' : 'SOLD OUT'}
+      </button>
     </div>
   );
 }
