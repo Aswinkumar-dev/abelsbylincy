@@ -11,17 +11,18 @@ import { useStore } from '../context/StoreContext';
 export default function AdminPage() {
   const {
     adminLoggedIn, adminUser, adminLogin, adminLogout, roles,
-    products, categories, orders, customers, coupons, reviews, stockHistory, cms, messages,
+    products, categories, orders, customers, coupons, reviews, stockHistory, cms, messages, subscribers,
     setProducts, setCategories, setOrders, setCustomers, setCoupons, setReviews, setStockHistory, setCMS, setMessages,
     formatMoney, saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,
     saveCategory, deleteCategory, cycleOrderStatus, deleteOrder,
-    saveCustomer, deleteCustomer, saveCoupon, deleteCoupon,
+    saveCustomer, deleteCustomer, deleteSubscriber, saveCoupon, deleteCoupon,
     saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide, showToast
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [customerSubTab, setCustomerSubTab] = useState('registered');
 
   // Login form state
   const [loginId, setLoginId] = useState('');
@@ -828,44 +829,157 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* 6. CUSTOMERS */}
+          {/* 6. CUSTOMERS & NEWSLETTER SUBSCRIBERS */}
           {activeTab === 'customers' && (
             <div>
-              <div style={{ marginBottom: 24 }}>
-                <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600 }}>Customer Directory ({customers.length})</h2>
-                <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>Click any customer to inspect their full purchase history.</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+                <div>
+                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600 }}>Customer Directory &amp; Subscriptions</h2>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>View registered customers, purchase histories, and newsletter subscribers list.</p>
+                </div>
+
+                {/* Sub-tab Switchers */}
+                <div style={{ display: 'flex', gap: 8, background: '#FFFFFF', padding: 4, borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setCustomerSubTab('registered')}
+                    className={customerSubTab === 'registered' ? 'btn-primary' : 'btn-secondary'}
+                    style={{ padding: '6px 14px', fontSize: 12, fontWeight: 700 }}
+                  >
+                    Registered Clients ({customers.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomerSubTab('subscribers')}
+                    className={customerSubTab === 'subscribers' ? 'btn-primary' : 'btn-secondary'}
+                    style={{ padding: '6px 14px', fontSize: 12, fontWeight: 700 }}
+                  >
+                    📬 Newsletter Subscribers ({(subscribers || []).length})
+                  </button>
+                </div>
               </div>
 
-              <div className="admin-table-card">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Customer Name</th>
-                      <th>Email</th>
-                      <th>Total Orders</th>
-                      <th>Total Spent</th>
-                      <th>Joined Date</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customers.map(c => (
-                      <tr key={c.id}>
-                        <td><strong>{c.name}</strong></td>
-                        <td>{c.email}</td>
-                        <td>{c.orders || 1} orders</td>
-                        <td><strong>{c.spent || '$189'}</strong></td>
-                        <td>{c.joined || 'Aug 2026'}</td>
-                        <td>
-                          <button onClick={() => setSelectedCustomer(c)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>
-                            View Profile
-                          </button>
-                        </td>
+              {/* Sub-tab 1: Registered Clients */}
+              {customerSubTab === 'registered' && (
+                <div className="admin-table-card">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Customer Name</th>
+                        <th>Email</th>
+                        <th>Total Orders</th>
+                        <th>Total Spent</th>
+                        <th>Joined Date</th>
+                        <th>Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {customers.map(c => (
+                        <tr key={c.id}>
+                          <td><strong>{c.name}</strong></td>
+                          <td>{c.email}</td>
+                          <td>{c.orders || 1} orders</td>
+                          <td><strong>{c.spent || '$189'}</strong></td>
+                          <td>{c.joined || 'Aug 2026'}</td>
+                          <td>
+                            <button onClick={() => setSelectedCustomer(c)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>
+                              View Profile
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Sub-tab 2: Newsletter Subscribers */}
+              {customerSubTab === 'subscribers' && (
+                <div>
+                  <div style={{ background: '#FFFFFF', padding: 20, borderRadius: 12, border: '1px solid var(--border)', marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                      <div>
+                        <h4 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>Newsletter Audience List</h4>
+                        <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Users who subscribed to promotional offers &amp; updates via website footer.</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+                        onClick={() => {
+                          const csvContent = "data:text/csv;charset=utf-8,Email,Subscribed Date,Status\n" + (subscribers || []).map(s => `"${s.email}","${s.date}","${s.status}"`).join("\n");
+                          const encodedUri = encodeURI(csvContent);
+                          const link = document.createElement("a");
+                          link.setAttribute("href", encodedUri);
+                          link.setAttribute("download", "newsletter_subscribers.csv");
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          showToast("Exported newsletter subscribers to CSV", "download");
+                        }}
+                      >
+                        <Download style={{ width: 14, height: 14 }} /> Export Subscribers List
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="admin-table-card">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Subscriber Email</th>
+                          <th>Subscribed Date &amp; Time</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(subscribers || []).length === 0 ? (
+                          <tr>
+                            <td colSpan={4} style={{ textAlign: 'center', padding: 24, color: 'var(--slate)' }}>
+                              No newsletter subscribers yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          (subscribers || []).map(sub => (
+                            <tr key={sub.id}>
+                              <td>
+                                <strong>{sub.email}</strong>
+                              </td>
+                              <td style={{ fontSize: 12, color: 'var(--slate)' }}>{sub.date}</td>
+                              <td>
+                                <span className="status-badge status-delivered" style={{ fontSize: 11, padding: '3px 8px' }}>
+                                  ✓ Subscribed
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <a
+                                    href={`mailto:${sub.email}`}
+                                    className="btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: 11 }}
+                                  >
+                                    Send Email
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteSubscriber(sub.id)}
+                                    className="btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: 11, color: 'var(--danger)' }}
+                                    title="Remove subscriber"
+                                  >
+                                    <Trash2 style={{ width: 13, height: 13 }} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

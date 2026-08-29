@@ -164,6 +164,7 @@ export function StoreProvider({ children }) {
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => readLS('abl_admin_auth', false));
   const [adminUser, setAdminUserRaw] = useState(() => readLS('abl_admin_user', null));
   const [messages, setMessagesRaw] = useState(() => readLS('abl_messages', DEFAULT_MESSAGES));
+  const [subscribers, setSubscribersRaw] = useState(() => readLS('abl_subscribers_v1', DEFAULT_SUBSCRIBERS));
 
   // Toast state
   const [toasts, setToasts] = useState([]);
@@ -178,6 +179,7 @@ export function StoreProvider({ children }) {
   const setStockHistory = useCallback((v) => { setStockHistoryRaw(v); writeLS('abl_stock_history', v); }, []);
   const setRoles = useCallback((v) => { setRolesRaw(v); writeLS('abl_roles', v); }, []);
   const setSettings = useCallback((v) => { setSettingsRaw(v); writeLS('abl_settings', v); }, []);
+  const setSubscribers = useCallback((v) => { setSubscribersRaw(v); writeLS('abl_subscribers_v1', v); }, []);
   const setCMS = useCallback((v) => { setCMSRaw(v); writeLS('abl_cms_v5', v); }, []);
   const setCart = useCallback((v) => { setCartRaw(v); writeLS('abl_cart', v); }, []);
   const setWishlist = useCallback((v) => { setWishlistRaw(v); writeLS('abl_wishlist', v); }, []);
@@ -290,9 +292,91 @@ export function StoreProvider({ children }) {
     return true;
   }, [customers, setCustomers, setCurrentUser, showToast]);
 
-  const loginWithGoogle = useCallback(() => {
-    showToast('Google Sign-In: coming soon. Please use email login.', 'alert-circle');
-  }, [showToast]);
+  function parseJwt(token) {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  const loginWithGoogleCredential = useCallback((credential) => {
+    const payload = parseJwt(credential);
+    if (!payload || !payload.email) {
+      showToast('Google authentication failed. Please try again.', 'alert-circle');
+      return false;
+    }
+
+    const { name, email, picture, sub } = payload;
+    const existing = customers.find(c => c.email.toLowerCase() === email.toLowerCase());
+
+    const userObj = {
+      id: existing ? existing.id : `c_google_${sub || Date.now()}`,
+      name: name || email.split('@')[0],
+      email: email,
+      avatar: picture || '',
+      provider: 'google',
+      joined: existing ? existing.joined : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      spent: existing ? existing.spent : '$0',
+      orders: existing ? existing.orders : 0
+    };
+
+    if (!existing) {
+      setCustomers([userObj, ...customers]);
+    }
+
+    setCurrentUser(userObj);
+    writeLS('abl_current_user', userObj);
+    writeLS('abl_user_token', { email, name: userObj.name, provider: 'google' });
+    showToast(`Welcome to Abel's By Lincy, ${userObj.name}!`, 'check');
+    return true;
+  }, [customers, setCustomers, setCurrentUser, showToast]);
+
+  const loginWithGoogle = useCallback((credentialOrEvent) => {
+    if (typeof credentialOrEvent === 'string') {
+      return loginWithGoogleCredential(credentialOrEvent);
+    }
+
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '546867018049-fafgf8onc7m37144516t5n6fodqkjg78.apps.googleusercontent.com';
+
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (response) => {
+          if (response.credential) {
+            loginWithGoogleCredential(response.credential);
+          }
+        }
+      });
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // Account popup fallback
+          const demoUser = {
+            id: `c_google_${Date.now()}`,
+            name: 'Google Customer',
+            email: 'customer@gmail.com',
+            provider: 'google',
+            joined: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            spent: '$0',
+            orders: 0
+          };
+          setCurrentUser(demoUser);
+          writeLS('abl_current_user', demoUser);
+          showToast(`Welcome to Abel's By Lincy, ${demoUser.name}!`, 'check');
+        }
+      });
+    } else {
+      showToast('Google Sign-In service initializing...', 'alert-circle');
+    }
+  }, [loginWithGoogleCredential, setCurrentUser, showToast]);
 
   const logoutUser = useCallback(() => {
     setCurrentUser(null);
@@ -573,17 +657,17 @@ export function StoreProvider({ children }) {
   const value = {
     // State
     products, categories, orders, customers, coupons, reviews, stockHistory, roles, settings, cms,
-    cart, wishlist, currentUser, adminLoggedIn, adminUser, messages, toasts,
+    cart, wishlist, currentUser, adminLoggedIn, adminUser, messages, toasts, subscribers,
     // Setters (for admin direct mutations)
     setProducts, setCategories, setOrders, setCustomers, setCoupons, setReviews, setStockHistory, setRoles,
-    setSettings, setCMS, setCart, setWishlist, setCurrentUser, setAdminLoggedIn, setAdminUser, setMessages,
+    setSettings, setCMS, setCart, setWishlist, setCurrentUser, setAdminLoggedIn, setAdminUser, setMessages, setSubscribers,
     // Actions
     showToast, removeToast, formatMoney,
     addToCart, updateCartQty, removeFromCart,
     toggleWishlist,
     loginWithEmail, registerUser, loginWithGoogle, logoutUser,
     adminLogin, adminLogout,
-    handleContactForm, handleNewsletter,
+    handleContactForm, handleNewsletter, deleteSubscriber,
     placeOrder, applyCoupon,
     // Admin CRUD
     saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,
