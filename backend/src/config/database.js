@@ -38,6 +38,40 @@ async function runMigrations(connection) {
       await connection.query('ALTER TABLE product_images ADD COLUMN color VARCHAR(50) NULL AFTER is_primary');
       console.log('Migrated: Added color column to product_images table.');
     }
+
+    // 3. Check payments columns for Stripe integration
+    try {
+      const [payCols] = await connection.query('SHOW COLUMNS FROM payments');
+      const payColNames = payCols.map(c => c.Field);
+      
+      if (!payColNames.includes('idempotency_key')) {
+        await connection.query('ALTER TABLE payments ADD COLUMN idempotency_key VARCHAR(255) NULL AFTER stripe_payment_intent_id, ADD UNIQUE KEY uq_payments_idempotency_key (idempotency_key)');
+        console.log('Migrated: Added idempotency_key column to payments table.');
+      }
+      if (!payColNames.includes('card_brand')) {
+        await connection.query('ALTER TABLE payments ADD COLUMN card_brand VARCHAR(30) NULL AFTER payment_method_type');
+        console.log('Migrated: Added card_brand column to payments table.');
+      }
+      if (!payColNames.includes('card_last4')) {
+        await connection.query('ALTER TABLE payments ADD COLUMN card_last4 CHAR(4) NULL AFTER card_brand');
+        console.log('Migrated: Added card_last4 column to payments table.');
+      }
+    } catch (payErr) {
+      console.warn('⚠️ Payments table migration note:', payErr.message);
+    }
+
+    // 4. Check users columns for stripe_customer_id
+    try {
+      const [userCols] = await connection.query('SHOW COLUMNS FROM users');
+      const userColNames = userCols.map(c => c.Field);
+      
+      if (!userColNames.includes('stripe_customer_id')) {
+        await connection.query('ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255) NULL AFTER profile_image_url, ADD UNIQUE KEY uq_users_stripe_customer_id (stripe_customer_id)');
+        console.log('Migrated: Added stripe_customer_id column to users table.');
+      }
+    } catch (userErr) {
+      console.warn('⚠️ Users table migration note:', userErr.message);
+    }
   } catch (err) {
     console.error('⚠️ Database migration warning (tables may not exist yet):', err.message);
   }

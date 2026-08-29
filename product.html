@@ -446,6 +446,14 @@
 
     function handleBuyNow() {
       window.abl.addToCart(currentProduct.id, currentQty, selectedSize);
+      const user = window.abl.state.currentUser;
+      if (!user) {
+        window.abl.showToast('Please sign in to proceed to checkout', 'lock');
+        setTimeout(() => {
+          window.location.href = 'account.html?redirect=checkout.html';
+        }, 500);
+        return;
+      }
       window.location.href = 'checkout.html';
     }
 

@@ -182,7 +182,7 @@
                   * All product prices are inclusive of GST & Express Shipping. No extra fees.
                 </p>
 
-                <a href="checkout.html" class="btn-primary" style="width: 100%; margin-top: 24px; padding: 18px; text-align: center;">
+                <a href="checkout.html" onclick="return handleProceedToCheckout(event)" class="btn-primary" style="width: 100%; margin-top: 24px; padding: 18px; text-align: center;">
                   Proceed to Secure Checkout <i data-lucide="lock" style="width: 16px; height: 16px;"></i>
                 </a>
 
@@ -217,6 +217,19 @@
       appliedCoupon = null;
       window.abl.showToast('Coupon removed');
       renderCart();
+    }
+
+    function handleProceedToCheckout(e) {
+      const user = window.abl.state.currentUser;
+      if (!user) {
+        if (e) e.preventDefault();
+        window.abl.showToast('Please sign in to proceed to checkout', 'lock');
+        setTimeout(() => {
+          window.location.href = 'account.html?redirect=checkout.html';
+        }, 500);
+        return false;
+      }
+      return true;
     }
   </script>
 </body>

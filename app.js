@@ -1323,7 +1323,8 @@
       };
       saveLocal('abl_current_user', state.currentUser);
       showToast(`Welcome back, ${state.currentUser.name}!`);
-      window.location.href = 'account.html';
+      const urlParams = new URLSearchParams(window.location.search);
+      window.location.href = urlParams.get('redirect') || 'account.html';
     },
 
     loginWithEmail: (form) => {
@@ -1337,7 +1338,8 @@
       };
       saveLocal('abl_current_user', state.currentUser);
       showToast('Signed in successfully!');
-      window.location.href = 'account.html';
+      const urlParams = new URLSearchParams(window.location.search);
+      window.location.href = urlParams.get('redirect') || 'account.html';
     },
 
     registerUser: (form) => {
@@ -1352,7 +1354,8 @@
       };
       saveLocal('abl_current_user', state.currentUser);
       showToast(`Welcome to Abel's By Lincy, ${name}!`);
-      window.location.href = 'account.html';
+      const urlParams = new URLSearchParams(window.location.search);
+      window.location.href = urlParams.get('redirect') || 'account.html';
     },
 
     logoutUser: () => {
