@@ -345,7 +345,7 @@ export function StoreProvider({ children }) {
       return loginWithGoogleCredential(credentialOrEvent);
     }
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '546867018049-fafgf8onc7m37144516t5n6fodqkjg78.apps.googleusercontent.com';
+    const clientId = import.meta.env.GOOGLE_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID || '546867018049-fafgf8onc7m37144516t5n6fodqkjg78.apps.googleusercontent.com';
 
     if (window.google?.accounts?.id) {
       window.google.accounts.id.initialize({
