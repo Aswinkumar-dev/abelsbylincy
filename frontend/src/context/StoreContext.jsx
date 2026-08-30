@@ -608,6 +608,13 @@ export function StoreProvider({ children }) {
     showToast('Settings saved!', 'check');
   }, [settings, setSettings, showToast]);
 
+
+  const deleteSubscriber = useCallback((id) => {
+    setSubscribers(subscribers.filter(s => s.id !== id));
+    showToast('Subscriber removed', 'check');
+  }, [subscribers, setSubscribers, showToast]);
+
+
   const applyCoupon = useCallback((code, subtotal) => {
     const cp = coupons.find(c => c.code.toUpperCase() === code.toUpperCase() && c.active);
     if (!cp) { showToast('Invalid or expired coupon', 'alert-circle'); return null; }
