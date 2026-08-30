@@ -124,6 +124,7 @@ const DEFAULT_ROLES = [
 ];
 
 const DEFAULT_MESSAGES = [];
+const DEFAULT_SUBSCRIBERS = [];
 
 // ============================================================
 // Helpers
