@@ -14,10 +14,30 @@ export default function AdminPage() {
     products, categories, orders, customers, coupons, reviews, stockHistory, cms, messages, subscribers,
     setProducts, setCategories, setOrders, setCustomers, setCoupons, setReviews, setStockHistory, setCMS, setMessages,
     formatMoney, saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,
-    saveCategory, deleteCategory, cycleOrderStatus, deleteOrder,
+    saveCategory, deleteCategory, updateOrderStatus, cycleOrderStatus, deleteOrder,
     saveCustomer, deleteCustomer, deleteSubscriber, saveCoupon, deleteCoupon,
     saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide, showToast
   } = useStore();
+
+  const getStatusStyles = (status) => {
+    switch (status) {
+      case 'Delivered':
+        return { bg: '#E6F4EA', color: '#137333', border: '#CEEAD6' };
+      case 'Shipped':
+        return { bg: '#FEF7E0', color: '#B06000', border: '#FDE293' };
+      case 'Packed':
+        return { bg: '#F3E8FF', color: '#6B21A8', border: '#E9D5FF' };
+      case 'Processing':
+        return { bg: '#E8F0FE', color: '#1A73E8', border: '#AECBFA' };
+      case 'Confirmed':
+        return { bg: '#F1F3F4', color: '#202124', border: '#DADCE0' };
+      case 'Cancelled':
+        return { bg: '#FCE8E6', color: '#C5221F', border: '#FAD2CF' };
+      case 'New Order':
+      default:
+        return { bg: 'rgba(212, 175, 55, 0.15)', color: '#A38025', border: 'var(--gold)' };
+    }
+  };
 
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -103,9 +123,54 @@ export default function AdminPage() {
   // CMS state & Curator handlers
   const [cmsAnnouncement, setCmsAnnouncement] = useState(() => cms?.announcement || 'Free Express Shipping on all orders across Australia');
   const [showHeroModal, setShowHeroModal] = useState(false);
+  const [heroUploadSuccess, setHeroUploadSuccess] = useState(false);
+  const [heroUploading, setHeroUploading] = useState(false);
+  const heroFileInputRef = React.useRef(null);
   const [heroForm, setHeroForm] = useState({
-    tagline: 'THE NEW COLLECTION', title: 'Elegance in Every Detail', description: 'Hand-crafted anti-tarnish gold-plated jewellery.', image: '', ctaText: 'SHOP NOW', ctaLink: '/shop'
+    tagline: '', title: '', description: '', image: '', ctaText: '', ctaLink: ''
   });
+
+  const handleHeroFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setHeroUploading(true);
+    setHeroUploadSuccess(false);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'abels_preset');
+      formData.append('cloud_name', 'gylnyxru');
+
+      const res = await fetch('https://api.cloudinary.com/v1_1/gylnyxru/image/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setHeroForm(prev => ({ ...prev, image: data.secure_url }));
+        setHeroUploadSuccess(true);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          setHeroForm(prev => ({ ...prev, image: evt.target.result }));
+          setHeroUploadSuccess(true);
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        setHeroForm(prev => ({ ...prev, image: evt.target.result }));
+        setHeroUploadSuccess(true);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setHeroUploading(false);
+    }
+  };
 
   React.useEffect(() => {
     if (cms?.announcement) {
@@ -481,26 +546,28 @@ export default function AdminPage() {
               {/* Today Metrics KPIs */}
               <div className="kpi-grid" style={{ marginBottom: 24 }}>
                 <div className="kpi-card">
-                  <span className="kpi-title">Today's Orders</span>
-                  <span className="kpi-value">{dashTimePeriod === 'today' ? '4 Orders' : dashTimePeriod === 'week' ? '18 Orders' : '42 Orders'}</span>
-                  <span className="kpi-trend trend-up">↑ 12% vs yesterday</span>
+                  <span className="kpi-title">Total Orders</span>
+                  <span className="kpi-value">{orders.length} Orders</span>
+                  <span className="kpi-trend trend-up">Live Store Data</span>
                 </div>
                 <div className="kpi-card">
-                  <span className="kpi-title">Today's Revenue</span>
-                  <span className="kpi-value">{dashTimePeriod === 'today' ? '$586.00' : dashTimePeriod === 'week' ? '$2,840.00' : '$6,750.00'}</span>
-                  <span className="kpi-trend trend-up">↑ 18% sales growth</span>
+                  <span className="kpi-title">Total Revenue</span>
+                  <span className="kpi-value">
+                    {formatMoney(orders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0))}
+                  </span>
+                  <span className="kpi-trend trend-up">Live Sales Total</span>
                 </div>
                 <div className="kpi-card">
                   <span className="kpi-title">Items Sold</span>
-                  <span className="kpi-value">{dashTimePeriod === 'today' ? '7 Items' : dashTimePeriod === 'week' ? '32 Items' : '78 Items'}</span>
-                  <span className="kpi-trend trend-up">↑ Sydney orders</span>
+                  <span className="kpi-value">{orders.length} Items</span>
+                  <span className="kpi-trend trend-up">Live Fulfilled Stock</span>
                 </div>
                 <div className="kpi-card">
-                  <span className="kpi-title">New Customers</span>
-                  <span className="kpi-value">{dashTimePeriod === 'today' ? '3 Clients' : dashTimePeriod === 'week' ? '12 Clients' : '29 Clients'}</span>
-                  <span className="kpi-trend trend-up">↑ Australian buyers</span>
+                  <span className="kpi-title">Registered Clients</span>
+                  <span className="kpi-value">{customers.length} Clients</span>
+                  <span className="kpi-trend trend-up">Live Customer Directory</span>
                 </div>
-              </div>
+                </div>
 
               {/* Inventory Alerts Box */}
               {(lowStockProducts.length > 0 || outOfStockProducts.length > 0) && (
@@ -727,15 +794,15 @@ export default function AdminPage() {
                       return (
                         <tr key={p.id}>
                           <td><strong>{p.name}</strong></td>
-                          <td><code>{p.sku || 'ABL-JEW'}</code></td>
+                          <td><code style={{ whiteSpace: 'nowrap' }}>{p.sku || 'ABL-JEW'}</code></td>
                           <td style={{ fontSize: 16, fontWeight: 700 }}>{qty}</td>
                           <td>
                             {isOut ? (
-                              <span style={{ background: '#FED7D7', color: '#9B2C2C', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>🔴 Out of Stock</span>
+                              <span style={{ background: '#FED7D7', color: '#9B2C2C', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>🔴 Out of Stock</span>
                             ) : isLow ? (
-                              <span style={{ background: '#FEEBC8', color: '#C05621', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>⚠️ Low Stock</span>
+                              <span style={{ background: '#FEEBC8', color: '#C05621', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>⚠️ Low Stock</span>
                             ) : (
-                              <span style={{ background: '#C6F6D5', color: '#22543D', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>In Stock</span>
+                              <span style={{ background: '#C6F6D5', color: '#22543D', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>In Stock</span>
                             )}
                           </td>
                           <td>
@@ -779,7 +846,7 @@ export default function AdminPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <div>
                   <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600 }}>Orders Lifecycle ({orders.length})</h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>New Order → Confirmed → Processing → Packed → Shipped → Delivered.</p>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>Confirmed → Processing → Packed → Shipped → Delivered.</p>
                 </div>
               </div>
 
@@ -804,16 +871,35 @@ export default function AdminPage() {
                         <td>{o.product || 'Gold Jewellery'}</td>
                         <td>{o.date}</td>
                         <td>
-                          <button
-                            onClick={() => cycleOrderStatus(o.id)}
-                            style={{
-                              border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                              background: o.status === 'Delivered' ? '#C6F6D5' : o.status === 'Shipped' ? '#FEFCBF' : '#EBF8FF',
-                              color: o.status === 'Delivered' ? '#22543D' : o.status === 'Shipped' ? '#744210' : '#2C5282'
-                            }}
-                          >
-                            {o.status} ↻
-                          </button>
+                          {(() => {
+                            const st = getStatusStyles(o.status);
+                            return (
+                              <select
+                                value={o.status}
+                                onChange={(e) => (updateOrderStatus ? updateOrderStatus(o.id, e.target.value) : cycleOrderStatus(o.id))}
+                                style={{
+                                  background: st.bg,
+                                  color: st.color,
+                                  border: `1px solid ${st.border}`,
+                                  borderRadius: 6,
+                                  padding: '6px 10px',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  fontFamily: 'var(--font-sans)',
+                                  cursor: 'pointer',
+                                  outline: 'none',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                }}
+                              >
+                                <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
+                                <option value="Processing" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Processing</option>
+                                <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
+                                <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
+                                <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
+                                <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
+                              </select>
+                            );
+                          })()}
                         </td>
                         <td><strong>{o.total}</strong></td>
                         <td>
@@ -854,7 +940,7 @@ export default function AdminPage() {
                     className={customerSubTab === 'subscribers' ? 'btn-primary' : 'btn-secondary'}
                     style={{ padding: '6px 14px', fontSize: 12, fontWeight: 700 }}
                   >
-                    📬 Newsletter Subscribers ({(subscribers || []).length})
+                    Newsletter Subscribers ({(subscribers || []).length})
                   </button>
                 </div>
               </div>
@@ -1333,51 +1419,71 @@ export default function AdminPage() {
               </div>
 
               {/* Analytics Metrics Cards */}
-              <div className="kpi-grid" style={{ marginBottom: 24 }}>
-                <div className="kpi-card">
-                  <span className="kpi-title">Gross Revenue</span>
-                  <span className="kpi-value">$25,317.00</span>
-                  <span className="kpi-trend trend-up">↑ 24% vs last period</span>
-                </div>
-                <div className="kpi-card">
-                  <span className="kpi-title">Total Orders</span>
-                  <span className="kpi-value">{orders.length + 184}</span>
-                  <span className="kpi-trend trend-up">↑ Sydney & interstate</span>
-                </div>
-                <div className="kpi-card">
-                  <span className="kpi-title">Average Order Value (AOV)</span>
-                  <span className="kpi-value">$137.50</span>
-                  <span className="kpi-trend trend-up">↑ 8% higher cart size</span>
-                </div>
-                <div className="kpi-card">
-                  <span className="kpi-title">Repeat Purchase Rate</span>
-                  <span className="kpi-value">34.2%</span>
-                  <span className="kpi-trend trend-up">↑ Strong brand loyalty</span>
-                </div>
-              </div>
+              {(() => {
+                const totalRev = orders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0);
+                const orderCnt = orders.length;
+                const aovVal = orderCnt > 0 ? (totalRev / orderCnt) : 0;
+                const custCounts = orders.reduce((acc, o) => { if (o.email) acc[o.email] = (acc[o.email] || 0) + 1; return acc; }, {});
+                const repeatCusts = Object.values(custCounts).filter(c => c > 1).length;
+                const uniqueCusts = Object.keys(custCounts).length;
+                const repeatPct = uniqueCusts > 0 ? ((repeatCusts / uniqueCusts) * 100).toFixed(1) : '0.0';
 
-              {/* Top Selling Products */}
-              <div style={{ background: '#FFFFFF', padding: 24, borderRadius: 12, border: '1px solid var(--border)' }}>
-                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Best Selling Jewellery Pieces</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {products.slice(0, 4).map((p, idx) => (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--cream)', borderRadius: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--gold-dark)', width: 24 }}>#{idx + 1}</span>
-                        <img src={p.image} alt={p.name} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6 }} />
-                        <div>
-                          <strong>{p.name}</strong>
-                          <span style={{ display: 'block', fontSize: 12, color: 'var(--slate)' }}>SKU: {p.sku || 'ABL-JEW'}</span>
-                        </div>
+                return (
+                  <>
+                    <div className="kpi-grid" style={{ marginBottom: 24 }}>
+                      <div className="kpi-card">
+                        <span className="kpi-title">Gross Revenue</span>
+                        <span className="kpi-value">{formatMoney(totalRev)}</span>
+                        <span className="kpi-trend trend-up">Live Revenue Total</span>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--onyx)' }}>${p.price * (idx + 12)}</span>
-                        <span style={{ display: 'block', fontSize: 12, color: 'var(--slate)' }}>{idx + 12} units sold</span>
+                      <div className="kpi-card">
+                        <span className="kpi-title">Total Orders</span>
+                        <span className="kpi-value">{orderCnt}</span>
+                        <span className="kpi-trend trend-up">Live Order Count</span>
+                      </div>
+                      <div className="kpi-card">
+                        <span className="kpi-title">Average Order Value (AOV)</span>
+                        <span className="kpi-value">{formatMoney(aovVal)}</span>
+                        <span className="kpi-trend trend-up">Live Average Basket Size</span>
+                      </div>
+                      <div className="kpi-card">
+                        <span className="kpi-title">Repeat Purchase Rate</span>
+                        <span className="kpi-value">{repeatPct}%</span>
+                        <span className="kpi-trend trend-up">Live Client Loyalty</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+
+                    {/* Top Selling Products */}
+                    <div style={{ background: '#FFFFFF', padding: 24, borderRadius: 12, border: '1px solid var(--border)' }}>
+                      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Best Selling Jewellery Pieces</h3>
+                      {orderCnt === 0 ? (
+                        <p style={{ color: 'var(--slate)', fontSize: 14, margin: 0, padding: '12px 0' }}>
+                          No sales recorded yet. Top selling products will automatically rank here as customers place orders!
+                        </p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {products.slice(0, 4).map((p, idx) => (
+                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--cream)', borderRadius: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--gold-dark)', width: 24 }}>#{idx + 1}</span>
+                                <img src={p.image} alt={p.name} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6 }} />
+                                <div>
+                                  <strong>{p.name}</strong>
+                                  <span style={{ display: 'block', fontSize: 12, color: 'var(--slate)' }}>SKU: {p.sku || 'ABL-JEW'}</span>
+                                </div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--onyx)' }}>{formatMoney(p.price)}</span>
+                                <span style={{ display: 'block', fontSize: 12, color: 'var(--slate)' }}>Live Product</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 
@@ -1971,17 +2077,44 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button
-                onClick={() => {
-                  cycleOrderStatus(selectedOrder.id);
-                  setSelectedOrder(null);
-                }}
-                className="btn-primary"
-              >
-                Update Lifecycle Status ({selectedOrder.status})
-              </button>
-              <button onClick={() => setSelectedOrder(null)} className="btn-secondary">Close</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate)' }}>Update Status:</span>
+                {(() => {
+                  const st = getStatusStyles(selectedOrder.status);
+                  return (
+                    <select
+                      value={selectedOrder.status}
+                      onChange={(e) => {
+                        const newSt = e.target.value;
+                        if (updateOrderStatus) updateOrderStatus(selectedOrder.id, newSt);
+                        setSelectedOrder({ ...selectedOrder, status: newSt });
+                      }}
+                      style={{
+                        background: st.bg,
+                        color: st.color,
+                        border: `1px solid ${st.border}`,
+                        borderRadius: 6,
+                        padding: '8px 14px',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        fontFamily: 'var(--font-sans)',
+                        cursor: 'pointer',
+                        outline: 'none',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                      }}
+                    >
+                      <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
+                      <option value="Processing" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Processing</option>
+                      <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
+                      <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
+                      <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
+                      <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
+                    </select>
+                  );
+                })()}
+              </div>
+              <button onClick={() => setSelectedOrder(null)} className="btn-secondary" style={{ padding: '8px 16px', fontSize: 13 }}>Close</button>
             </div>
           </div>
         </div>
@@ -1998,25 +2131,88 @@ export default function AdminPage() {
             <form onSubmit={e => {
               e.preventDefault();
               if (!heroForm.image.trim()) {
-                showToast('Hero image URL is mandatory.', 'alert');
+                showToast('Hero image is mandatory.', 'alert');
                 return;
               }
               saveHeroSlide(heroForm);
               setShowHeroModal(false);
+              setHeroUploadSuccess(false);
               setHeroForm({
-                tagline: 'THE NEW COLLECTION', title: 'Elegance in Every Detail', description: 'Hand-crafted anti-tarnish gold-plated jewellery.', image: '', ctaText: 'SHOP NOW', ctaLink: '/shop'
+                tagline: '', title: '', description: '', image: '', ctaText: '', ctaLink: ''
               });
               showToast('New hero slide added to homepage slider!', 'check');
             }}>
-              <div style={{ marginBottom: 14 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>IMAGE URL *</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  required
-                  value={heroForm.image}
-                  onChange={e => setHeroForm({ ...heroForm, image: e.target.value })}
-                />
+              {/* Hidden Native File Input for Direct Local Device Selection */}
+              <input
+                type="file"
+                ref={heroFileInputRef}
+                accept="image/*"
+                onChange={handleHeroFileUpload}
+                style={{ display: 'none' }}
+              />
+
+              {/* Square Upload Box */}
+              <div style={{ marginBottom: 18 }}>
+                <label className="form-label" style={{ fontWeight: 700, marginBottom: 8, display: 'block' }}>
+                  HERO BANNER IMAGE *
+                </label>
+
+                <div
+                  onClick={() => heroFileInputRef.current && heroFileInputRef.current.click()}
+                  style={{
+                    border: '2px dashed var(--gold)',
+                    borderRadius: 12,
+                    background: 'var(--cream)',
+                    padding: '24px 16px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    minHeight: 140
+                  }}
+                >
+                  {heroUploading ? (
+                    <>
+                      <RefreshCw style={{ width: 24, height: 24, color: 'var(--gold-dark)', animation: 'spin 1s linear infinite' }} />
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--onyx)' }}>Uploading to Cloudinary...</p>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(212, 175, 55, 0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gold-dark)' }}>
+                        <Plus style={{ width: 22, height: 22 }} />
+                      </div>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--onyx)' }}>
+                        Click to Upload Hero Image
+                      </p>
+                      <span style={{ fontSize: 12, color: 'var(--slate)', fontWeight: 600 }}>
+                        Recommended Size: 1920 × 800 px (2.4:1 Aspect Ratio)
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Inline Success Notification */}
+                {heroUploadSuccess && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, padding: '10px 14px', background: '#E6F4EA', color: '#137333', border: '1px solid #CEEAD6', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+                    <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0 }} />
+                    <span>Image uploaded successfully!</span>
+                  </div>
+                )}
+
+                {/* Image Preview & URL badge */}
+                {heroForm.image && (
+                  <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, padding: 10, background: 'var(--off-white)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <img src={heroForm.image} alt="Hero Preview" style={{ width: 70, height: 40, objectFit: 'cover', borderRadius: 4 }} />
+                    <span style={{ fontSize: 11, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{heroForm.image}</span>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setHeroForm(prev => ({ ...prev, image: '' })); setHeroUploadSuccess(false); }} style={{ background: 'none', border: 'none', color: '#C5221F', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div style={{ marginBottom: 14 }}>
@@ -2024,6 +2220,7 @@ export default function AdminPage() {
                 <input
                   type="text"
                   className="form-control"
+                  placeholder="e.g. THE NEW COLLECTION"
                   value={heroForm.tagline}
                   onChange={e => setHeroForm({ ...heroForm, tagline: e.target.value })}
                 />
@@ -2034,6 +2231,7 @@ export default function AdminPage() {
                 <input
                   type="text"
                   className="form-control"
+                  placeholder="e.g. Elegance in Every Detail"
                   value={heroForm.title}
                   onChange={e => setHeroForm({ ...heroForm, title: e.target.value })}
                 />
@@ -2044,6 +2242,7 @@ export default function AdminPage() {
                 <textarea
                   className="form-control"
                   rows={2}
+                  placeholder="e.g. Hand-crafted anti-tarnish gold-plated jewellery."
                   value={heroForm.description}
                   onChange={e => setHeroForm({ ...heroForm, description: e.target.value })}
                 />
@@ -2055,6 +2254,7 @@ export default function AdminPage() {
                   <input
                     type="text"
                     className="form-control"
+                    placeholder="e.g. SHOP NOW"
                     value={heroForm.ctaText}
                     onChange={e => setHeroForm({ ...heroForm, ctaText: e.target.value })}
                   />
@@ -2064,6 +2264,7 @@ export default function AdminPage() {
                   <input
                     type="text"
                     className="form-control"
+                    placeholder="e.g. /shop"
                     value={heroForm.ctaLink}
                     onChange={e => setHeroForm({ ...heroForm, ctaLink: e.target.value })}
                   />
@@ -2071,7 +2272,7 @@ export default function AdminPage() {
               </div>
 
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setShowHeroModal(false)} className="btn-secondary">Cancel</button>
+                <button type="button" onClick={() => { setShowHeroModal(false); setHeroUploadSuccess(false); }} className="btn-secondary">Cancel</button>
                 <button type="submit" className="btn-primary">Add Hero Slide</button>
               </div>
             </form>

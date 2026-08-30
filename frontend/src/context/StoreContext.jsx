@@ -90,34 +90,14 @@ const DEFAULT_CMS = {
   ],
 };
 
-const DEFAULT_ORDERS = [
-  { id: '#ABL-2026-4821', customer: 'Sarah Mitchell', email: 'sarah@example.com', product: 'Celestial Crescent Necklace', date: '26 Aug 2026', status: 'Delivered', total: '$189.00', rawAmount: 189 },
-  { id: '#ABL-2026-4820', customer: 'Emma Johnson', email: 'emma@example.com', product: 'Aurora Stacking Ring Set', date: '25 Aug 2026', status: 'Shipped', total: '$149.00', rawAmount: 149 },
-  { id: '#ABL-2026-4819', customer: 'Olivia Chen', email: 'olivia@example.com', product: 'Lumière Drop Earrings', date: '24 Aug 2026', status: 'Processing', total: '$129.00', rawAmount: 129 },
-];
-
-const DEFAULT_CUSTOMERS = [
-  { id: 'c1', name: 'Sarah Mitchell', email: 'sarah@example.com', orders: 3, spent: '$567', joined: 'Jan 2026', status: 'Platinum' },
-  { id: 'c2', name: 'Emma Johnson', email: 'emma@example.com', orders: 1, spent: '$149', joined: 'Aug 2026', status: 'New' },
-];
-
+const DEFAULT_ORDERS = [];
+const DEFAULT_CUSTOMERS = [];
 const DEFAULT_COUPONS = [
   { id: 'cp1', code: 'WELCOME10', label: 'Welcome 10% Off', discountType: 'percentage', value: 10, minOrder: 50, maxDiscount: 20, expiry: '2026-12-31', active: true, usageLimit: 100, perCustomerLimit: 1 },
   { id: 'cp2', code: 'FIRSTORDER', label: 'First Order Special', discountType: 'percentage', value: 15, minOrder: 80, maxDiscount: 30, expiry: '2026-12-31', active: true, usageLimit: 50, perCustomerLimit: 1 },
-  { id: 'cp3', code: 'DIWALI15', label: 'Festive Celebration', discountType: 'percentage', value: 15, minOrder: 100, maxDiscount: 50, expiry: '2026-11-30', active: true, usageLimit: 200, perCustomerLimit: 1 },
 ];
-
-const DEFAULT_REVIEWS = [
-  { id: 'r1', rating: 5, author: 'Sarah Mitchell', title: 'Beautiful necklace!', text: 'Absolutely love my Celestial Crescent Necklace. Anti-tarnish quality is top notch and it goes with everything.', verified: true, status: 'approved', featured: true, date: '26 Aug 2026', reply: '' },
-  { id: 'r2', rating: 5, author: 'Emma Johnson', title: 'Stunning stacking ring set', text: 'Wore this for a special dinner and got so many compliments. Beautiful gold finish!', verified: true, status: 'approved', featured: true, date: '25 Aug 2026', reply: 'Thank you Emma! So happy you love it ❤️' },
-  { id: 'r3', rating: 4, author: 'Olivia Chen', title: 'Gorgeous earrings', text: 'Very pretty drop earrings, quick delivery in Sydney.', verified: true, status: 'approved', featured: false, date: '24 Aug 2026', reply: '' }
-];
-
-const DEFAULT_STOCK_HISTORY = [
-  { id: 'sh1', productId: 'p_bs4', sku: 'ABL-RG-204', productName: 'Emerald Gem Ring', change: +20, reason: 'Initial stock intake', date: '20 Aug 2026', stockAfter: 20 },
-  { id: 'sh2', productId: 'p_bs4', sku: 'ABL-RG-204', productName: 'Emerald Gem Ring', change: -1, reason: 'Order #ABL-2026-4820', date: '25 Aug 2026', stockAfter: 19 },
-  { id: 'sh3', productId: 'p_bs4', sku: 'ABL-RG-204', productName: 'Emerald Gem Ring', change: +2, reason: 'Stock adjustment (+2)', date: '26 Aug 2026', stockAfter: 21 },
-];
+const DEFAULT_REVIEWS = [];
+const DEFAULT_STOCK_HISTORY = [];
 
 const DEFAULT_ROLES = [
   { user: 'Lincy Titus', loginId: 'lincy', password: 'A@b@e@l@s@12345', role: 'Super Admin', permissions: ['all'] },
@@ -151,11 +131,11 @@ export function StoreProvider({ children }) {
   // State mirrors app.js `state` object
   const [products, setProductsRaw] = useState(() => readLS('abl_products_v5', DEFAULT_PRODUCTS));
   const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
-  const [orders, setOrdersRaw] = useState(() => readLS('abl_orders', DEFAULT_ORDERS));
-  const [customers, setCustomersRaw] = useState(() => readLS('abl_customers', DEFAULT_CUSTOMERS));
-  const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons', DEFAULT_COUPONS));
-  const [reviews, setReviewsRaw] = useState(() => readLS('abl_reviews', DEFAULT_REVIEWS));
-  const [stockHistory, setStockHistoryRaw] = useState(() => readLS('abl_stock_history', DEFAULT_STOCK_HISTORY));
+  const [orders, setOrdersRaw] = useState(() => readLS('abl_orders_v6', DEFAULT_ORDERS));
+  const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v6', DEFAULT_CUSTOMERS));
+  const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons_v6', DEFAULT_COUPONS));
+  const [reviews, setReviewsRaw] = useState(() => readLS('abl_reviews_v6', DEFAULT_REVIEWS));
+  const [stockHistory, setStockHistoryRaw] = useState(() => readLS('abl_stock_history_v6', DEFAULT_STOCK_HISTORY));
   const [roles, setRolesRaw] = useState(() => readLS('abl_roles', DEFAULT_ROLES));
   const [settings, setSettingsRaw] = useState(() => readLS('abl_settings', DEFAULT_SETTINGS));
   const [cms, setCMSRaw] = useState(() => readLS('abl_cms_v5', DEFAULT_CMS));
@@ -173,11 +153,11 @@ export function StoreProvider({ children }) {
   // Persisting helpers
   const setProducts = useCallback((v) => { setProductsRaw(v); writeLS('abl_products_v5', v); }, []);
   const setCategories = useCallback((v) => { setCategoriesRaw(v); writeLS('abl_categories_v5', v); }, []);
-  const setOrders = useCallback((v) => { setOrdersRaw(v); writeLS('abl_orders', v); }, []);
-  const setCustomers = useCallback((v) => { setCustomersRaw(v); writeLS('abl_customers', v); }, []);
-  const setCoupons = useCallback((v) => { setCouponsRaw(v); writeLS('abl_coupons', v); }, []);
-  const setReviews = useCallback((v) => { setReviewsRaw(v); writeLS('abl_reviews', v); }, []);
-  const setStockHistory = useCallback((v) => { setStockHistoryRaw(v); writeLS('abl_stock_history', v); }, []);
+  const setOrders = useCallback((v) => { setOrdersRaw(v); writeLS('abl_orders_v6', v); }, []);
+  const setCustomers = useCallback((v) => { setCustomersRaw(v); writeLS('abl_customers_v6', v); }, []);
+  const setCoupons = useCallback((v) => { setCouponsRaw(v); writeLS('abl_coupons_v6', v); }, []);
+  const setReviews = useCallback((v) => { setReviewsRaw(v); writeLS('abl_reviews_v6', v); }, []);
+  const setStockHistory = useCallback((v) => { setStockHistoryRaw(v); writeLS('abl_stock_history_v6', v); }, []);
   const setRoles = useCallback((v) => { setRolesRaw(v); writeLS('abl_roles', v); }, []);
   const setSettings = useCallback((v) => { setSettingsRaw(v); writeLS('abl_settings', v); }, []);
   const setSubscribers = useCallback((v) => { setSubscribersRaw(v); writeLS('abl_subscribers_v1', v); }, []);
@@ -526,8 +506,13 @@ export function StoreProvider({ children }) {
     showToast('Category deleted', 'check');
   }, [categories, setCategories, showToast]);
 
+  const updateOrderStatus = useCallback((id, newStatus) => {
+    setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
+    showToast(`Order status updated to ${newStatus}`, 'check');
+  }, [orders, setOrders, showToast]);
+
   const cycleOrderStatus = useCallback((id) => {
-    const statuses = ['Processing', 'Shipped', 'Delivered', 'Cancelled'];
+    const statuses = ['Confirmed', 'Processing', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
     setOrders(orders.map(o => {
       if (o.id === id) {
         const idx = statuses.indexOf(o.status);
@@ -680,7 +665,7 @@ export function StoreProvider({ children }) {
     // Admin CRUD
     saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,
     saveCategory, deleteCategory,
-    cycleOrderStatus, deleteOrder,
+    updateOrderStatus, cycleOrderStatus, deleteOrder,
     saveCustomer, deleteCustomer,
     saveCoupon, deleteCoupon,
     saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide,
