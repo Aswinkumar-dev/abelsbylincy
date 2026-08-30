@@ -108,6 +108,37 @@ export default function ShopPage() {
 
       {/* Main Shop Page Layout */}
       <div className="container">
+        {/* Mobile Sticky Filter & Sort Bar */}
+        <div className="mobile-filter-bar">
+          <div className="mobile-filter-inner">
+            <button className="mobile-bar-btn" onClick={() => setFilterOpen(true)}>
+              <SlidersHorizontal style={{ width: 16, height: 16 }} />
+              <span>Filters</span>
+              {hasActiveFilters && (
+                <span className="filter-count-badge">
+                  {(selectedMaterials.length + selectedGemstones.length + (maxPrice < 500 ? 1 : 0) + (activeCategory !== 'all' ? 1 : 0))}
+                </span>
+              )}
+            </button>
+            <div className="mobile-bar-divider" />
+            <div className="mobile-bar-btn" style={{ position: 'relative' }}>
+              <ArrowUpDown style={{ width: 16, height: 16, color: 'var(--onyx)' }} />
+              <select
+                className="sort-select"
+                value={currentSort}
+                onChange={e => setCurrentSort(e.target.value)}
+                style={{ border: 'none', background: 'transparent', padding: 0, fontSize: 13, fontWeight: 600, color: 'var(--onyx)', cursor: 'pointer' }}
+              >
+                <option value="featured">Sort: Featured</option>
+                <option value="price-asc">Price: Low–High</option>
+                <option value="price-desc">Price: High–Low</option>
+                <option value="newest">Newest First</option>
+                <option value="name-asc">Name A–Z</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className="shop-page-layout">
 
           {/* Sidebar Filters */}
@@ -197,7 +228,7 @@ export default function ShopPage() {
           </aside>
 
           {/* Products Column */}
-          <main>
+          <main style={{ width: '100%' }}>
             {/* Toolbar */}
             <div className="shop-toolbar">
               <p style={{ fontSize: 14, color: 'var(--slate)' }}>
@@ -234,6 +265,104 @@ export default function ShopPage() {
           </main>
         </div>
       </div>
+
+      {/* Mobile Bottom-Sheet Filter Drawer */}
+      {filterOpen && (
+        <div className="mobile-drawer-backdrop" onClick={() => setFilterOpen(false)}>
+          <div className="mobile-drawer-content" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, margin: 0, fontWeight: 600, color: 'var(--onyx)' }}>Filter & Sort Jewellery</h3>
+              <button type="button" onClick={() => setFilterOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}>
+                <X style={{ width: 20, height: 20 }} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Category Dropdown */}
+              <div>
+                <h4 className="filter-title" style={{ marginBottom: 10 }}>Category</h4>
+                <select
+                  className="sort-select"
+                  value={activeCategory}
+                  onChange={e => handleCategoryClick(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', fontSize: 14 }}
+                >
+                  {sidebarCategories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Material Checkboxes */}
+              <div>
+                <h4 className="filter-title" style={{ marginBottom: 10 }}>Material</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {ALL_MATERIALS.map(m => (
+                    <label key={m} className="filter-checkbox-label" style={{ fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        className="filter-checkbox"
+                        checked={selectedMaterials.includes(m)}
+                        onChange={() => toggleMaterial(m)}
+                      />
+                      <span style={{ color: 'var(--onyx)' }}>{m}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Gemstone Checkboxes */}
+              <div>
+                <h4 className="filter-title" style={{ marginBottom: 10 }}>Gemstone</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {ALL_GEMSTONES.map(g => (
+                    <label key={g} className="filter-checkbox-label" style={{ fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        className="filter-checkbox"
+                        checked={selectedGemstones.includes(g)}
+                        onChange={() => toggleGemstone(g)}
+                      />
+                      <span style={{ color: 'var(--onyx)' }}>{g}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Max Price Slider */}
+              <div>
+                <h4 className="filter-title" style={{ marginBottom: 10 }}>Max Price: ${maxPrice}</h4>
+                <input
+                  type="range"
+                  min={50}
+                  max={500}
+                  step={10}
+                  value={maxPrice}
+                  onChange={e => setMaxPrice(Number(e.target.value))}
+                  className="price-range-slider"
+                />
+                <div className="price-slider-values">
+                  <span>$50</span><span>$500</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, background: 'var(--cloud-white)' }}>
+              {hasActiveFilters && (
+                <button className="btn-secondary" style={{ flex: 1, padding: '12px', fontSize: 13 }} onClick={clearFilters}>
+                  Clear All
+                </button>
+              )}
+              <button className="btn-primary" style={{ flex: 2, padding: '12px', fontSize: 13 }} onClick={() => setFilterOpen(false)}>
+                Show {filteredProducts.length} Piece{filteredProducts.length !== 1 ? 's' : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

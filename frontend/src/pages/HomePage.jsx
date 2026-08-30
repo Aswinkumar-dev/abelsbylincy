@@ -181,19 +181,36 @@ export default function HomePage() {
         <div className="trust-bar-wrapper">
           <div className="trust-bar-track">
             <div className="trust-item">
-              <Award className="trust-icon" style={{ width: 18, height: 18 }} />
+              <Award className="trust-icon" style={{ width: 18, height: 18, color: 'var(--gold)' }} />
               <span>Premium Gold-Plated</span>
             </div>
             <div className="trust-item">
-              <ShieldCheck className="trust-icon" style={{ width: 18, height: 18 }} />
+              <ShieldCheck className="trust-icon" style={{ width: 18, height: 18, color: 'var(--gold)' }} />
               <span>Anti-Tarnish Warranty</span>
             </div>
             <div className="trust-item">
-              <Truck className="trust-icon" style={{ width: 18, height: 18 }} />
+              <Truck className="trust-icon" style={{ width: 18, height: 18, color: 'var(--gold)' }} />
               <span>Australia Shipping</span>
             </div>
             <div className="trust-item">
-              <RefreshCw className="trust-icon" style={{ width: 18, height: 18 }} />
+              <RefreshCw className="trust-icon" style={{ width: 18, height: 18, color: 'var(--gold)' }} />
+              <span>Easy Returns</span>
+            </div>
+            {/* Duplicated for seamless infinite marquee loop on mobile */}
+            <div className="trust-item trust-item-dup">
+              <Award className="trust-icon" style={{ width: 18, height: 18, color: 'var(--gold)' }} />
+              <span>Premium Gold-Plated</span>
+            </div>
+            <div className="trust-item trust-item-dup">
+              <ShieldCheck className="trust-icon" style={{ width: 18, height: 18, color: 'var(--gold)' }} />
+              <span>Anti-Tarnish Warranty</span>
+            </div>
+            <div className="trust-item trust-item-dup">
+              <Truck className="trust-icon" style={{ width: 18, height: 18, color: 'var(--gold)' }} />
+              <span>Australia Shipping</span>
+            </div>
+            <div className="trust-item trust-item-dup">
+              <RefreshCw className="trust-icon" style={{ width: 18, height: 18, color: 'var(--gold)' }} />
               <span>Easy Returns</span>
             </div>
           </div>

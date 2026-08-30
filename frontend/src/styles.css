@@ -3764,9 +3764,9 @@ input, select, textarea {
 }
 /* ── USP / Trust Bar ── */
 .trust-bar-section {
-  background-color: var(--cream);
-  border-bottom: 1px solid var(--border);
-  padding: 22px 0;
+  background-color: #111111;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 18px 0;
   overflow: hidden;
 }
 
@@ -3789,9 +3789,9 @@ input, select, textarea {
   gap: 10px;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--onyx);
+  color: #ffffff;
   white-space: nowrap;
 }
 
@@ -3802,14 +3802,14 @@ input, select, textarea {
 .trust-icon {
   width: 18px;
   height: 18px;
-  color: var(--gold-dark);
+  color: var(--gold);
   flex-shrink: 0;
 }
 
 /* Moving Marquee Banner on Mobile Mode ONLY */
 @media (max-width: 768px) {
   .trust-bar-section {
-    padding: 16px 0;
+    padding: 14px 0;
   }
 
   .trust-bar-wrapper {
@@ -3835,6 +3835,84 @@ input, select, textarea {
     margin-right: 36px;
     flex-shrink: 0;
   }
+}
+
+/* Mobile Navigation Drawer Overlay */
+.mobile-nav-drawer {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--cloud-white);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
+  z-index: 1000;
+  padding: 20px 24px 28px 24px;
+}
+
+.mobile-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-nav-link {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--onyx);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-transform: uppercase;
+  transition: color var(--transition-fast);
+}
+
+.mobile-nav-link:last-child {
+  border-bottom: none;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link:active {
+  color: var(--gold);
+}
+
+.mobile-sub-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 4px 0 10px 0;
+  padding-left: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.mobile-sub-link {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--onyx);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border-light);
+  text-decoration: none;
+  display: block;
+  transition: color var(--transition-fast);
+  background: transparent;
+}
+
+.mobile-sub-link:last-child {
+  border-bottom: none;
+}
+
+.mobile-sub-link:hover,
+.mobile-sub-link:active {
+  background: transparent;
+  color: var(--gold);
 }
 
 @keyframes trustBarMarquee {

@@ -6,6 +6,7 @@ import { useStore } from '../context/StoreContext';
 export default function Header() {
   const { cart, wishlist, currentUser, cms, logoutUser } = useStore();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileShopOpen, setMobileShopOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [announcementIdx, setAnnouncementIdx] = useState(0);
@@ -114,10 +115,47 @@ export default function Header() {
                 {wishlistCount > 0 && <span className="badge-count">{wishlistCount}</span>}
               </Link>
 
-              <div className="user-menu-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
-                <Link to="/account" className="action-btn" title="My Account / Sign In">
+              <div className="user-menu-wrapper" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                <Link to="/account" className="action-btn" title={currentUser ? 'My Account' : 'Login'}>
                   <User style={{ width: 23, height: 23 }} strokeWidth={1.8} />
                 </Link>
+
+                {!currentUser && (
+                  <Link to="/account" className="login-floating-tooltip" style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#000000',
+                    color: 'var(--gold)',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    letterSpacing: '0.08em',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    textTransform: 'uppercase',
+                    whiteSpace: 'nowrap',
+                    textDecoration: 'none',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
+                    zIndex: 1001,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <span style={{
+                      position: 'absolute',
+                      top: '-5px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 0,
+                      height: 0,
+                      borderLeft: '5px solid transparent',
+                      borderRight: '5px solid transparent',
+                      borderBottom: '5px solid #000000'
+                    }} />
+                    LOGIN
+                  </Link>
+                )}
               </div>
 
               <Link to="/cart" className="action-btn" title="Shopping Bag">
@@ -152,7 +190,35 @@ export default function Header() {
           <div className="mobile-nav-drawer" style={{ display: 'block' }}>
             <nav className="mobile-nav">
               <Link to="/" className="mobile-nav-link" onClick={() => setMobileOpen(false)}>Home</Link>
-              <Link to="/shop" className="mobile-nav-link" onClick={() => setMobileOpen(false)}>Shop All</Link>
+              
+              {/* Expandable Non-Navigating SHOP with Arrow right next to text */}
+              <div className="mobile-nav-item">
+                <div
+                  className="mobile-nav-link"
+                  onClick={() => setMobileShopOpen(s => !s)}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, width: '100%', borderBottom: '1px solid var(--border-light)' }}
+                >
+                  <span>SHOP</span>
+                  <ChevronDown style={{ width: 16, height: 16, strokeWidth: 2.5, transform: mobileShopOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                </div>
+
+                {mobileShopOpen && (
+                  <div className="mobile-sub-nav">
+                    <Link to="/shop" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Shop All Products</Link>
+                    <Link to="/shop?category=new-arrivals" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>New Arrivals</Link>
+                    <Link to="/shop?category=best-sellers" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Best Sellers</Link>
+                    <Link to="/shop?category=necklaces" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Necklaces</Link>
+                    <Link to="/shop?category=bangles" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Bangles</Link>
+                    <Link to="/shop?category=rings" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Rings</Link>
+                    <Link to="/shop?category=bracelets" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Bracelets</Link>
+                    <Link to="/shop?category=earrings" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Earrings</Link>
+                    <Link to="/shop?category=charms" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Charms</Link>
+                    <Link to="/shop?category=silver-collections" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Silver Collections</Link>
+                    <Link to="/shop?category=seasonal-collections" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Seasonal Collections</Link>
+                  </div>
+                )}
+              </div>
+
               <Link to="/collections" className="mobile-nav-link" onClick={() => setMobileOpen(false)}>Collections</Link>
               <Link to="/about" className="mobile-nav-link" onClick={() => setMobileOpen(false)}>About Us</Link>
               <Link to="/contact" className="mobile-nav-link" onClick={() => setMobileOpen(false)}>Contact</Link>
