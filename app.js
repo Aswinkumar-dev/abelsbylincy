@@ -1072,7 +1072,6 @@
                 <div class="footer-contact-info">
                   <p><strong>Email:</strong> <a href="mailto:${state.settings.storeEmail}" style="color: var(--cloud-white);">${state.settings.storeEmail}</a></p>
                   <p><strong>Phone:</strong> +61 435 927 824</p>
-                  <p><strong>Hours:</strong> Mon–Fri 9am–5pm AEST</p>
                 </div>
               </div>
 
@@ -1080,9 +1079,12 @@
 
             <!-- Footer Bottom Note with webgrat hyperlink -->
             <div class="footer-bottom">
-              <p>© ${new Date().getFullYear()} Abel's By Lincy. All rights reserved by <a href="https://webgrat.com" target="_blank" rel="noopener" class="webgrat-link">webgrat</a></p>
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <p style="margin: 0;">© ${new Date().getFullYear()} Abel's By Lincy. All rights reserved.</p>
+                <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.45);">Website by <a href="https://webgrat.com" target="_blank" rel="noopener" class="webgrat-link">Webgrat</a></p>
+              </div>
               <div style="display: flex; align-items: center; gap: 16px;">
-                <span style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;">Encrypted 256-bit SSL Checkout</span>
+                <span style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;">SECURE SSL/TLS CHECKOUT</span>
                 <i data-lucide="shield-check" style="width: 16px; height: 16px; color: var(--gold);"></i>
               </div>
             </div>

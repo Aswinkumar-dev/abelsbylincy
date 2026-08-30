@@ -138,7 +138,6 @@ export default function Footer() {
               <div className="footer-contact-info">
                 <p><strong>Email:</strong> <a href="mailto:lincytitus8@gmail.com" style={{ color: 'var(--cloud-white)' }}>lincytitus8@gmail.com</a></p>
                 <p><strong>Phone:</strong> +61 435 927 824</p>
-                <p><strong>Hours:</strong> Mon–Fri 9am–5pm AEST</p>
               </div>
             </div>
 
@@ -146,9 +145,17 @@ export default function Footer() {
 
           {/* Footer Bottom Note */}
           <div className="footer-bottom">
-            <p>© {new Date().getFullYear()} Abel's By Lincy. All rights reserved by <a href="https://webgrat.com" target="_blank" rel="noopener noreferrer" className="webgrat-link">webgrat</a></p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <p style={{ margin: 0 }}>© {new Date().getFullYear()} Abel's By Lincy. All rights reserved.</p>
+              <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                Website by{' '}
+                <a href="https://webgrat.com" target="_blank" rel="noopener noreferrer" className="webgrat-link">
+                  Webgrat
+                </a>
+              </p>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <span style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Encrypted 256-bit SSL Checkout</span>
+              <span style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Secure SSL/TLS Checkout</span>
               <ShieldCheck style={{ width: 16, height: 16, color: 'var(--gold)' }} />
             </div>
           </div>
