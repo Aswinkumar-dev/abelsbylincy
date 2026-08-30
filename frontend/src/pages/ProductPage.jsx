@@ -288,14 +288,14 @@ export default function ProductPage() {
             <h2 className="section-title">Reviews ({reviews.length})</h2>
           </div>
 
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
             <button className="btn-secondary" onClick={() => { if (!currentUser) { navigate('/account'); } else { setReviewFormOpen(r => !r); } }}>
               Write a Review
             </button>
           </div>
 
           {reviewFormOpen && currentUser && (
-            <form onSubmit={handleReviewSubmit} style={{ maxWidth: 600, margin: '0 auto 40px auto', background: 'var(--cloud-white)', padding: 24, borderRadius: 8, border: '1px solid var(--border)' }}>
+            <form onSubmit={handleReviewSubmit} style={{ maxWidth: 600, margin: '0 auto 24px auto', background: 'var(--cloud-white)', padding: 24, borderRadius: 8, border: '1px solid var(--border)' }}>
               <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--gold-dark)', marginBottom: 8 }}>Rating (Mandatory)</p>
               <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
                 {[1,2,3,4,5].map(i => (
@@ -321,8 +321,8 @@ export default function ProductPage() {
           )}
 
           {reviews.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--slate)' }}>
-              <p style={{ fontSize: 15 }}>No reviews yet. Be the first to review this piece!</p>
+            <div style={{ textAlign: 'center', padding: '4px 0 12px 0', color: 'var(--slate)' }}>
+              <p style={{ fontSize: 15, textAlign: 'center', margin: 0 }}>No reviews yet. Be the first to review this piece!</p>
             </div>
           ) : (
             <div className="bs-grid">
