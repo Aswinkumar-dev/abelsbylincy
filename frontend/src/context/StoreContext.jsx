@@ -171,14 +171,19 @@ export function StoreProvider({ children }) {
   // ============================================================
   // showToast
   // ============================================================
-  const showToast = useCallback((msg, type = 'check') => {
+  const showToast = useCallback((msg, type = 'check', action = null) => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, msg, type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+    const duration = type === 'cart' ? 4000 : 3500;
+    setToasts(prev => [...prev, { id, msg, type, action }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
   }, []);
 
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const clearToasts = useCallback(() => {
+    setToasts([]);
   }, []);
 
   // ============================================================
@@ -211,7 +216,7 @@ export function StoreProvider({ children }) {
         items: [{ item_id: product.id, item_name: product.name, price: product.price, quantity: qty }]
       });
     }
-    showToast('Added to bag!', 'check');
+    showToast('Product Added to Cart!', 'cart', { label: 'View Bag', link: '/cart' });
   }, [products, setCart, showToast]);
 
   const updateCartQty = useCallback((id, qty) => {
@@ -399,6 +404,17 @@ export function StoreProvider({ children }) {
     setCurrentUser(null);
     showToast('Signed out successfully', 'check');
   }, [setCurrentUser, showToast]);
+
+  const saveUserAddress = useCallback((addressData) => {
+    if (!currentUser) return;
+    const updatedUser = {
+      ...currentUser,
+      savedAddress: addressData
+    };
+    setCurrentUser(updatedUser);
+    writeLS('abl_saved_address', addressData);
+    setCustomers(prev => prev.map(c => (c.email?.toLowerCase() === currentUser.email?.toLowerCase() || c.id === currentUser.id) ? { ...c, savedAddress: addressData } : c));
+  }, [currentUser, setCurrentUser, setCustomers]);
 
   // ============================================================
   // Admin Auth
@@ -691,10 +707,10 @@ export function StoreProvider({ children }) {
     setProducts, setCategories, setOrders, setCustomers, setCoupons, setReviews, setStockHistory, setRoles,
     setSettings, setCMS, setCart, setWishlist, setCurrentUser, setAdminLoggedIn, setAdminUser, setMessages, setSubscribers,
     // Actions
-    showToast, removeToast, formatMoney,
+    showToast, removeToast, clearToasts, formatMoney,
     addToCart, updateCartQty, removeFromCart,
     toggleWishlist,
-    loginWithEmail, registerUser, loginWithGoogle, logoutUser,
+    loginWithEmail, registerUser, loginWithGoogle, logoutUser, saveUserAddress,
     adminLogin, adminLogout,
     handleContactForm, handleNewsletter, deleteSubscriber,
     placeOrder, applyCoupon,

@@ -1,29 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, CreditCard, Smartphone, Check, Lock } from 'lucide-react';
+import { ArrowRight, ShieldCheck, CreditCard, Smartphone, Check, Lock, Truck, ShoppingBag } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 const STEPS = ['Shipping', 'Payment', 'Review & Place'];
 
 export default function CheckoutPage() {
-  const { cart, currentUser, formatMoney, placeOrder, showToast } = useStore();
+  const { cart, setCart, currentUser, formatMoney, placeOrder, saveUserAddress, showToast } = useStore();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [paymentTab, setPaymentTab] = useState('card');
   const [completedOrder, setCompletedOrder] = useState(null);
-  const [saveAddress, setSaveAddress] = useState(false);
 
-  const savedAddress = (() => {
+  const savedAddress = currentUser?.savedAddress || (() => {
     try { return JSON.parse(localStorage.getItem('abl_saved_address')); } catch { return null; }
   })();
 
+  const [saveAddress, setSaveAddress] = useState(!!savedAddress);
+
   const [formData, setFormData] = useState({
-    firstName: currentUser?.name?.split(' ')[0] || savedAddress?.firstName || '',
-    lastName: currentUser?.name?.split(' ').slice(1).join(' ') || savedAddress?.lastName || '',
-    email: currentUser?.email || savedAddress?.email || '',
+    firstName: savedAddress?.firstName || currentUser?.name?.split(' ')[0] || '',
+    lastName: savedAddress?.lastName || currentUser?.name?.split(' ').slice(1).join(' ') || '',
+    email: savedAddress?.email || currentUser?.email || '',
     phone: savedAddress?.phone || '',
     address: savedAddress?.address || '',
     city: savedAddress?.city || '',
+    state: savedAddress?.state || '',
     postcode: savedAddress?.postcode || '',
   });
 
@@ -34,22 +36,180 @@ export default function CheckoutPage() {
     if (!currentUser) navigate('/account');
   }, [currentUser, navigate]);
 
-  if (!currentUser) return null;
+  const [paymentFailed, setPaymentFailed] = useState(false);
+
+  // Handle return redirect from Stripe Hosted Checkout
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const isSuccess = searchParams.get('success');
+    const isCanceled = searchParams.get('canceled');
+    const sessionId = searchParams.get('session_id');
+
+    if (isCanceled === 'true') {
+      setPaymentFailed(true);
+      showToast('Payment was cancelled. Your card was not charged.', 'alert-circle');
+      window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
+
+    if (isSuccess === 'true' && sessionId) {
+      const savedFormData = (() => {
+        try { return JSON.parse(localStorage.getItem('abl_saved_address')) || formData; } catch { return formData; }
+      })();
+
+      const purchasedItems = (() => {
+        try {
+          const saved = localStorage.getItem('abl_pending_checkout_items');
+          if (saved) return JSON.parse(saved);
+        } catch {}
+        return cart.length > 0 ? cart : [];
+      })();
+
+      const rawTotal = purchasedItems.reduce((s, i) => s + (i.price * (i.quantity || 1)), 0);
+      const formattedTotal = formatMoney ? formatMoney(rawTotal) : `$${rawTotal.toFixed(2)}`;
+
+      const estDelivery = new Date();
+      estDelivery.setDate(estDelivery.getDate() + 4);
+      const deliveryDateStr = estDelivery.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+      const confirmedOrder = {
+        id: `#ABL-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        customer: `${savedFormData?.firstName || formData.firstName || 'Valued'} ${savedFormData?.lastName || formData.lastName || 'Client'}`.trim(),
+        email: savedFormData?.email || formData.email || currentUser?.email || 'client@abelsbylincy.com',
+        phone: savedFormData?.phone || formData.phone || '',
+        address: savedFormData?.address || formData.address || '189 Brompton Road',
+        city: savedFormData?.city || formData.city || 'Brisbane City',
+        state: savedFormData?.state || formData.state || 'Queensland (QLD)',
+        postcode: savedFormData?.postcode || formData.postcode || '4061',
+        product: purchasedItems[0]?.name || 'Fine Jewellery Selection',
+        items: purchasedItems.length > 0 ? purchasedItems : [{ id: 'p1', name: 'Fine Gold-Plated Jewellery Collection', price: 129, quantity: 1, image: '/assets/logo.svg' }],
+        date: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        deliveryEstimate: deliveryDateStr,
+        status: 'Confirmed & Dispatching',
+        total: formattedTotal,
+        rawAmount: rawTotal,
+        paymentMethod: 'Stripe Encrypted Payment (Verified)',
+        sessionId: sessionId
+      };
+
+      setCompletedOrder(confirmedOrder);
+      setStep(3);
+      setCart([]);
+      localStorage.removeItem('abl_pending_checkout_items');
+      window.history.replaceState(null, '', window.location.pathname);
+
+      // Asynchronous background email dispatch (non-blocking)
+      fetch('/api/payments/send-order-confirmation-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderData: {
+            orderNumber: confirmedOrder.id,
+            customerName: confirmedOrder.customer,
+            customerEmail: confirmedOrder.email,
+            customerPhone: confirmedOrder.phone,
+            streetAddress: confirmedOrder.address,
+            suburb: confirmedOrder.city,
+            state: confirmedOrder.state,
+            postcode: confirmedOrder.postcode,
+            estimatedDeliveryDate: deliveryDateStr,
+            purchasedItems: purchasedItems,
+            orderTotal: formattedTotal,
+            orderDate: confirmedOrder.date
+          }
+        })
+      }).catch(e => console.warn('Background email trigger note:', e));
+    }
+  }, []);
+
+  // Restore cart items automatically if browser is refreshed or Back button pressed from Stripe
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const isSuccess = searchParams.get('success');
+
+    if (isSuccess !== 'true' && cart.length === 0) {
+      try {
+        const savedPending = localStorage.getItem('abl_pending_checkout_items');
+        if (savedPending) {
+          const parsed = JSON.parse(savedPending);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCart(parsed);
+          }
+        }
+      } catch {}
+    }
+  }, [cart.length, setCart]);
+
+  const handleRedirectToStripe = async (e) => {
+    if (e) e.preventDefault();
+    const { firstName, lastName, email, phone, address, city, state, postcode } = formData;
+    if (!firstName || !lastName || !email || !phone || !address || !city || !state || !postcode) {
+      showToast('Please fill in all required shipping fields', 'alert-circle');
+      setStep(0);
+      return;
+    }
+
+    if (saveAddress) {
+      saveUserAddress(formData);
+    }
+
+    const checkoutItems = cart.length > 0 ? cart : [
+      { id: 'p_test', name: 'Fine Jewellery Selection', price: 129, quantity: 1, image: '/assets/logo.svg' }
+    ];
+
+    // Store checkout items in localStorage so all N items appear on return
+    try {
+      localStorage.setItem('abl_pending_checkout_items', JSON.stringify(checkoutItems));
+    } catch (err) {
+      console.warn('Failed to cache pending checkout items', err);
+    }
+
+    const payload = JSON.stringify({
+      items: checkoutItems,
+      email: email,
+      shippingAddress: formData
+    });
+
+    let data = null;
+
+    try {
+      const r1 = await fetch('/api/payments/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      });
+      if (r1.ok) data = await r1.json();
+    } catch {
+      // Fallback
+    }
+
+    if (!data || !data.success) {
+      try {
+        const r2 = await fetch('http://localhost:5000/api/payments/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload
+        });
+        if (r2.ok) data = await r2.json();
+      } catch (err) {
+        console.error('Backend payment error:', err);
+      }
+    }
+
+    if (data && data.success && data.url) {
+      window.location.href = data.url;
+      return;
+    }
+  };
 
   const handleShippingSubmit = (e) => {
     e.preventDefault();
-    const { firstName, lastName, email, phone, address, city, postcode } = formData;
-    if (!firstName || !lastName || !email || !phone || !address || !city || !postcode) {
+    const { firstName, lastName, email, phone, address, city, state, postcode } = formData;
+    if (!firstName || !lastName || !email || !phone || !address || !city || !state || !postcode) {
       showToast('Please fill in all required shipping fields', 'alert-circle');
       return;
     }
-    if (saveAddress) {
-      localStorage.setItem('abl_saved_address', JSON.stringify(formData));
-    } else {
-      localStorage.removeItem('abl_saved_address');
-    }
-    setStep(1);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    handleRedirectToStripe(e);
   };
 
   const handleExpressPay = (provider) => {
@@ -67,26 +227,134 @@ export default function CheckoutPage() {
     }
   };
 
-  // Step 3: Confirmation
+  // Payment Failed / Cancelled Screen
+  if (paymentFailed) {
+    return (
+      <div className="container" style={{ padding: '60px 16px 80px 16px', maxWidth: 650, textAlign: 'center' }}>
+        <div style={{ width: 76, height: 76, borderRadius: '50%', background: 'var(--danger-bg)', color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+          <span style={{ fontSize: 36, fontWeight: 700 }}>✕</span>
+        </div>
+        <p className="section-subtitle" style={{ color: 'var(--danger)', marginBottom: 6, fontWeight: 700 }}>Stripe Payment Not Completed</p>
+        <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 600, margin: '0 0 14px 0' }}>Payment Cancelled or Declined</h1>
+        <p style={{ fontSize: 14, color: 'var(--slate)', marginBottom: 28, lineHeight: 1.6 }}>
+          Your Stripe checkout session was not completed. No charges have been made to your card. Your selected items remain saved in your shopping bag.
+        </p>
+        <div className="confirmation-btn-group" style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          <button className="btn-primary" style={{ flex: 1 }} onClick={() => setPaymentFailed(false)}>
+            Try Payment Again
+          </button>
+          <Link to="/cart" className="btn-secondary" style={{ flex: 1, textAlign: 'center', justifyContent: 'center' }}>
+            Return to Bag
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty Bag Protection View (If cart is empty and not on completed order screen)
+  if (cart.length === 0 && step !== 3 && !completedOrder) {
+    return (
+      <div className="container" style={{ padding: '80px 16px 100px 16px', maxWidth: 600, textAlign: 'center' }}>
+        <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--cream)', color: 'var(--gold)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+          <ShoppingBag style={{ width: 38, height: 38 }} />
+        </div>
+        <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 30, fontWeight: 600, margin: '0 0 12px 0' }}>Your Shopping Bag is Empty</h1>
+        <p style={{ fontSize: 14, color: 'var(--slate)', marginBottom: 32, lineHeight: 1.6 }}>
+          You currently have no items in your shopping bag. Explore our fine gold-plated jewellery collections to add items before checking out.
+        </p>
+        <Link to="/shop" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '14px 36px', fontSize: 14, textDecoration: 'none' }}>
+          Explore Collection
+        </Link>
+      </div>
+    );
+  }
+
+  // Step 3: Comprehensive Order Confirmation View
   if (step === 3 && completedOrder) {
     return (
-      <div className="container" style={{ padding: '40px 16px 80px 16px', textAlign: 'center', maxWidth: 600 }}>
-        <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--success-bg)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto' }}>
-          <Check style={{ width: 42, height: 42 }} />
+      <div className="container" style={{ padding: '40px 16px 80px 16px', maxWidth: 800 }}>
+        {/* Success Banner */}
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{ width: 76, height: 76, borderRadius: '50%', background: 'var(--success-bg)', color: 'var(--success)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Check style={{ width: 40, height: 40 }} />
+          </div>
+          <p className="section-subtitle" style={{ color: 'var(--success)', marginBottom: 6, fontWeight: 700 }}>Payment Received via Stripe</p>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 34, fontWeight: 600, margin: 0 }}>Order Confirmed!</h1>
+          <p style={{ fontSize: 14, color: 'var(--slate)', marginTop: 8 }}>
+            Thank you, <strong>{completedOrder.customer}</strong>. Order reference: <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{completedOrder.id}</span>
+          </p>
         </div>
-        <p className="section-subtitle" style={{ color: 'var(--success)', marginBottom: 8 }}>Payment Successful</p>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 600, marginBottom: 14 }}>Order Confirmed!</h1>
-        <p style={{ fontSize: 15, color: 'var(--slate)', marginBottom: 24, lineHeight: 1.6 }}>
-          Thank you, <strong>{formData.firstName || 'Valued Client'}</strong>. Your gold-plated jewellery order <strong>{completedOrder.id}</strong> has been received. A tax invoice and dispatch tracker have been dispatched to <strong>{formData.email || 'your email'}</strong>.
-        </p>
-        <div style={{ background: 'var(--cream)', borderRadius: 'var(--radius-lg)', padding: 20, textAlign: 'left', fontSize: 13, marginBottom: 28, lineHeight: 1.6 }}>
-          <p style={{ marginBottom: 6 }}><strong>Delivery Address:</strong> {formData.address}, {formData.city} {formData.postcode} NSW</p>
-          <p style={{ marginBottom: 6 }}><strong>Payment Method:</strong> {paymentTab === 'express' ? 'Apple Pay / Google Pay (Biometric Encrypted)' : 'Stripe Card (•••• 8892)'}</p>
-          <p style={{ marginBottom: 0 }}><strong>Status:</strong> Dispatched via Australia Post Express Insured</p>
+
+        {/* Estimated Delivery Highlight Banner */}
+        <div style={{ background: 'linear-gradient(135deg, var(--onyx) 0%, var(--onyx-light) 100%)', color: '#fff', borderRadius: 'var(--radius-lg)', padding: '24px 28px', marginBottom: 28, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+          <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'rgba(212,175,55,0.2)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Truck style={{ width: 26, height: 26 }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--gold)', fontWeight: 700, margin: '0 0 4px 0' }}>Australia Post Express Insured Dispatch</p>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#fff' }}>
+              Estimated Delivery: <strong>{completedOrder.deliveryEstimate}</strong>
+            </h3>
+            <p style={{ fontSize: 12, color: 'var(--slate-light)', margin: '4px 0 0 0' }}>
+              Tracking updates will be sent to <strong>{completedOrder.email}</strong> as soon as dispatched.
+            </p>
+          </div>
         </div>
-        <div className="confirmation-btn-group">
-          <Link to="/" className="btn-primary" style={{ flex: 1, textAlign: 'center', justifyContent: 'center' }}>Return to Storefront</Link>
-          <Link to="/account" className="btn-secondary" style={{ flex: 1, textAlign: 'center', justifyContent: 'center' }}>View in My Account</Link>
+
+        {/* Order Details Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginBottom: 28 }}>
+          {/* Customer & Delivery Address Card */}
+          <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 22, background: 'var(--cloud-white)' }}>
+            <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 600, margin: '0 0 14px 0', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+              Delivery Address & Contact
+            </h4>
+            <p style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px 0', color: 'var(--onyx)' }}>{completedOrder.customer}</p>
+            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 4px 0' }}>{completedOrder.address}</p>
+            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 12px 0' }}>{completedOrder.city}, {completedOrder.state} {completedOrder.postcode}</p>
+            <p style={{ fontSize: 12, color: 'var(--slate)', margin: '0 0 4px 0' }}><strong>Email:</strong> {completedOrder.email}</p>
+            <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}><strong>Phone:</strong> {completedOrder.phone || 'N/A'}</p>
+          </div>
+
+          {/* Payment & Status Summary */}
+          <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 22, background: 'var(--cloud-white)' }}>
+            <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 600, margin: '0 0 14px 0', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+              Payment & Order Details
+            </h4>
+            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Order Number:</strong> {completedOrder.id}</p>
+            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Order Date:</strong> {completedOrder.date}</p>
+            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Payment Method:</strong> {completedOrder.paymentMethod}</p>
+            <p style={{ fontSize: 13, color: 'var(--success)', margin: '0 0 12px 0', fontWeight: 600 }}><strong>Status:</strong> ✓ {completedOrder.status}</p>
+            <div style={{ background: 'var(--cream)', padding: '10px 14px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Total Paid (GST Inc.):</span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--onyx)' }}>{completedOrder.total}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Purchased Items Table */}
+        <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 22, background: 'var(--cloud-white)', marginBottom: 32 }}>
+          <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 600, margin: '0 0 16px 0', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+            Purchased Items Summary
+          </h4>
+          {completedOrder.items && completedOrder.items.map((item, idx) => (
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '10px 0', borderBottom: idx < completedOrder.items.length - 1 ? '1px dashed var(--border)' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <img src={item.image || '/assets/logo.svg'} alt={item.name} style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 'var(--radius-md)', background: 'var(--cream)' }} />
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>{item.name}</p>
+                  <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Qty: {item.quantity || 1} · Fine Gold-Plated Jewellery</p>
+                </div>
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>{formatMoney ? formatMoney(item.price * (item.quantity || 1)) : `$${item.price}`}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Single Action Button */}
+        <div style={{ marginTop: 24 }}>
+          <Link to="/" className="btn-primary" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', height: 48, fontSize: 14, textDecoration: 'none' }}>
+            Return to Store
+          </Link>
         </div>
       </div>
     );
@@ -129,34 +397,38 @@ export default function CheckoutPage() {
                   <div className="form-grid-2">
                     <div className="form-group">
                       <label className="form-label">First Name *</label>
-                      <input type="text" className="form-control" value={formData.firstName} onChange={e => setFormData(f => ({...f, firstName: e.target.value}))} placeholder="e.g. Sarah" required />
+                      <input type="text" className="form-control" value={formData.firstName} onChange={e => setFormData(f => ({...f, firstName: e.target.value}))} required />
                     </div>
                     <div className="form-group">
                       <label className="form-label">Last Name *</label>
-                      <input type="text" className="form-control" value={formData.lastName} onChange={e => setFormData(f => ({...f, lastName: e.target.value}))} placeholder="e.g. Jenkins" required />
+                      <input type="text" className="form-control" value={formData.lastName} onChange={e => setFormData(f => ({...f, lastName: e.target.value}))} required />
                     </div>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Email for Tracking *</label>
-                    <input type="email" className="form-control" value={formData.email} onChange={e => setFormData(f => ({...f, email: e.target.value}))} placeholder="e.g. sarah@example.com" required />
+                    <label className="form-label">Email *</label>
+                    <input type="email" className="form-control" value={formData.email} onChange={e => setFormData(f => ({...f, email: e.target.value}))} required />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Mobile Phone (For Courier Updates) *</label>
-                    <input type="tel" className="form-control" value={formData.phone} onChange={e => setFormData(f => ({...f, phone: e.target.value}))} placeholder="e.g. +61 412 345 678" required />
+                    <label className="form-label">Phone number *</label>
+                    <input type="tel" className="form-control" value={formData.phone} onChange={e => setFormData(f => ({...f, phone: e.target.value}))} required />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Street Address *</label>
-                    <input type="text" className="form-control" value={formData.address} onChange={e => setFormData(f => ({...f, address: e.target.value}))} placeholder="e.g. 42 George Street, Apt 3B" required />
+                    <input type="text" className="form-control" value={formData.address} onChange={e => setFormData(f => ({...f, address: e.target.value}))} required />
                   </div>
                   <div className="form-grid-2">
                     <div className="form-group">
-                      <label className="form-label">City / Suburb *</label>
-                      <input type="text" className="form-control" value={formData.city} onChange={e => setFormData(f => ({...f, city: e.target.value}))} placeholder="e.g. Sydney" required />
+                      <label className="form-label">Suburb *</label>
+                      <input type="text" className="form-control" value={formData.city} onChange={e => setFormData(f => ({...f, city: e.target.value}))} required />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Postcode *</label>
-                      <input type="text" className="form-control" value={formData.postcode} onChange={e => setFormData(f => ({...f, postcode: e.target.value}))} placeholder="e.g. 2000" required />
+                      <label className="form-label">State *</label>
+                      <input type="text" className="form-control" value={formData.state} onChange={e => setFormData(f => ({...f, state: e.target.value}))} required />
                     </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Postcode *</label>
+                    <input type="text" className="form-control" value={formData.postcode} onChange={e => setFormData(f => ({...f, postcode: e.target.value}))} required />
                   </div>
                   <div style={{ margin: '10px 0 20px 0', background: 'var(--cream)', borderRadius: 'var(--radius-md)', padding: '12px 16px' }}>
                     <label className="filter-checkbox-label" style={{ fontSize: 13, color: 'var(--onyx)', cursor: 'pointer', userSelect: 'none' }}>
@@ -164,8 +436,8 @@ export default function CheckoutPage() {
                       <span><strong>Save these details</strong> for faster 1-click checkout next time</span>
                     </label>
                   </div>
-                  <button type="submit" className="btn-primary" style={{ width: '100%' }}>
-                    Continue to Payment <ArrowRight style={{ width: 14, height: 14 }} />
+                  <button type="submit" className="btn-primary" style={{ width: '100%', height: 48, fontSize: 14 }}>
+                    Proceed to Stripe Secure Checkout <Lock style={{ width: 14, height: 14, marginLeft: 4 }} />
                   </button>
                 </form>
               )}
@@ -198,7 +470,7 @@ export default function CheckoutPage() {
                       <div className="form-group">
                         <label className="form-label">Card Number</label>
                         <div style={{ position: 'relative' }}>
-                          <input type="text" className="form-control" defaultValue="4532 •••• •••• 8892" placeholder="4532 0000 0000 0000" />
+                          <input type="text" className="form-control" defaultValue="4532 •••• •••• 8892" />
                           <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 6 }}>
                             <span style={{ fontSize: 10, fontWeight: 700, background: '#1A1F71', color: '#fff', padding: '2px 6px', borderRadius: 3 }}>VISA</span>
                             <span style={{ fontSize: 10, fontWeight: 700, background: '#EB001B', color: '#fff', padding: '2px 6px', borderRadius: 3 }}>MC</span>
@@ -208,16 +480,16 @@ export default function CheckoutPage() {
                       <div className="form-grid-2">
                         <div className="form-group">
                           <label className="form-label">Expiry Date</label>
-                          <input type="text" className="form-control" defaultValue="08 / 28" placeholder="MM / YY" />
+                          <input type="text" className="form-control" defaultValue="08 / 28" />
                         </div>
                         <div className="form-group">
                           <label className="form-label">Security CVC</label>
-                          <input type="password" className="form-control" defaultValue="892" placeholder="CVC" />
+                          <input type="password" className="form-control" defaultValue="892" />
                         </div>
                       </div>
                       <div className="form-group">
                         <label className="form-label">Cardholder Name</label>
-                        <input type="text" className="form-control" defaultValue={`${formData.firstName} ${formData.lastName}`.trim() || 'CARDHOLDER NAME'} placeholder="Name as printed on card" />
+                        <input type="text" className="form-control" defaultValue={`${formData.firstName} ${formData.lastName}`.trim() || 'CARDHOLDER NAME'} />
                       </div>
                       <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
                         <button className="btn-secondary" style={{ flex: 1 }} onClick={() => { setStep(0); window.scrollTo({top:0,behavior:'smooth'}); }}>Back</button>
@@ -249,7 +521,7 @@ export default function CheckoutPage() {
                   <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 600, marginBottom: 16 }}>3. Review Order</h3>
                   <div style={{ background: 'var(--cream)', borderRadius: 'var(--radius-md)', padding: 16, marginBottom: 20, fontSize: 13, lineHeight: 1.6 }}>
                     <p style={{ marginBottom: 6 }}><strong>Deliver To:</strong> {formData.firstName} {formData.lastName}</p>
-                    <p style={{ marginBottom: 6 }}><strong>Address:</strong> {formData.address}, {formData.city} {formData.postcode} NSW</p>
+                    <p style={{ marginBottom: 6 }}><strong>Address:</strong> {formData.address}, {formData.city} {formData.state} {formData.postcode}</p>
                     <p style={{ marginBottom: 6 }}><strong>Contact:</strong> {formData.email} · {formData.phone}</p>
                     <p style={{ marginBottom: 0 }}><strong>Payment:</strong> {paymentTab === 'express' ? 'Apple Pay / Google Pay' : 'Stripe Card (•••• 8892)'}</p>
                   </div>

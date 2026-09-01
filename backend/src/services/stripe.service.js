@@ -103,37 +103,23 @@ const handleWebhookEvent = async (event) => {
   await connection.beginTransaction();
 
   try {
-    const paymentIntent = event.data.object;
-    const orderId = paymentIntent.metadata?.order_id || paymentIntent.metadata?.orderId;
+    const eventObj = event.data.object;
+    const orderId = eventObj.metadata?.order_id || eventObj.metadata?.orderId;
 
-    if (eventType === 'payment_intent.succeeded') {
+    if (eventType === 'checkout.session.completed' || eventType === 'payment_intent.succeeded') {
+      const paymentIntentId = eventObj.payment_intent || eventObj.id;
+      const customerEmail = eventObj.customer_details?.email || eventObj.customer_email || eventObj.metadata?.email;
+      const totalPaid = eventObj.amount_total ? (eventObj.amount_total / 100) : (eventObj.amount ? eventObj.amount / 100 : 0);
+
       if (orderId) {
-        // Extract card details if available from latest charge
-        let cardBrand = null;
-        let cardLast4 = null;
-        let chargeId = paymentIntent.latest_charge || null;
-
-        if (paymentIntent.charges && paymentIntent.charges.data && paymentIntent.charges.data.length > 0) {
-          const charge = paymentIntent.charges.data[0];
-          chargeId = charge.id;
-          const pmDetails = charge.payment_method_details;
-          if (pmDetails && pmDetails.card) {
-            cardBrand = pmDetails.card.brand || null;
-            cardLast4 = pmDetails.card.last4 || null;
-          }
-        }
-
-        // Update payment record
+        // Update payment record with idempotency
         await connection.query(
-          `INSERT INTO payments (order_id, stripe_payment_intent_id, stripe_charge_id, amount, currency, status, card_brand, card_last4, paid_at) 
-           VALUES (?, ?, ?, ?, 'AUD', 'succeeded', ?, ?, CURRENT_TIMESTAMP) 
+          `INSERT INTO payments (order_id, stripe_payment_intent_id, amount, currency, status, paid_at) 
+           VALUES (?, ?, ?, 'AUD', 'succeeded', CURRENT_TIMESTAMP) 
            ON DUPLICATE KEY UPDATE 
              status = 'succeeded',
-             stripe_charge_id = VALUES(stripe_charge_id),
-             card_brand = VALUES(card_brand),
-             card_last4 = VALUES(card_last4),
              paid_at = CURRENT_TIMESTAMP`,
-          [orderId, paymentIntent.id, chargeId, paymentIntent.amount / 100, cardBrand, cardLast4]
+          [orderId, paymentIntentId, totalPaid]
         );
 
         // Update order status to paid
@@ -142,35 +128,30 @@ const handleWebhookEvent = async (event) => {
           [orderId]
         );
 
-        // Fetch order details for inventory decrement and email confirmation
         const [orders] = await connection.query('SELECT * FROM orders WHERE id = ?', [orderId]);
         const order = orders[0];
 
         if (order) {
           const [orderItems] = await connection.query('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
-
-          // Decrement stock for each item in the order
           for (const item of orderItems) {
             if (item.variant_id) {
-              await adjustStock(
-                connection,
-                item.variant_id,
-                -item.quantity,
-                'sale',
-                'orders',
-                orderId,
-                `Sale order #${order.order_number}`
-              );
+              await adjustStock(connection, item.variant_id, -item.quantity, 'sale', 'orders', orderId, `Sale order #${order.order_number}`);
             }
           }
-
-          // Trigger email confirmation asynchronously
           try {
-            await sendOrderConfirmationEmail(order.user_id, order, orderItems);
+            await sendOrderConfirmationEmail({
+              orderNumber: order.order_number,
+              customerName: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'Valued Customer',
+              customerEmail: customerEmail || order.guest_email,
+              purchasedItems: orderItems,
+              orderTotal: `$${order.total_amount}`
+            });
           } catch (emailErr) {
-            console.error('⚠️ Failed to send order confirmation email:', emailErr.message);
+            console.error('⚠️ Webhook email trigger note:', emailErr.message);
           }
         }
+      } else {
+        console.log(`ℹ️ Stripe Hosted Checkout session completed for ${customerEmail} (Total: $${totalPaid} AUD)`);
       }
     } else if (eventType === 'payment_intent.payment_failed') {
       if (orderId) {

@@ -16,10 +16,10 @@ export default function Layout({ children }) {
   const is404Route = !validPaths.includes(location.pathname.toLowerCase());
   const hideNavigation = isAuthScreen || is404Route;
 
-  // Always scroll to top of page on route / page navigation
+  // Always scroll to top of page on any route or query param navigation (e.g. /product?id=...)
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [location.pathname, location.search]);
 
   // Automatic Pageview Tracking across React SPA navigation
   useEffect(() => {

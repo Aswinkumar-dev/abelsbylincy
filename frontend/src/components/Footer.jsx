@@ -42,7 +42,7 @@ export default function Footer() {
         <div className="container">
           <p style={{ fontSize: 11, letterSpacing: '0.35em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 8 }}>Exclusive Privileges</p>
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 500, marginBottom: 12 }}>Join the Abel’s By Lincy Circle</h3>
-          <p style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.65)', maxWidth: 500, margin: '0 auto' }}>Receive preview access to new collections, special offers, and styling inspirations.</p>
+          <p style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.65)', maxWidth: 500, margin: '0 auto' }}>Receive preview access to new collections and special offers.</p>
 
           <form className="newsletter-form" onSubmit={handleSubmit} noValidate>
             <input

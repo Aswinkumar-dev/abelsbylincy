@@ -27,6 +27,7 @@ export default function ProductPage() {
   useEffect(() => {
     if (!productId) { navigate('/shop'); return; }
     if (!product) { navigate('/shop'); return; }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     setSelectedImageIdx(0);
     setSelectedSize(product?.sizes?.[0] || '');
     const defaultColor = product?.colors?.[0] || (product?.colorImages ? Object.keys(product.colorImages)[0] : '');
