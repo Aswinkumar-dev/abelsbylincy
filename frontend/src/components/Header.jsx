@@ -8,6 +8,7 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileShopOpen, setMobileShopOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [announcementIdx, setAnnouncementIdx] = useState(0);
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export default function Header() {
   useEffect(() => {
     setMobileOpen(false);
     setSearchOpen(false);
+    setLogoutModalOpen(false);
   }, [location.pathname]);
 
   const handleSearch = (e) => {
@@ -105,21 +107,32 @@ export default function Header() {
             </nav>
 
             {/* Action Icons */}
+            {/* Action Icons: Search -> Account -> Wishlist -> Cart */}
             <div className="header-actions">
+              {/* 1. Search */}
               <button className="action-btn" title="Search Jewellery" onClick={() => setSearchOpen(s => !s)}>
                 <Search style={{ width: 23, height: 23 }} strokeWidth={1.8} />
               </button>
 
-              <Link to="/wishlist" className="action-btn" title="Wishlist">
-                <Heart style={{ width: 23, height: 23 }} strokeWidth={1.8} />
-                {wishlistCount > 0 && <span className="badge-count">{wishlistCount}</span>}
-              </Link>
-
+              {/* 2. Account (User) */}
               <div className="user-menu-wrapper" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-                <Link to="/account" className="action-btn" title={currentUser ? 'My Account' : 'Login'}>
-                  <User style={{ width: 23, height: 23 }} strokeWidth={1.8} />
-                </Link>
+                {currentUser ? (
+                  <button
+                    type="button"
+                    className="action-btn"
+                    title={`Hi ${currentUser.name}`}
+                    onClick={() => setLogoutModalOpen(s => !s)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    <User style={{ width: 23, height: 23 }} strokeWidth={1.8} />
+                  </button>
+                ) : (
+                  <Link to="/account" className="action-btn" title="Login">
+                    <User style={{ width: 23, height: 23 }} strokeWidth={1.8} />
+                  </Link>
+                )}
 
+                {/* Floating LOGIN Tooltip Badge when NOT logged in */}
                 {!currentUser && (
                   <Link to="/account" className="login-floating-tooltip" style={{
                     position: 'absolute',
@@ -156,8 +169,91 @@ export default function Header() {
                     LOGIN
                   </Link>
                 )}
+
+                {/* Floating LOGOUT Popup Modal when LOGGED IN and clicking Account icon */}
+                {currentUser && logoutModalOpen && (
+                  <div
+                    className="account-logout-popover"
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 12px)',
+                      right: -10,
+                      width: 250,
+                      backgroundColor: '#FFFFFF',
+                      border: '1px solid var(--border)',
+                      borderRadius: 12,
+                      padding: '18px 16px',
+                      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+                      zIndex: 2000,
+                      textAlign: 'center'
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute',
+                      top: -6,
+                      right: 20,
+                      width: 10,
+                      height: 10,
+                      backgroundColor: '#FFFFFF',
+                      borderLeft: '1px solid var(--border)',
+                      borderTop: '1px solid var(--border)',
+                      transform: 'rotate(45deg)'
+                    }} />
+
+                    <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)', margin: '0 0 4px 0' }}>
+                      Hi {currentUser.name},
+                    </p>
+                    <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+                      Do you want to Logout?
+                    </p>
+
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          logoutUser();
+                          setLogoutModalOpen(false);
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '8px 10px',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          background: '#C5221F',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: 6,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Logout
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLogoutModalOpen(false)}
+                        className="btn-secondary"
+                        style={{
+                          flex: 1,
+                          padding: '8px 10px',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          borderRadius: 6
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* 3. Wishlist */}
+              <Link to="/wishlist" className="action-btn" title="Wishlist">
+                <Heart style={{ width: 23, height: 23 }} strokeWidth={1.8} />
+                {wishlistCount > 0 && <span className="badge-count">{wishlistCount}</span>}
+              </Link>
+
+              {/* 4. Cart */}
               <Link to="/cart" className="action-btn" title="Shopping Bag">
                 <ShoppingBag style={{ width: 23, height: 23 }} strokeWidth={1.8} />
                 {cartCount > 0 && <span className="badge-count">{cartCount}</span>}

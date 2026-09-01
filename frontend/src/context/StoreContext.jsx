@@ -289,15 +289,14 @@ export function StoreProvider({ children }) {
     }
   }
 
-  const loginWithGoogleCredential = useCallback((credential) => {
-    const payload = parseJwt(credential);
-    if (!payload || !payload.email) {
+  const loginWithGoogleProfile = useCallback((profile) => {
+    if (!profile || !profile.email) {
       showToast('Google authentication failed. Please try again.', 'alert-circle');
       return false;
     }
 
-    const { name, email, picture, sub } = payload;
-    const existing = customers.find(c => c.email.toLowerCase() === email.toLowerCase());
+    const { name, email, picture, sub } = profile;
+    const existing = customers.find(c => c.email?.toLowerCase() === email.toLowerCase());
 
     const userObj = {
       id: existing ? existing.id : `c_google_${sub || Date.now()}`,
@@ -328,36 +327,73 @@ export function StoreProvider({ children }) {
 
     const clientId = import.meta.env.GOOGLE_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID || '546867018049-fafgf8onc7m37144516t5n6fodqkjg78.apps.googleusercontent.com';
 
+    // 1. Trigger Real Google OAuth 2.0 Popup (accounts.google.com)
+    if (window.google?.accounts?.oauth2) {
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'email profile openid',
+        callback: async (tokenResponse) => {
+          if (tokenResponse && tokenResponse.access_token) {
+            try {
+              const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+              });
+              if (res.ok) {
+                const profile = await res.json();
+                loginWithGoogleProfile(profile);
+                return;
+              }
+            } catch (e) {
+              console.error('Failed to fetch Google profile', e);
+            }
+          }
+          showToast('Google Sign-In was cancelled.', 'alert-circle');
+        }
+      });
+      client.requestAccessToken();
+      return;
+    }
+
+    // 2. Fallback to GIS One Tap prompt if initialized
     if (window.google?.accounts?.id) {
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: (response) => {
           if (response.credential) {
-            loginWithGoogleCredential(response.credential);
+            const profile = parseJwt(response.credential);
+            if (profile) loginWithGoogleProfile(profile);
           }
         }
       });
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // Account popup fallback
-          const demoUser = {
-            id: `c_google_${Date.now()}`,
-            name: 'Google Customer',
-            email: 'customer@gmail.com',
-            provider: 'google',
-            joined: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-            spent: '$0',
-            orders: 0
-          };
-          setCurrentUser(demoUser);
-          writeLS('abl_current_user', demoUser);
-          showToast(`Welcome to Abel's By Lincy, ${demoUser.name}!`, 'check');
-        }
-      });
-    } else {
-      showToast('Google Sign-In service initializing...', 'alert-circle');
+      window.google.accounts.id.prompt();
+      return;
     }
-  }, [loginWithGoogleCredential, setCurrentUser, showToast]);
+
+    // 3. Fallback to Google OAuth 2.0 Auth URL redirect
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(window.location.origin + '/account')}&response_type=token&scope=${encodeURIComponent('email profile openid')}`;
+    window.location.href = googleAuthUrl;
+  }, [loginWithGoogleProfile, showToast]);
+
+  // Handle Google OAuth Redirect Hash if returned via URL redirect
+  React.useEffect(() => {
+    if (window.location.hash && window.location.hash.includes('access_token=')) {
+      const params = new URLSearchParams(window.location.hash.replace('#', '?'));
+      const accessToken = params.get('access_token');
+      if (accessToken) {
+        fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        })
+          .then(res => res.json())
+          .then(profile => {
+            if (profile && profile.email) {
+              loginWithGoogleProfile(profile);
+              window.history.replaceState(null, '', window.location.pathname);
+            }
+          })
+          .catch(console.error);
+      }
+    }
+  }, [loginWithGoogleProfile]);
 
   const logoutUser = useCallback(() => {
     setCurrentUser(null);

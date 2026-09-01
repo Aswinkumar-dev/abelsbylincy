@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { User, ShoppingBag, Heart, Award, Eye, EyeOff, LogOut } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
@@ -8,6 +8,14 @@ export default function AccountPage() {
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const navigate = useNavigate();
+
+  // Redirect to Home Page immediately when logged in
+  useEffect(() => {
+    if (currentUser) {
+      navigate('/', { replace: true });
+    }
+  }, [currentUser, navigate]);
 
   // Form states
   const [loginEmail, setLoginEmail] = useState('');
@@ -82,6 +90,8 @@ export default function AccountPage() {
     if (!success) {
       setPasswordError('Invalid email or password credentials.');
       triggerShake();
+    } else {
+      navigate('/');
     }
   };
 
@@ -115,6 +125,8 @@ export default function AccountPage() {
     if (!success) {
       setEmailError('An account with this email address already exists.');
       triggerShake();
+    } else {
+      navigate('/');
     }
   };
 
@@ -192,7 +204,7 @@ export default function AccountPage() {
                   transition: 'all 0.25s ease'
                 }}
               >
-                Sign In
+                Login
               </button>
               <button
                 type="button"

@@ -37,7 +37,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint
+// Root & Health check endpoints
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Abel's By Lincy Backend API is active and running!",
+    version: "1.0.0",
+    health: "/health"
+  });
+});
+
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date() });
 });

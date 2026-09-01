@@ -19,13 +19,6 @@ export default function WishlistPage() {
 
   return (
     <>
-      <div className="page-hero">
-        <div className="container">
-          <p className="section-subtitle">Saved Favourites</p>
-          <h1>Your Wishlist</h1>
-        </div>
-      </div>
-
       <div className="container" style={{ paddingBottom: 80, paddingTop: 40 }}>
         {wishlistedProducts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 16px' }}>
