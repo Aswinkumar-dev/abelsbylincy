@@ -3,8 +3,8 @@ const router = express.Router();
 const { createOrder, getOrderHistory, getOrderDetails } = require('../controllers/order.controller');
 const authenticateToken = require('../middleware/auth.middleware');
 
-// Public order details (with verification rules inside controller)
-router.get('/:orderUuid', getOrderDetails);
+// Order details endpoint with authentication guard
+router.get('/:orderUuid', authenticateToken, getOrderDetails);
 
 // Protected user orders
 router.use(authenticateToken);

@@ -193,28 +193,42 @@ const createCheckoutSession = async (req, res, next) => {
 
     const lineItems = [];
     for (const item of items) {
-      let authoritativePrice = 0;
+      // Requirement 49: Quantity Tampering Protection
+      const rawQty = item.quantity;
+      const parsedQty = parseInt(rawQty, 10);
 
-      // 1. Try DB lookup first
-      if (item.id) {
+      if (isNaN(parsedQty) || parsedQty <= 0 || parsedQty > 100 || String(rawQty).includes('.')) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid item quantity '${rawQty}'. Quantity must be a positive integer between 1 and 100.`
+        });
+      }
+
+      // Requirement 50: SQL & Input Sanitization
+      const cleanItemId = String(item.id || '').replace(/['";<>\\]/g, '').trim();
+      let authoritativePrice = 0;
+      let authoritativeName = String(item.name || 'Fine Jewellery').replace(/<[^>]*>/g, '').trim();
+
+      // 1. Authoritative DB Lookup via Parameterized Query
+      if (cleanItemId) {
         try {
-          const [dbProducts] = await db.query('SELECT price FROM products WHERE id = ?', [item.id]);
-          if (dbProducts.length > 0) {
+          const [dbProducts] = await db.query('SELECT title, price FROM products WHERE id = ?', [cleanItemId]);
+          if (dbProducts && dbProducts.length > 0) {
             authoritativePrice = parseFloat(dbProducts[0].price);
+            authoritativeName = dbProducts[0].title || authoritativeName;
           }
         } catch {
-          // DB unpopulated fallback
+          // DB connection fallback
         }
       }
 
-      // 2. Try catalog match if DB lookup yielded zero or product was in-memory seed
+      // 2. Authoritative Server Catalog Lookup
       if (!authoritativePrice) {
-        const catItem = CATALOG.find(c => c.id === item.id || item.id?.includes(c.id));
+        const catItem = CATALOG.find(c => c.id === cleanItemId || cleanItemId.includes(c.id));
         if (catItem) {
           authoritativePrice = catItem.price;
         } else {
-          // Default fallback to minimum server standard price ($119) if unknown ID
-          authoritativePrice = parseFloat(item.price || 119);
+          authoritativePrice = 119.00;
         }
       }
 
@@ -222,12 +236,12 @@ const createCheckoutSession = async (req, res, next) => {
         price_data: {
           currency: 'aud',
           product_data: {
-            name: item.name || 'Fine Jewellery',
+            name: authoritativeName,
             images: item.image ? [item.image] : [],
           },
           unit_amount: Math.round(authoritativePrice * 100),
         },
-        quantity: item.quantity || 1,
+        quantity: parsedQty,
       });
     }
 
@@ -257,7 +271,7 @@ const createCheckoutSession = async (req, res, next) => {
   }
 };
 
-const { sendOrderConfirmationEmail } = require('../services/email.service');
+const { sendOrderConfirmationEmail, sendNewsletterWelcomeEmail } = require('../services/email.service');
 
 const sendConfirmationEmail = async (req, res, next) => {
   try {
@@ -275,10 +289,41 @@ const sendConfirmationEmail = async (req, res, next) => {
   }
 };
 
+const sendNewsletterEmail = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
+
+    setTimeout(async () => {
+      await sendNewsletterWelcomeEmail(email);
+    }, 500);
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+const { reconcilePendingPaymentsWithStripe } = require('../services/stripe.service');
+
+const reconcilePayments = async (req, res, next) => {
+  try {
+    const result = await reconcilePendingPaymentsWithStripe();
+    res.status(200).json({
+      success: true,
+      message: `Database recovery scan completed. ${result.recoveredCount} payment(s) reconciled with Stripe.`,
+      ...result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createStripeIntent,
   createCheckoutSession,
   handleStripeWebhook,
   processAdminRefund,
-  sendConfirmationEmail
+  sendConfirmationEmail,
+  sendNewsletterEmail,
+  reconcilePayments
 };

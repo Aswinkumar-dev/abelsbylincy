@@ -140,6 +140,29 @@ export default function CheckoutPage() {
     }
   }, [cart.length, setCart]);
 
+  // Mobile app-switching & screen-lock resilience listener (Requirement 39)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && cart.length === 0) {
+        try {
+          const savedPending = localStorage.getItem('abl_pending_checkout_items');
+          if (savedPending) {
+            const parsed = JSON.parse(savedPending);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setCart(parsed);
+            }
+          }
+        } catch {}
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [cart.length, setCart]);
+
   const handleRedirectToStripe = async (e) => {
     if (e) e.preventDefault();
     const { firstName, lastName, email, phone, address, city, state, postcode } = formData;

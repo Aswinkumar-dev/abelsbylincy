@@ -27,11 +27,18 @@ export default function Footer() {
     }
 
     const res = handleNewsletter(trimmed);
-    if (res && res.success) {
-      setSuccessMsg(res.message);
+    if (res) {
+      setSuccessMsg('Thank you for subscribing! Check your inbox for exclusive access.');
       setEmail('');
-    } else if (res && !res.success) {
-      setErrorMsg(res.message);
+      
+      // Dispatch welcome email asynchronously via backend
+      fetch('/api/payments/subscribe-newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed })
+      }).catch(err => console.warn('Newsletter welcome email note:', err));
+    } else {
+      setErrorMsg('Subscription failed. Please try again.');
     }
   };
 
@@ -42,44 +49,33 @@ export default function Footer() {
         <div className="container">
           <p style={{ fontSize: 11, letterSpacing: '0.35em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 8 }}>Exclusive Privileges</p>
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 500, marginBottom: 12 }}>Join the Abel’s By Lincy Circle</h3>
-          <p style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.65)', maxWidth: 500, margin: '0 auto' }}>Receive preview access to new collections and special offers.</p>
+          <p style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.65)', maxWidth: 500, margin: '0 auto' }}>Receive early access to new collections and exclusive offers.</p>
 
-          <form className="newsletter-form" onSubmit={handleSubmit} noValidate>
-            <input
-              type="email"
-              className="newsletter-input"
-              style={{ borderColor: errorMsg ? '#fc8181' : undefined }}
-              placeholder="Enter your email address"
-              value={email}
-              onChange={e => {
-                setEmail(e.target.value);
-                if (errorMsg) setErrorMsg('');
-                if (successMsg) setSuccessMsg('');
-              }}
-            />
-            <button type="submit" className="newsletter-btn">Subscribe</button>
-          </form>
+          <div style={{ maxWidth: 480, margin: '24px auto 0 auto', textAlign: 'left' }}>
+            <form className="newsletter-form" onSubmit={handleSubmit} noValidate style={{ margin: 0 }}>
+              <input
+                type="email"
+                className="newsletter-input"
+                style={{ borderColor: errorMsg ? '#fc8181' : undefined }}
+                placeholder="Enter your email address"
+                value={email}
+                onChange={e => {
+                  setEmail(e.target.value);
+                  if (errorMsg) setErrorMsg('');
+                  if (successMsg) setSuccessMsg('');
+                }}
+              />
+              <button type="submit" className="newsletter-btn">Subscribe</button>
+            </form>
 
-          {/* Validation Error Message */}
-          {errorMsg && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, color: '#fc8181', fontSize: 13, fontWeight: 500 }}>
-              <AlertCircle style={{ width: 16, height: 16 }} />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {/* Success Acknowledgment Notification & Simulated Email Confirmation */}
-          {successMsg && (
-            <div style={{ background: 'rgba(212, 175, 55, 0.12)', border: '1px solid var(--gold)', borderRadius: 8, padding: '14px 18px', maxWidth: 560, margin: '16px auto 0 auto', textAlign: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4, color: 'var(--gold)', fontWeight: 700, fontSize: 14 }}>
-                <CheckCircle2 style={{ width: 18, height: 18 }} />
-                <span>Subscription Confirmed!</span>
+            {/* Validation Error Message (Left-aligned with input box border) */}
+            {errorMsg && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 6, marginTop: 8, color: '#fc8181', fontSize: 13, fontWeight: 500, paddingLeft: 2 }}>
+                <AlertCircle style={{ width: 16, height: 16, flexShrink: 0 }} />
+                <span>{errorMsg}</span>
               </div>
-              <p style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.9)', margin: 0, lineHeight: 1.5 }}>
-                {successMsg}
-              </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

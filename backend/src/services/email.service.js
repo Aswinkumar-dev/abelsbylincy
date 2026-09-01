@@ -207,7 +207,27 @@ const sendOrderConfirmationEmail = async (orderData) => {
   }
 };
 
+const sendNewsletterWelcomeEmail = async (userEmail) => {
+  try {
+    if (!userEmail) return { success: false, message: 'No email provided' };
+
+    const subject = `✨ Welcome to the Abel's By Lincy Circle!`;
+    console.log(`✉️ [NEWSLETTER EMAIL SERVICE] Dispatching Welcome Email to: ${userEmail}`);
+
+    return await sendEmail({
+      to: userEmail,
+      subject: subject,
+      templateName: 'newsletter_welcome',
+      variables: {}
+    });
+  } catch (error) {
+    console.error('Newsletter welcome email error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   sendEmail,
-  sendOrderConfirmationEmail
+  sendOrderConfirmationEmail,
+  sendNewsletterWelcomeEmail
 };
