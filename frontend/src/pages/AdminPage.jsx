@@ -136,6 +136,8 @@ export default function AdminPage() {
   const [dragOverHeroIdx, setDragOverHeroIdx] = useState(null);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [messageSubTab, setMessageSubTab] = useState('contact');
+  const [prodSearchQuery, setProdSearchQuery] = useState('');
+  const [prodPage, setProdPage] = useState(1);
 
   const handleHeroFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -395,17 +397,7 @@ export default function AdminPage() {
           </button>
         </div>
 
-        {!sidebarCollapsed && (
-          <div style={{ padding: '12px 16px', margin: '8px 12px', background: 'rgba(212, 175, 55, 0.08)', border: '1px solid rgba(212, 175, 55, 0.2)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Crown style={{ width: 16, height: 16, color: 'var(--gold)' }} />
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--gold)', margin: 0 }}>{currentAdmin.role || 'Super Admin'}</p>
-                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', margin: 0 }}>Full Access</p>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         <nav className="admin-nav">
           {screens.map(s => {
@@ -484,15 +476,7 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              <div style={{ padding: '12px 16px', margin: '12px 16px', background: 'rgba(212, 175, 55, 0.12)', border: '1px solid rgba(212, 175, 55, 0.3)', borderRadius: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Crown style={{ width: 16, height: 16, color: 'var(--gold)' }} />
-                  <div>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--gold)', margin: 0 }}>{currentAdmin.role || 'Super Admin'}</p>
-                    <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', margin: 0 }}>{currentAdmin.user}</p>
-                  </div>
-                </div>
-              </div>
+
 
               <nav className="admin-mobile-drawer-nav">
                 {screens.map(s => {
@@ -631,127 +615,264 @@ export default function AdminPage() {
           )}
 
           {/* 2. PRODUCTS */}
-          {activeTab === 'products' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <div>
-                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600 }}>Product Catalogue ({products.length})</h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>Manage anti-tarnish gold-plated jewellery items, pricing, SKUs, and tags.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    const randomSKU = generateRandomSKU('necklaces');
-                    setProdForm({
-                      id: '', name: '', sku: randomSKU, desc: '', price: 120, salePrice: 100,
-                      baseImage1: '', baseImage2: '', baseImage3: '',
-                      category: 'necklaces', stockQty: 10, status: 'Active',
-                      isFeatured: true, tags: 'gold, anti-tarnish',
-                      colorsText: '', colorImages: {},
-                      seoTitle: '', seoDesc: '', slug: ''
-                    });
-                    setProdFormErrors({});
-                    setUploadedImagesMap({});
-                    setEditingProduct({});
-                  }}
-                  className="btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                >
-                  <Plus style={{ width: 16, height: 16 }} /> Add Product
-                </button>
-              </div>
+          {activeTab === 'products' && (() => {
+            const filteredProducts = (products || []).filter(p => {
+              if (!prodSearchQuery.trim()) return true;
+              const q = prodSearchQuery.toLowerCase().trim();
+              return (
+                p.name?.toLowerCase().includes(q) ||
+                p.sku?.toLowerCase().includes(q) ||
+                p.category?.toLowerCase().includes(q) ||
+                p.collection?.toLowerCase().includes(q)
+              );
+            });
 
-              <div className="admin-table-card">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>SKU</th>
-                      <th>Category</th>
-                      <th>Price</th>
-                      <th>Stock</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.map(p => (
-                      <tr key={p.id}>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <img src={p.image} alt={p.name} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }} />
-                            <div>
-                              <strong>{p.name}</strong>
-                              {p.isFeatured && <span style={{ marginLeft: 6, background: 'var(--gold)', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>Featured</span>}
-                            </div>
-                          </div>
-                        </td>
-                        <td><code style={{ fontSize: 12 }}>{p.sku || 'ABL-JEW'}</code></td>
-                        <td style={{ textTransform: 'capitalize' }}>{p.category}</td>
-                        <td>${p.price}</td>
-                        <td>
-                          <span style={{
-                            color: (p.stockQty || 0) === 0 ? '#C53030' : (p.stockQty || 0) < 3 ? '#DD6B20' : '#2F855A',
-                            fontWeight: 700
-                          }}>
-                            {p.stockQty || 0} units
-                          </span>
-                        </td>
-                        <td><span className="badge badge-success">{p.status || 'Active'}</span></td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <button
-                              onClick={() => {
-                                const baseImgs = p.images?.length > 0 ? p.images : [p.image || ''];
-                                const colorsListStr = (p.colors || []).join(', ');
-                                setProdForm({
-                                  id: p.id,
-                                  name: p.name || '',
-                                  sku: p.sku || generateRandomSKU(p.category),
-                                  desc: p.desc || p.description || '',
-                                  price: p.price || 0,
-                                  salePrice: p.salePrice || 0,
-                                  baseImage1: baseImgs[0] || '',
-                                  baseImage2: baseImgs[1] || '',
-                                  baseImage3: baseImgs[2] || '',
-                                  category: p.category || 'necklaces',
-                                  collection: p.collection || 'Soleil',
-                                  stockQty: p.stockQty ?? 10,
-                                  status: p.status || 'Active',
-                                  isFeatured: !!p.isFeatured,
-                                  tags: p.tags || '',
-                                  colorsText: colorsListStr,
-                                  colorImages: p.colorImages || {},
-                                  seoTitle: p.seoTitle || '',
-                                  seoDesc: p.seoDesc || '',
-                                  slug: p.slug || ''
-                                });
-                                setProdFormErrors({});
-                                setEditingProduct(p);
-                              }}
-                              className="btn-secondary" style={{ padding: 6 }}
-                            >
-                              <Pencil style={{ width: 14, height: 14 }} />
-                            </button>
-                            <button onClick={() => deleteProduct(p.id)} className="btn-secondary" style={{ padding: 6, color: 'var(--danger)' }}>
-                              <Trash2 style={{ width: 14, height: 14 }} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            const itemsPerPage = 10;
+            const totalProdPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
+            const currentProdPage = Math.min(Math.max(1, prodPage), totalProdPages);
+            const startIndex = (currentProdPage - 1) * itemsPerPage;
+            const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+
+            return (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
+                  <div>
+                    <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>
+                      Product Catalogue ({filteredProducts.length})
+                    </h2>
+                    <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>
+                      Manage anti-tarnish gold-plated jewellery items, pricing, SKUs, and tags.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%', maxWidth: 520, justifyContent: 'flex-end' }}>
+                    {/* Search Input */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FFFFFF', padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', flex: 1, minWidth: 200 }}>
+                      <Search style={{ width: 16, height: 16, color: 'var(--slate)', flexShrink: 0 }} />
+                      <input
+                        type="text"
+                        placeholder="Search product name, SKU, category..."
+                        value={prodSearchQuery}
+                        onChange={e => { setProdSearchQuery(e.target.value); setProdPage(1); }}
+                        style={{ border: 'none', outline: 'none', width: '100%', fontSize: 13, background: 'transparent' }}
+                      />
+                      {prodSearchQuery && (
+                        <button type="button" onClick={() => { setProdSearchQuery(''); setProdPage(1); }} style={{ padding: 2, color: 'var(--slate)' }}>
+                          <X style={{ width: 14, height: 14 }} />
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const randomSKU = generateRandomSKU('necklaces');
+                        setProdForm({
+                          id: '', name: '', sku: randomSKU, desc: '', price: 120, salePrice: 100,
+                          baseImage1: '', baseImage2: '', baseImage3: '',
+                          category: 'necklaces', stockQty: 10, status: 'Active',
+                          isFeatured: true, tags: 'gold, anti-tarnish',
+                          colorsText: '', colorImages: {},
+                          seoTitle: '', seoDesc: '', slug: ''
+                        });
+                        setProdFormErrors({});
+                        setUploadedImagesMap({});
+                        setEditingProduct({});
+                      }}
+                      className="btn-primary"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', fontSize: 13, whiteSpace: 'nowrap' }}
+                    >
+                      <Plus style={{ width: 16, height: 16 }} /> Add Product
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table Container */}
+                <div className="admin-table-card" style={{ width: '100%', overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+                  <div className="admin-table-scroll-wrapper">
+                    <table className="admin-table" style={{ width: '100%', minWidth: '720px' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '32%' }}>Product</th>
+                          <th style={{ width: '15%' }}>SKU</th>
+                          <th style={{ width: '15%' }}>Category</th>
+                          <th style={{ width: '12%' }}>Price</th>
+                          <th style={{ width: '14%' }}>Stock</th>
+                          <th style={{ width: '12%', textAlign: 'center' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedProducts.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--slate)' }}>
+                              No products found matching "{prodSearchQuery}".
+                            </td>
+                          </tr>
+                        ) : (
+                          paginatedProducts.map(p => (
+                            <tr key={p.id}>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                  <img src={p.image} alt={p.name} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8, flexShrink: 0, border: '1px solid var(--border)' }} />
+                                  <div style={{ minWidth: 0 }}>
+                                    <strong style={{ fontSize: 13, color: 'var(--onyx)', display: 'block', wordBreak: 'break-word' }}>{p.name}</strong>
+                                    {p.isFeatured && <span style={{ background: 'var(--gold)', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600, display: 'inline-block', marginTop: 2 }}>Featured</span>}
+                                  </div>
+                                </div>
+                              </td>
+                              <td><code style={{ fontSize: 12, background: 'var(--cream)', padding: '3px 6px', borderRadius: 4, color: 'var(--gold-dark)', fontWeight: 600 }}>{p.sku || 'ABL-JEW'}</code></td>
+                              <td style={{ textTransform: 'capitalize', fontSize: 13, fontWeight: 500 }}>{p.category}</td>
+                              <td style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)' }}>${p.price}</td>
+                              <td>
+                                <span style={{
+                                  color: (p.stockQty || 0) === 0 ? '#C53030' : (p.stockQty || 0) < 3 ? '#DD6B20' : '#2F855A',
+                                  fontWeight: 700,
+                                  fontSize: 12
+                                }}>
+                                  {p.stockQty || 0} units
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                                  <button
+                                    onClick={() => {
+                                      const baseImgs = p.images?.length > 0 ? p.images : [p.image || ''];
+                                      const colorsListStr = (p.colors || []).join(', ');
+                                      setProdForm({
+                                        id: p.id,
+                                        name: p.name || '',
+                                        sku: p.sku || generateRandomSKU(p.category),
+                                        desc: p.desc || p.description || '',
+                                        price: p.price || 0,
+                                        salePrice: p.salePrice || 0,
+                                        baseImage1: baseImgs[0] || '',
+                                        baseImage2: baseImgs[1] || '',
+                                        baseImage3: baseImgs[2] || '',
+                                        category: p.category || 'necklaces',
+                                        collection: p.collection || 'Soleil',
+                                        stockQty: p.stockQty ?? 10,
+                                        status: p.status || 'Active',
+                                        isFeatured: !!p.isFeatured,
+                                        tags: p.tags || '',
+                                        colorsText: colorsListStr,
+                                        colorImages: p.colorImages || {},
+                                        seoTitle: p.seoTitle || '',
+                                        seoDesc: p.seoDesc || '',
+                                        slug: p.slug || ''
+                                      });
+                                      setProdFormErrors({});
+                                      setEditingProduct(p);
+                                    }}
+                                    className="btn-secondary" style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                    title="Edit Product"
+                                  >
+                                    <Pencil style={{ width: 14, height: 14 }} /> Edit
+                                  </button>
+                                  <button onClick={() => deleteProduct(p.id)} className="btn-secondary" style={{ padding: '6px 10px', fontSize: 12, color: 'var(--danger)', display: 'inline-flex', alignItems: 'center' }} title="Delete Product">
+                                    <Trash2 style={{ width: 14, height: 14 }} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination Footer */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#FFFFFF', borderTop: '1px solid var(--border)', flexWrap: 'wrap', gap: 12 }}>
+                    <div style={{ fontSize: 13, color: 'var(--slate)' }}>
+                      Showing {filteredProducts.length === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {/* Prev Arrow */}
+                      <button
+                        type="button"
+                        onClick={() => setProdPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentProdPage === 1}
+                        className="btn-secondary"
+                        style={{
+                          width: 34,
+                          height: 34,
+                          padding: 0,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 8,
+                          opacity: currentProdPage === 1 ? 0.4 : 1,
+                          cursor: currentProdPage === 1 ? 'not-allowed' : 'pointer'
+                        }}
+                        title="Previous Page"
+                      >
+                        <ChevronLeft style={{ width: 16, height: 16 }} />
+                      </button>
+
+                      {/* Numbered Page Buttons: 1, 2, 3, 4 ... */}
+                      {Array.from({ length: totalProdPages }, (_, idx) => idx + 1).map(pageNum => {
+                        const isActive = pageNum === currentProdPage;
+                        return (
+                          <button
+                            key={pageNum}
+                            type="button"
+                            onClick={() => setProdPage(pageNum)}
+                            style={{
+                              minWidth: 34,
+                              height: 34,
+                              padding: '0 8px',
+                              borderRadius: 8,
+                              fontSize: 13,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              background: isActive ? 'var(--onyx)' : '#FFFFFF',
+                              color: isActive ? '#FFFFFF' : 'var(--onyx)',
+                              border: isActive ? '1px solid var(--onyx)' : '1px solid var(--border)',
+                              boxShadow: isActive ? 'var(--shadow-sm)' : 'none'
+                            }}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+
+                      {/* Next Arrow */}
+                      <button
+                        type="button"
+                        onClick={() => setProdPage(prev => Math.min(totalProdPages, prev + 1))}
+                        disabled={currentProdPage === totalProdPages}
+                        className="btn-secondary"
+                        style={{
+                          width: 34,
+                          height: 34,
+                          padding: 0,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 8,
+                          opacity: currentProdPage === totalProdPages ? 0.4 : 1,
+                          cursor: currentProdPage === totalProdPages ? 'not-allowed' : 'pointer'
+                        }}
+                        title="Next Page"
+                      >
+                        <ChevronRight style={{ width: 16, height: 16 }} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* 3. CATEGORIES */}
           {activeTab === 'categories' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
                 <div>
-                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600 }}>Categories ({categories.length})</h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>Earrings, Necklaces, Rings, Bracelets, Bangles, Charms, New Arrivals, Best Sellers.</p>
+                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>
+                    Categories <span style={{ color: 'var(--onyx)', fontWeight: 600 }}>({categories.length})</span>
+                  </h2>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Earrings, Necklaces, Rings, Bracelets, Bangles, Charms, New Arrivals, Best Sellers.</p>
                 </div>
               </div>
 
@@ -769,78 +890,85 @@ export default function AdminPage() {
           {/* 4. INVENTORY & STOCK MOVEMENT HISTORY */}
           {activeTab === 'inventory' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
                 <div>
-                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600 }}>Home Inventory Control</h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>Track physical stock in Sydney with automated stock movement history.</p>
+                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Home Inventory Control</h2>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Track physical stock in Sydney with automated stock movement history.</p>
                 </div>
-                <button onClick={() => restockAllLowStock(10)} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button onClick={() => restockAllLowStock(10)} className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 13, whiteSpace: 'nowrap' }}>
                   <RefreshCw style={{ width: 14, height: 14 }} /> Restock All Low Items (+10)
                 </button>
               </div>
 
-              <div className="admin-table-card">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>SKU</th>
-                      <th>Stock Qty</th>
-                      <th>Stock Status</th>
-                      <th>Stock Management</th>
-                      <th>Movement History</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.map(p => {
-                      const qty = p.stockQty || 0;
-                      const isLow = qty > 0 && qty < 3;
-                      const isOut = qty === 0;
-                      return (
-                        <tr key={p.id}>
-                          <td><strong>{p.name}</strong></td>
-                          <td><code style={{ whiteSpace: 'nowrap' }}>{p.sku || 'ABL-JEW'}</code></td>
-                          <td style={{ fontSize: 16, fontWeight: 700 }}>{qty}</td>
-                          <td>
-                            {isOut ? (
-                              <span style={{ background: '#FED7D7', color: '#9B2C2C', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>🔴 Out of Stock</span>
-                            ) : isLow ? (
-                              <span style={{ background: '#FEEBC8', color: '#C05621', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>⚠️ Low Stock</span>
-                            ) : (
-                              <span style={{ background: '#C6F6D5', color: '#22543D', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>In Stock</span>
-                            )}
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button onClick={() => handleRecordStockChange(p, -1, 'Stock reduction (-1)')} className="btn-secondary" style={{ padding: '4px 10px', fontWeight: 700 }}>-1</button>
-                              <button onClick={() => handleRecordStockChange(p, +1, 'Stock intake (+1)')} className="btn-secondary" style={{ padding: '4px 10px', fontWeight: 700 }}>+1</button>
+              <div className="admin-table-card" style={{ width: '100%', overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+                <div className="admin-table-scroll-wrapper">
+                  <table className="admin-table" style={{ width: '100%', minWidth: '760px' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '28%' }}>Product</th>
+                        <th style={{ width: '14%' }}>SKU</th>
+                        <th style={{ width: '10%' }}>Stock Qty</th>
+                        <th style={{ width: '16%' }}>Stock Status</th>
+                        <th style={{ width: '18%' }}>Stock Management</th>
+                        <th style={{ width: '14%' }}>Movement History</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map(p => {
+                        const qty = p.stockQty || 0;
+                        const isLow = qty > 0 && qty < 3;
+                        const isOut = qty === 0;
+                        return (
+                          <tr key={p.id}>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <img src={p.image} alt={p.name} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid var(--border)' }} />
+                                <strong style={{ fontSize: 13, color: 'var(--onyx)' }}>{p.name}</strong>
+                              </div>
+                            </td>
+                            <td><code style={{ fontSize: 12, background: 'var(--cream)', padding: '3px 6px', borderRadius: 4, color: 'var(--gold-dark)', fontWeight: 600 }}>{p.sku || 'ABL-JEW'}</code></td>
+                            <td style={{ fontSize: 15, fontWeight: 700 }}>{qty}</td>
+                            <td>
+                              {isOut ? (
+                                <span style={{ background: '#FED7D7', color: '#9B2C2C', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>🔴 Out of Stock</span>
+                              ) : isLow ? (
+                                <span style={{ background: '#FEEBC8', color: '#C05621', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>⚠️ Low Stock</span>
+                              ) : (
+                                <span style={{ background: '#C6F6D5', color: '#22543D', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>In Stock</span>
+                              )}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button onClick={() => handleRecordStockChange(p, -1, 'Stock reduction (-1)')} className="btn-secondary" style={{ padding: '4px 8px', fontWeight: 700, fontSize: 12 }}>-1</button>
+                                <button onClick={() => handleRecordStockChange(p, +1, 'Stock intake (+1)')} className="btn-secondary" style={{ padding: '4px 8px', fontWeight: 700, fontSize: 12 }}>+1</button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedStockProduct(p);
+                                    setStockAdjustQty(5);
+                                    setStockAdjustReason('Restock shipment received');
+                                  }}
+                                  className="btn-secondary"
+                                  style={{ padding: '4px 8px', fontSize: 11 }}
+                                >
+                                  Adjust...
+                                </button>
+                              </div>
+                            </td>
+                            <td>
                               <button
-                                onClick={() => {
-                                  setSelectedStockProduct(p);
-                                  setStockAdjustQty(5);
-                                  setStockAdjustReason('Restock shipment received');
-                                }}
+                                onClick={() => setSelectedStockProduct(p)}
                                 className="btn-secondary"
-                                style={{ padding: '4px 10px', fontSize: 11 }}
+                                style={{ padding: '4px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                               >
-                                Adjust...
+                                <Layers style={{ width: 14, height: 14 }} /> History
                               </button>
-                            </div>
-                          </td>
-                          <td>
-                            <button
-                              onClick={() => setSelectedStockProduct(p)}
-                              className="btn-secondary"
-                              style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
-                            >
-                              <Layers style={{ width: 14, height: 14 }} /> History
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -848,74 +976,72 @@ export default function AdminPage() {
           {/* 5. ORDERS */}
           {activeTab === 'orders' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
                 <div>
-                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600 }}>Orders Lifecycle ({orders.length})</h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>Confirmed → Processing → Packed → Shipped → Delivered.</p>
+                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>
+                    Orders Lifecycle <span style={{ color: 'var(--onyx)', fontWeight: 600 }}>({orders.length})</span>
+                  </h2>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Confirmed → Processing → Packed → Shipped → Delivered.</p>
                 </div>
               </div>
 
-              <div className="admin-table-card">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Product / Items</th>
-                      <th>Date</th>
-                      <th>Status</th>
-                      <th>Total</th>
-                      <th>Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map(o => (
-                      <tr key={o.id}>
-                        <td><strong>{o.id}</strong></td>
-                        <td>{o.customer}<br /><span style={{ fontSize: 11, color: 'var(--slate)' }}>{o.email}</span></td>
-                        <td>{o.product || 'Gold Jewellery'}</td>
-                        <td>{o.date}</td>
-                        <td>
-                          {(() => {
-                            const st = getStatusStyles(o.status);
-                            return (
-                              <select
-                                value={o.status}
-                                onChange={(e) => (updateOrderStatus ? updateOrderStatus(o.id, e.target.value) : cycleOrderStatus(o.id))}
-                                style={{
-                                  background: st.bg,
-                                  color: st.color,
-                                  border: `1px solid ${st.border}`,
-                                  borderRadius: 6,
-                                  padding: '6px 10px',
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  fontFamily: 'var(--font-sans)',
-                                  cursor: 'pointer',
-                                  outline: 'none',
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                                }}
-                              >
-                                <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
-                                <option value="Processing" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Processing</option>
-                                <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
-                                <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
-                                <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
-                                <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
-                              </select>
-                            );
-                          })()}
-                        </td>
-                        <td><strong>{o.total}</strong></td>
-                        <td>
-                          <button onClick={() => setSelectedOrder(o)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>
-                            View Details
-                          </button>
-                        </td>
+              <div className="admin-table-card" style={{ width: '100%', overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+                <div className="admin-table-scroll-wrapper">
+                  <table className="admin-table" style={{ width: '100%', minWidth: '720px' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '14%' }}>Order ID</th>
+                        <th style={{ width: '22%' }}>Customer</th>
+                        <th style={{ width: '22%' }}>Product / Items</th>
+                        <th style={{ width: '14%' }}>Date</th>
+                        <th style={{ width: '14%' }}>Status</th>
+                        <th style={{ width: '14%' }}>Total</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {orders.map(o => (
+                        <tr key={o.id}>
+                          <td><strong>{o.id}</strong></td>
+                          <td>{o.customer}<br /><span style={{ fontSize: 11, color: 'var(--slate)' }}>{o.email}</span></td>
+                          <td>{o.product || 'Gold Jewellery'}</td>
+                          <td>{o.date}</td>
+                          <td>
+                            {(() => {
+                              const st = getStatusStyles(o.status);
+                              return (
+                                <select
+                                  value={o.status}
+                                  onChange={(e) => (updateOrderStatus ? updateOrderStatus(o.id, e.target.value) : cycleOrderStatus(o.id))}
+                                  style={{
+                                    background: st.bg,
+                                    color: st.color,
+                                    border: `1px solid ${st.border}`,
+                                    borderRadius: 6,
+                                    padding: '6px 10px',
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    fontFamily: 'var(--font-sans)',
+                                    cursor: 'pointer',
+                                    outline: 'none',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                  }}
+                                >
+                                  <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
+                                  <option value="Processing" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Processing</option>
+                                  <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
+                                  <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
+                                  <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
+                                  <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
+                                </select>
+                              );
+                            })()}
+                          </td>
+                          <td><strong>{o.total}</strong></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -925,10 +1051,12 @@ export default function AdminPage() {
           {/* 7. DISCOUNTS / COUPONS */}
           {activeTab === 'coupons' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
                 <div>
-                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600 }}>Discount Coupons ({coupons.length})</h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>Create promotional discount codes (e.g. WELCOME10, FIRSTORDER, DIWALI15).</p>
+                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>
+                    Discount Coupons <span style={{ color: 'var(--onyx)', fontWeight: 600, whiteSpace: 'nowrap' }}>({coupons.length})</span>
+                  </h2>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Create promotional discount codes (e.g. WELCOME10, FIRSTORDER, DIWALI15).</p>
                 </div>
                 <button
                   onClick={() => {
@@ -936,47 +1064,49 @@ export default function AdminPage() {
                     setEditingCoupon({});
                   }}
                   className="btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', fontSize: 13, whiteSpace: 'nowrap' }}
                 >
                   <Plus style={{ width: 16, height: 16 }} /> Create Coupon
                 </button>
               </div>
 
-              <div className="admin-table-card">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Code</th>
-                      <th>Description</th>
-                      <th>Discount</th>
-                      <th>Min Order</th>
-                      <th>Expiry</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {coupons.map(cp => (
-                      <tr key={cp.id || cp.code}>
-                        <td><code style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold-dark)' }}>{cp.code}</code></td>
-                        <td>{cp.label}</td>
-                        <td><strong>{cp.discountType === 'percentage' ? `${cp.value}% OFF` : `$${cp.value} OFF`}</strong></td>
-                        <td>${cp.minOrder || 0}</td>
-                        <td>{cp.expiry || '2026-12-31'}</td>
-                        <td>
-                          <span style={{ background: cp.active ? '#C6F6D5' : '#FED7D7', color: cp.active ? '#22543D' : '#9B2C2C', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 700 }}>
-                            {cp.active ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td>
-                          <button onClick={() => deleteCoupon(cp.code)} className="btn-secondary" style={{ padding: 6, color: 'var(--danger)' }}>
-                            <Trash2 style={{ width: 14, height: 14 }} />
-                          </button>
-                        </td>
+              <div className="admin-table-card" style={{ width: '100%', overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+                <div className="admin-table-scroll-wrapper">
+                  <table className="admin-table" style={{ width: '100%', minWidth: '700px' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '18%' }}>Code</th>
+                        <th style={{ width: '24%' }}>Description</th>
+                        <th style={{ width: '15%' }}>Discount</th>
+                        <th style={{ width: '13%' }}>Min Order</th>
+                        <th style={{ width: '14%' }}>Expiry</th>
+                        <th style={{ width: '16%' }}>Status</th>
+                        <th style={{ width: '10%', textAlign: 'center' }}>Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {coupons.map(cp => (
+                        <tr key={cp.id || cp.code}>
+                          <td><code style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold-dark)', background: 'var(--cream)', padding: '3px 8px', borderRadius: 4 }}>{cp.code}</code></td>
+                          <td style={{ fontSize: 13, fontWeight: 500 }}>{cp.label}</td>
+                          <td><strong style={{ color: 'var(--onyx)' }}>{cp.discountType === 'percentage' ? `${cp.value}% OFF` : `$${cp.value} OFF`}</strong></td>
+                          <td style={{ fontSize: 13 }}>${cp.minOrder || 0}</td>
+                          <td style={{ fontSize: 12, color: 'var(--slate)' }}>{cp.expiry || '2026-12-31'}</td>
+                          <td>
+                            <span style={{ background: cp.active ? '#C6F6D5' : '#FED7D7', color: cp.active ? '#22543D' : '#9B2C2C', padding: '3px 8px', borderRadius: 6, fontSize: 12, fontWeight: 700, display: 'inline-block' }}>
+                              {cp.active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button onClick={() => deleteCoupon(cp.code)} className="btn-secondary" style={{ padding: '6px 10px', color: 'var(--danger)', display: 'inline-flex', alignItems: 'center' }} title="Delete Coupon">
+                              <Trash2 style={{ width: 14, height: 14 }} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -984,9 +1114,11 @@ export default function AdminPage() {
           {/* 8. REVIEWS */}
           {activeTab === 'reviews' && (
             <div>
-              <div style={{ marginBottom: 24 }}>
-                <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600 }}>Customer Reviews ({reviews.length})</h2>
-                <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>Approve, hide, feature, or reply to customer product feedback.</p>
+              <div style={{ marginBottom: 20 }}>
+                <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>
+                  Customer Reviews <span style={{ color: 'var(--onyx)', fontWeight: 600, whiteSpace: 'nowrap' }}>({reviews.length})</span>
+                </h2>
+                <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Approve, hide, or reply to customer product feedback.</p>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1540,10 +1672,11 @@ export default function AdminPage() {
       {/* MODAL: Edit/Add Product */}
       {editingProduct && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
-          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 720, width: '95%', padding: 'clamp(16px, 4vw, 28px)', maxHeight: '92vh', overflowY: 'auto', boxSizing: 'border-box' }}>
-            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 700, marginBottom: 18, color: 'var(--onyx)' }}>
-              {prodForm.id ? 'Edit Product' : 'Add New Product'}
-            </h3>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 720, width: '95%', maxHeight: '92vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)' }}>
+            <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'clamp(16px, 4vw, 28px)', width: '100%', boxSizing: 'border-box' }}>
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 700, marginBottom: 18, color: 'var(--onyx)' }}>
+                {prodForm.id ? 'Edit Product' : 'Add New Product'}
+              </h3>
 
             <form onSubmit={(e) => {
               e.preventDefault();
@@ -1983,7 +2116,8 @@ export default function AdminPage() {
             </form>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* MODAL: Stock Movement History */}
       {selectedStockProduct && (
@@ -2224,10 +2358,11 @@ export default function AdminPage() {
       {/* MODAL: Add Hero Banner Slide */}
       {showHeroModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
-          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 540, width: '95%', padding: 'clamp(16px, 4vw, 24px)', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 700, marginBottom: 16, color: 'var(--onyx)' }}>
-              Add Homepage Hero Banner Slide
-            </h3>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 540, width: '95%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)' }}>
+            <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'clamp(16px, 4vw, 24px)', width: '100%', boxSizing: 'border-box' }}>
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 700, marginBottom: 16, color: 'var(--onyx)' }}>
+                Add Homepage Hero Banner Slide
+              </h3>
 
             <form onSubmit={e => {
               e.preventDefault();
@@ -2479,13 +2614,15 @@ export default function AdminPage() {
             </form>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* MODAL: View Message Details Popup */}
       {selectedMessage && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
-          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 540, width: '95%', padding: 'clamp(20px, 4vw, 28px)', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 540, width: '95%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)' }}>
+            <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'clamp(20px, 4vw, 28px)', width: '100%', boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
                 <span style={{ fontSize: 11, letterSpacing: '0.1em', fontWeight: 700, color: 'var(--gold-dark)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
                   {selectedMessage.type === 'newsletter' || selectedMessage.subject?.toLowerCase().includes('newsletter') ? 'NEWSLETTER SUBSCRIPTION' : 'CLIENT CONTACT INQUIRY'}
@@ -2551,7 +2688,8 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
     </div>
   );
 }
