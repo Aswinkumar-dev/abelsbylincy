@@ -164,43 +164,36 @@ export default function PolicyPage() {
       html: `
         <div style="font-family: var(--font-sans); color: var(--slate); font-size: 14px; line-height: 1.7;">
           <p style="margin-bottom: 24px; font-style: italic; font-size: 13px;">Last updated: ${currentDateStr}</p>
-          <p style="margin-bottom: 20px;">At Abel's by Lincy, we aim to process and deliver your order as quickly and carefully as possible.</p>
+          <p style="margin-bottom: 20px;">At Abel's by Lincy, we aim to process and deliver your order as quickly and carefully as possible. All deliveries are carried out via Australia Post.</p>
 
-          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">1. Shipping Within Australia</h3>
-          <p style="margin-bottom: 16px;">We currently offer shipping across Australia.</p>
+          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">1. Shipping Within Australia & Delivery Partner</h3>
+          <p style="margin-bottom: 8px;">We ship across Australia using <strong>Australia Post</strong> for fast and secure delivery.</p>
+          <p style="margin-bottom: 16px;">Customers can select between Standard Delivery and Express Post at checkout based on urgency.</p>
 
-          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">2. Order Processing</h3>
-          <p style="margin-bottom: 8px;">Orders are generally processed and prepared for dispatch within 1–2 business days after successful payment.</p>
-          <p style="margin-bottom: 16px;">Orders placed on weekends or public holidays will generally be processed on the next available business day.</p>
-
-          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">3. Delivery Times</h3>
-          <p style="margin-bottom: 8px;">Estimated delivery timeframes after dispatch are:</p>
+          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">2. Shipping Rates & Tiers</h3>
           <ul style="margin-bottom: 16px; padding-left: 24px;">
-            <li style="margin-bottom: 6px;"><strong>Express Shipping:</strong> approximately 1–2 business days</li>
-            <li style="margin-bottom: 6px;"><strong>Standard Shipping:</strong> approximately 2–4 business days</li>
+            <li style="margin-bottom: 6px;"><strong>Standard Shipping:</strong> $10.00 AUD (Complimentary <strong>FREE Standard Shipping</strong> on orders over $60.00 AUD).</li>
+            <li style="margin-bottom: 6px;"><strong>Express Shipping:</strong> $15.00 AUD for urgent orders requiring priority delivery.</li>
           </ul>
-          <p style="margin-bottom: 16px;">Delivery timeframes are estimates only and are not guaranteed. Actual delivery times may vary depending on your location, Australia Post operations, public holidays, weather conditions and other circumstances outside our control.</p>
 
-          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">4. Delivery Address</h3>
+          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">3. Order Processing & Dispatch Timeframes</h3>
+          <p style="margin-bottom: 8px;">Orders are packed and dispatched within <strong>1–3 business days</strong> after payment is received (usually next-business-day dispatch on weekdays).</p>
+          <p style="margin-bottom: 16px;">Orders placed on weekends or public holidays will be dispatched on the next available business day.</p>
+
+          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">4. Delivery Timeframes & Tracking</h3>
+          <p style="margin-bottom: 8px;">Estimated delivery timeframes after Australia Post dispatch:</p>
+          <ul style="margin-bottom: 16px; padding-left: 24px;">
+            <li style="margin-bottom: 6px;"><strong>Standard Shipping:</strong> 2–5 business days after dispatch, depending on destination.</li>
+            <li style="margin-bottom: 6px;"><strong>Express Shipping:</strong> 1–2 business days after dispatch.</li>
+          </ul>
+          <p style="margin-bottom: 16px;">Customers will receive an official Australia Post tracking number via email once their order has been packed and dispatched.</p>
+
+          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">5. Delivery Address Responsibilities</h3>
           <p style="margin-bottom: 8px;">Customers are responsible for providing a complete and accurate delivery address at checkout.</p>
-          <p style="margin-bottom: 8px;">Please carefully check your:</p>
-          <ul style="margin-bottom: 16px; padding-left: 24px;">
-            <li style="margin-bottom: 6px;">Name</li>
-            <li style="margin-bottom: 6px;">Street address</li>
-            <li style="margin-bottom: 6px;">Suburb</li>
-            <li style="margin-bottom: 6px;">State</li>
-            <li style="margin-bottom: 6px;">Postcode</li>
-            <li style="margin-bottom: 6px;">Contact number</li>
-          </ul>
           <p style="margin-bottom: 16px;">We are not responsible for delays or additional costs resulting from incorrect or incomplete delivery information provided by the customer.</p>
 
-          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">5. Lost or Damaged Parcels</h3>
-          <p style="margin-bottom: 8px;">If your parcel appears to have been lost or arrives damaged, please contact us as soon as possible at <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a> and provide your order number and relevant photographs or information where applicable.</p>
-          <p style="margin-bottom: 16px;">We will work with the delivery provider to investigate the issue.</p>
-
-          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">6. Incorrect or Unclaimed Deliveries</h3>
-          <p style="margin-bottom: 8px;">If a parcel is returned to us because of an incorrect address, incomplete address, failed delivery or failure to collect the parcel, we may contact you to arrange redelivery.</p>
-          <p style="margin-bottom: 16px;">Additional shipping costs may apply where the original delivery failure resulted from information or actions attributable to the customer.</p>
+          <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">6. Lost or Damaged Parcels</h3>
+          <p style="margin-bottom: 16px;">If your parcel appears to have been lost or arrives damaged, please contact us as soon as possible at <a href="mailto:lincytitus8@gmail.com" style="color: var(--gold); font-weight: 600;">lincytitus8@gmail.com</a> with your order number and photographs where applicable.</p>
 
           <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 12px; color: var(--onyx);">7. Contact</h3>
           <p style="margin-bottom: 4px;">For shipping enquiries, please contact:</p>

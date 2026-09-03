@@ -226,8 +226,43 @@ const sendNewsletterWelcomeEmail = async (userEmail) => {
   }
 };
 
+const sendOrderDispatchEmail = async (dispatchData) => {
+  try {
+    const {
+      toEmail,
+      customerName,
+      orderId,
+      trackingNumber,
+      shippingMethod,
+      shippingAddress
+    } = dispatchData;
+
+    if (!toEmail) return { success: false, message: 'No customer email provided' };
+
+    const subject = `Your Abel's By Lincy Order #${orderId || 'ABL-1001'} Has Been Dispatched!`;
+    console.log(`✉️ [DISPATCH EMAIL SERVICE] Sending Australia Post Dispatch Email to: ${toEmail}`);
+
+    return await sendEmail({
+      to: toEmail,
+      subject: subject,
+      templateName: 'order_dispatch',
+      variables: {
+        customerName: customerName || 'Valued Customer',
+        orderId: orderId || 'ABL-1001',
+        trackingNumber: trackingNumber || 'AP398201948AU',
+        shippingMethod: shippingMethod || 'Standard Shipping (Australia Post)',
+        shippingAddress: shippingAddress || 'Australia'
+      }
+    });
+  } catch (error) {
+    console.error('Order dispatch email error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   sendEmail,
   sendOrderConfirmationEmail,
-  sendNewsletterWelcomeEmail
+  sendNewsletterWelcomeEmail,
+  sendOrderDispatchEmail
 };

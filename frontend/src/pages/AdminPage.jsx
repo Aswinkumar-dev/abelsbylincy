@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Package, Tag, Layers, ShoppingCart, Users, Ticket, Globe, Inbox,
   ChartNoAxesColumn, Lock, ChevronRight, ChevronLeft, Crown, Search, Plus, Pencil, Trash2,
   RefreshCw, DollarSign, TrendingUp, AlertTriangle, AlertCircle, CheckCircle2, Star, Eye, EyeOff,
-  ArrowUp, ArrowDown, Download, HelpCircle, MessageSquare, CornerDownRight, ExternalLink, Menu, X
+  ArrowUp, ArrowDown, Download, HelpCircle, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
@@ -16,7 +16,7 @@ export default function AdminPage() {
     formatMoney, saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,
     saveCategory, deleteCategory, updateOrderStatus, cycleOrderStatus, deleteOrder,
     saveCustomer, deleteCustomer, deleteSubscriber, saveCoupon, deleteCoupon,
-    saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide, showToast
+    saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide, reorderHeroSlides, showToast
   } = useStore();
 
   const getStatusStyles = (status) => {
@@ -122,6 +122,7 @@ export default function AdminPage() {
 
   // CMS state & Curator handlers
   const [cmsAnnouncement, setCmsAnnouncement] = useState(() => cms?.announcement || 'Free Express Shipping on all orders across Australia');
+  const [bannerSavedNotice, setBannerSavedNotice] = useState(false);
   const [showHeroModal, setShowHeroModal] = useState(false);
   const [heroUploadSuccess, setHeroUploadSuccess] = useState(false);
   const [heroUploading, setHeroUploading] = useState(false);
@@ -129,6 +130,12 @@ export default function AdminPage() {
   const [heroForm, setHeroForm] = useState({
     tagline: '', title: '', description: '', image: '', ctaText: '', ctaLink: ''
   });
+  const [heroFormErrors, setHeroFormErrors] = useState({});
+  const [heroSubmittedNotice, setHeroSubmittedNotice] = useState(false);
+  const [draggedHeroIdx, setDraggedHeroIdx] = useState(null);
+  const [dragOverHeroIdx, setDragOverHeroIdx] = useState(null);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [messageSubTab, setMessageSubTab] = useState('contact');
 
   const handleHeroFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -180,15 +187,13 @@ export default function AdminPage() {
 
   const toggleBestSeller = (prod) => {
     const isBS = !prod.bestSeller;
-    const updated = products.map(p => p.id === prod.id ? { ...p, bestSeller: isBS } : p);
-    setProducts(updated);
+    setProducts(prev => prev.map(p => p.id === prod.id ? { ...p, bestSeller: isBS } : p));
     showToast(`${prod.name} ${isBS ? 'added to' : 'removed from'} Best Sellers!`, 'check');
   };
 
   const toggleNewArrival = (prod) => {
     const isNA = !prod.newArrival;
-    const updated = products.map(p => p.id === prod.id ? { ...p, newArrival: isNA } : p);
-    setProducts(updated);
+    setProducts(prev => prev.map(p => p.id === prod.id ? { ...p, newArrival: isNA } : p));
     showToast(`${prod.name} ${isNA ? 'added to' : 'removed from'} New Arrivals!`, 'check');
   };
 
@@ -335,7 +340,6 @@ export default function AdminPage() {
     { id: 'categories', label: 'Categories', icon: Tag },
     { id: 'inventory', label: 'Inventory', icon: Layers },
     { id: 'orders', label: 'Orders', icon: ShoppingCart },
-    { id: 'customers', label: 'Customers', icon: Users },
     { id: 'coupons', label: 'Discounts', icon: Ticket },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'messages', label: 'Messages', icon: Inbox },
@@ -425,12 +429,13 @@ export default function AdminPage() {
       <div className="admin-main">
         {/* Topbar */}
         <header className="admin-topbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <button
               type="button"
               className="admin-mobile-hamburger"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Open navigation menu"
+              style={{ flexShrink: 0 }}
             >
               <Menu style={{ width: 22, height: 22, color: 'var(--onyx)' }} />
             </button>
@@ -439,14 +444,14 @@ export default function AdminPage() {
             <input
               type="text"
               placeholder="Search..."
-              style={{ border: 'none', outline: 'none', width: '100%', maxWidth: 280, fontSize: 13, background: 'transparent' }}
+              style={{ border: 'none', outline: 'none', width: '100%', minWidth: 0, maxWidth: 200, fontSize: 13, background: 'transparent' }}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 12, borderLeft: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 8, borderLeft: '1px solid var(--border)', flexShrink: 0 }}>
               <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--gold)', color: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
                 {(currentAdmin.user || 'A').charAt(0).toUpperCase()}
               </div>
@@ -455,7 +460,7 @@ export default function AdminPage() {
                 <span style={{ fontSize: 10, color: 'var(--gold-dark)', fontWeight: 600 }}>{currentAdmin.role}</span>
               </div>
             </div>
-            <button onClick={adminLogout} className="btn-secondary" style={{ padding: '6px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={adminLogout} className="btn-secondary" style={{ padding: '6px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>
               Sign Out
             </button>
           </div>
@@ -915,159 +920,7 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* 6. CUSTOMERS & NEWSLETTER SUBSCRIBERS */}
-          {activeTab === 'customers' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-                <div>
-                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600 }}>Customer Directory &amp; Subscriptions</h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>View registered customers, purchase histories, and newsletter subscribers list.</p>
-                </div>
 
-                {/* Sub-tab Switchers */}
-                <div style={{ display: 'flex', gap: 8, background: '#FFFFFF', padding: 4, borderRadius: 8, border: '1px solid var(--border)' }}>
-                  <button
-                    type="button"
-                    onClick={() => setCustomerSubTab('registered')}
-                    className={customerSubTab === 'registered' ? 'btn-primary' : 'btn-secondary'}
-                    style={{ padding: '6px 14px', fontSize: 12, fontWeight: 700 }}
-                  >
-                    Registered Clients ({customers.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCustomerSubTab('subscribers')}
-                    className={customerSubTab === 'subscribers' ? 'btn-primary' : 'btn-secondary'}
-                    style={{ padding: '6px 14px', fontSize: 12, fontWeight: 700 }}
-                  >
-                    Newsletter Subscribers ({(subscribers || []).length})
-                  </button>
-                </div>
-              </div>
-
-              {/* Sub-tab 1: Registered Clients */}
-              {customerSubTab === 'registered' && (
-                <div className="admin-table-card">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Customer Name</th>
-                        <th>Email</th>
-                        <th>Total Orders</th>
-                        <th>Total Spent</th>
-                        <th>Joined Date</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {customers.map(c => (
-                        <tr key={c.id}>
-                          <td><strong>{c.name}</strong></td>
-                          <td>{c.email}</td>
-                          <td>{c.orders || 1} orders</td>
-                          <td><strong>{c.spent || '$189'}</strong></td>
-                          <td>{c.joined || 'Aug 2026'}</td>
-                          <td>
-                            <button onClick={() => setSelectedCustomer(c)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>
-                              View Profile
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Sub-tab 2: Newsletter Subscribers */}
-              {customerSubTab === 'subscribers' && (
-                <div>
-                  <div style={{ background: '#FFFFFF', padding: 20, borderRadius: 12, border: '1px solid var(--border)', marginBottom: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                      <div>
-                        <h4 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>Newsletter Audience List</h4>
-                        <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Users who subscribed to promotional offers &amp; updates via website footer.</p>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
-                        onClick={() => {
-                          const csvContent = "data:text/csv;charset=utf-8,Email,Subscribed Date,Status\n" + (subscribers || []).map(s => `"${s.email}","${s.date}","${s.status}"`).join("\n");
-                          const encodedUri = encodeURI(csvContent);
-                          const link = document.createElement("a");
-                          link.setAttribute("href", encodedUri);
-                          link.setAttribute("download", "newsletter_subscribers.csv");
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                          showToast("Exported newsletter subscribers to CSV", "download");
-                        }}
-                      >
-                        <Download style={{ width: 14, height: 14 }} /> Export Subscribers List
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="admin-table-card">
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Subscriber Email</th>
-                          <th>Subscribed Date &amp; Time</th>
-                          <th>Status</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(subscribers || []).length === 0 ? (
-                          <tr>
-                            <td colSpan={4} style={{ textAlign: 'center', padding: 24, color: 'var(--slate)' }}>
-                              No newsletter subscribers yet.
-                            </td>
-                          </tr>
-                        ) : (
-                          (subscribers || []).map(sub => (
-                            <tr key={sub.id}>
-                              <td>
-                                <strong>{sub.email}</strong>
-                              </td>
-                              <td style={{ fontSize: 12, color: 'var(--slate)' }}>{sub.date}</td>
-                              <td>
-                                <span className="status-badge status-delivered" style={{ fontSize: 11, padding: '3px 8px' }}>
-                                  ✓ Subscribed
-                                </span>
-                              </td>
-                              <td>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                  <a
-                                    href={`mailto:${sub.email}`}
-                                    className="btn-secondary"
-                                    style={{ padding: '4px 10px', fontSize: 11 }}
-                                  >
-                                    Send Email
-                                  </a>
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteSubscriber(sub.id)}
-                                    className="btn-secondary"
-                                    style={{ padding: '4px 10px', fontSize: 11, color: 'var(--danger)' }}
-                                    title="Remove subscriber"
-                                  >
-                                    <Trash2 style={{ width: 13, height: 13 }} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* 7. DISCOUNTS / COUPONS */}
           {activeTab === 'coupons' && (
@@ -1137,93 +990,216 @@ export default function AdminPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {reviews.map(r => (
-                  <div key={r.id} style={{ background: '#FFFFFF', padding: 20, borderRadius: 12, border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--gold)', marginBottom: 4 }}>
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} style={{ width: 16, height: 16, fill: i < r.rating ? 'var(--gold)' : 'none' }} />
-                          ))}
-                          <span style={{ fontWeight: 700, color: 'var(--onyx)', marginLeft: 6 }}>{r.title}</span>
-                        </div>
-                        <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>
-                          By <strong>{r.author}</strong> {r.verified && <span style={{ background: '#C6F6D5', color: '#22543D', fontSize: 10, padding: '2px 6px', borderRadius: 4, marginLeft: 6 }}>Verified Purchase</span>} — {r.date}
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          onClick={() => {
-                            const updated = reviews.map(item => item.id === r.id ? { ...item, status: item.status === 'approved' ? 'hidden' : 'approved' } : item);
-                            setReviews(updated);
-                            showToast(`Review ${r.status === 'approved' ? 'hidden' : 'approved'}`, 'check');
-                          }}
-                          className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}
-                        >
-                          {r.status === 'approved' ? 'Hide' : 'Approve'}
-                        </button>
-                        <button
-                          onClick={() => {
-                            const updated = reviews.map(item => item.id === r.id ? { ...item, featured: !item.featured } : item);
-                            setReviews(updated);
-                            showToast('Featured status updated', 'check');
-                          }}
-                          className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12, background: r.featured ? 'var(--gold)' : 'transparent', color: r.featured ? '#fff' : 'inherit' }}
-                        >
-                          {r.featured ? '★ Featured' : 'Feature'}
-                        </button>
-                      </div>
-                    </div>
-                    <p style={{ fontSize: 14, color: 'var(--onyx)', margin: '8px 0', lineHeight: 1.6 }}>"{r.text}"</p>
-                    {r.reply && (
-                      <div style={{ background: 'var(--cream)', padding: 12, borderRadius: 8, marginTop: 8, fontSize: 13, borderLeft: '3px solid var(--gold)' }}>
-                        <strong>Store Reply:</strong> {r.reply}
-                      </div>
-                    )}
+                {reviews.length === 0 ? (
+                  <div className="admin-table-card" style={{ padding: 32, textAlign: 'center', color: 'var(--slate)' }}>
+                    No customer reviews submitted yet. When clients submit reviews on product pages, they will appear here for moderation.
                   </div>
-                ))}
+                ) : (
+                  reviews.map(r => (
+                    <div key={r.id} style={{ background: '#FFFFFF', padding: 20, borderRadius: 12, border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, flexWrap: 'wrap', gap: 10 }}>
+                        <div>
+                          {r.productName && (
+                            <span style={{ background: '#FAF4E8', color: 'var(--gold-dark)', border: '1px solid var(--gold)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, display: 'inline-block', marginBottom: 6 }}>
+                              Product: {r.productName}
+                            </span>
+                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--gold)', marginBottom: 4 }}>
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} style={{ width: 16, height: 16, fill: i < r.rating ? 'var(--gold)' : 'none' }} />
+                            ))}
+                            <span style={{ fontWeight: 700, color: 'var(--onyx)', marginLeft: 6 }}>{r.title}</span>
+                          </div>
+                          <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>
+                            By <strong>{r.author}</strong> {r.verified && <span style={{ background: '#C6F6D5', color: '#22543D', fontSize: 10, padding: '2px 6px', borderRadius: 4, marginLeft: 6 }}>Verified Purchase</span>} — {r.date}
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            onClick={() => {
+                              const updated = reviews.map(item => item.id === r.id ? { ...item, status: item.status === 'approved' ? 'hidden' : 'approved' } : item);
+                              setReviews(updated);
+                              showToast(`Review ${r.status === 'approved' ? 'hidden' : 'approved'}`, 'check');
+                            }}
+                            className="btn-secondary" style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600 }}
+                          >
+                            {r.status === 'approved' ? 'Hide' : 'Approve'}
+                          </button>
+                        </div>
+                      </div>
+                      <p style={{ fontSize: 14, color: 'var(--onyx)', margin: '8px 0', lineHeight: 1.6 }}>"{r.text}"</p>
+                      {r.reply && (
+                        <div style={{ background: 'var(--cream)', padding: 12, borderRadius: 8, marginTop: 8, fontSize: 13, borderLeft: '3px solid var(--gold)' }}>
+                          <strong>Store Reply:</strong> {r.reply}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
 
           {/* 9. MESSAGES */}
-          {activeTab === 'messages' && (
-            <div>
-              <div style={{ marginBottom: 24 }}>
-                <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 600 }}>Client Inquiries Inbox ({messages.length})</h2>
+          {activeTab === 'messages' && (() => {
+            const contactInquiries = (messages || []).filter(m => m.type !== 'newsletter' && !m.subject?.toLowerCase().includes('newsletter'));
+            
+            // Build newsletter list cleanly from subscribers and newsletter messages
+            const subscriberEmails = new Set((subscribers || []).map(s => s.email?.toLowerCase()));
+            const newsletterList = [...(subscribers || [])];
+            (messages || []).forEach(m => {
+              if ((m.type === 'newsletter' || m.subject?.toLowerCase().includes('newsletter')) && m.email && !subscriberEmails.has(m.email.toLowerCase())) {
+                subscriberEmails.add(m.email.toLowerCase());
+                newsletterList.push({ id: m.id, email: m.email, date: m.date || 'Recent', status: 'Active' });
+              }
+            });
+
+            return (
+              <div>
+                <div style={{ marginBottom: 20 }}>
+                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 26px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Client Communications & Inquiries</h2>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Manage client contact form messages and newsletter subscriptions separately.</p>
+                </div>
+
+                {/* Sub-tab pills */}
+                <div className="admin-messages-subtabs" style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20, width: '100%' }}>
+                  <button
+                    type="button"
+                    onClick={() => setMessageSubTab('contact')}
+                    className={`admin-messages-subtab-btn ${messageSubTab === 'contact' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '8px 18px', fontSize: 12, fontWeight: 700 }}
+                  >
+                    Contact Form Inquiries ({contactInquiries.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMessageSubTab('newsletter')}
+                    className={`admin-messages-subtab-btn ${messageSubTab === 'newsletter' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '8px 18px', fontSize: 12, fontWeight: 700 }}
+                  >
+                    Newsletter Subscriptions ({newsletterList.length})
+                  </button>
+                </div>
+
+                {/* SUB-TAB 1: Contact Form Inquiries */}
+                {messageSubTab === 'contact' && (
+                  <div className="admin-table-card" style={{ width: '100%', overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+                    <div className="admin-table-scroll-wrapper">
+                      <table className="admin-table" style={{ width: '100%', minWidth: '600px' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '15%' }}>Date</th>
+                            <th style={{ width: '30%' }}>Sender</th>
+                            <th style={{ width: '25%' }}>Subject</th>
+                            <th style={{ width: '18%' }}>Message</th>
+                            <th style={{ width: '12%', textAlign: 'center' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {contactInquiries.length === 0 ? (
+                            <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: 'var(--slate)' }}>No contact inquiries received yet.</td></tr>
+                          ) : (
+                            contactInquiries.map(m => (
+                              <tr key={m.id}>
+                                <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>{m.date}</td>
+                                <td>
+                                  <strong style={{ fontSize: 13, display: 'block' }}>{m.name || 'Website Visitor'}</strong>
+                                  <span style={{ fontSize: 11, color: 'var(--slate)' }}>{m.email}</span>
+                                </td>
+                                <td>
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--onyx)' }}>{m.subject || 'Contact Inquiry'}</span>
+                                </td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedMessage(m)}
+                                    className="btn-secondary"
+                                    style={{
+                                      padding: '6px 14px',
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                      background: '#FAF4E8',
+                                      borderColor: 'var(--gold)',
+                                      color: 'var(--gold-dark)',
+                                      borderRadius: 6
+                                    }}
+                                  >
+                                    <Eye style={{ width: 14, height: 14 }} /> View Message
+                                  </button>
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <a href={`mailto:${m.email}`} className="btn-secondary" style={{ padding: '4px 12px', fontSize: 11 }}>Reply</a>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-TAB 2: Newsletter Subscriptions */}
+                {messageSubTab === 'newsletter' && (
+                  <div>
+                    <div className="admin-table-card" style={{ width: '100%', overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+                      <div className="admin-table-scroll-wrapper">
+                        <table className="admin-table" style={{ width: '100%', minWidth: '550px' }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '22%' }}>Subscribed Date</th>
+                              <th style={{ width: '48%' }}>Subscriber Email</th>
+                              <th style={{ width: '15%', textAlign: 'center' }}>Status</th>
+                              <th style={{ width: '15%', textAlign: 'center' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {newsletterList.length === 0 ? (
+                              <tr><td colSpan={4} style={{ textAlign: 'center', padding: 24, color: 'var(--slate)' }}>No newsletter subscribers yet.</td></tr>
+                            ) : (
+                              newsletterList.map((sub, idx) => (
+                                <tr key={sub.id || idx}>
+                                  <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>{sub.date || 'Recent'}</td>
+                                  <td>
+                                    <strong style={{ fontSize: 13, color: 'var(--onyx)' }}>{sub.email}</strong>
+                                  </td>
+                                  <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                      <span style={{ background: '#E6F4EA', color: '#137333', border: '1px solid #CEEAD6', padding: '4px 12px', borderRadius: 12, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', display: 'inline-block' }}>
+                                        {sub.status || 'Active'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(sub.email);
+                                          showToast('Subscriber email copied to clipboard!', 'check');
+                                        }}
+                                        className="btn-secondary"
+                                        style={{ padding: '6px 16px', fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: 0 }}
+                                      >
+                                        Copy Email
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="admin-table-card">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Sender</th>
-                      <th>Subject</th>
-                      <th>Message</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {messages.length === 0 ? (
-                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: 'var(--slate)' }}>No inquiries received yet.</td></tr>
-                    ) : (
-                      messages.map(m => (
-                        <tr key={m.id}>
-                          <td>{m.date}</td>
-                          <td><strong>{m.name}</strong><br /><span style={{ fontSize: 11, color: 'var(--slate)' }}>{m.email}</span></td>
-                          <td>{m.subject || 'General Inquiry'}</td>
-                          <td>{m.message}</td>
-                          <td>
-                            <a href={`mailto:${m.email}`} className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }}>Reply</a>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* 10. WEBSITE CMS */}
           {activeTab === 'cms' && (
@@ -1244,13 +1220,17 @@ export default function AdminPage() {
                     className="form-control"
                     style={{ width: '100%', boxSizing: 'border-box' }}
                     value={cmsAnnouncement}
-                    onChange={e => setCmsAnnouncement(e.target.value)}
+                    onChange={e => {
+                      setCmsAnnouncement(e.target.value);
+                      if (bannerSavedNotice) setBannerSavedNotice(false);
+                    }}
                   />
                   <div>
                     <button
                       type="button"
                       onClick={() => {
                         saveGlobalCMS({ announcement: cmsAnnouncement });
+                        setBannerSavedNotice(true);
                         showToast('Top announcement banner saved!', 'check');
                       }}
                       className="btn-primary"
@@ -1259,6 +1239,12 @@ export default function AdminPage() {
                       Save Banner
                     </button>
                   </div>
+                  {bannerSavedNotice && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, padding: '10px 14px', background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+                      <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0 }} />
+                      <span>Top announcement banner saved successfully!</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1282,23 +1268,84 @@ export default function AdminPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {(cms.heroSlides || []).map(slide => (
-                    <div key={slide.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 14, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--cream)' }}>
-                      {slide.image ? (
-                        <img src={slide.image} alt={slide.title} style={{ width: 70, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
-                      ) : (
-                        <div style={{ width: 70, height: 48, background: 'var(--border)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--slate)' }}>No Image</div>
-                      )}
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: 10, letterSpacing: '0.15em', color: 'var(--gold-dark)', fontWeight: 700, textTransform: 'uppercase' }}>{slide.tagline || 'HERO SLIDE'}</span>
-                        <h5 style={{ fontSize: 15, fontWeight: 700, margin: '2px 0', color: 'var(--onyx)' }}>{slide.title?.replace(/<\/?[^>]+(>|$)/g, "")}</h5>
-                        <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}>{slide.description}</p>
+                  {(cms.heroSlides || []).map((slide, idx) => {
+                    const isDragging = draggedHeroIdx === idx;
+                    const isDragOver = dragOverHeroIdx === idx;
+                    return (
+                      <div
+                        key={slide.id || idx}
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggedHeroIdx(idx);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (dragOverHeroIdx !== idx) {
+                            setDragOverHeroIdx(idx);
+                          }
+                        }}
+                        onDragLeave={() => {
+                          if (dragOverHeroIdx === idx) {
+                            setDragOverHeroIdx(null);
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedHeroIdx !== null && draggedHeroIdx !== idx) {
+                            reorderHeroSlides(draggedHeroIdx, idx);
+                          }
+                          setDraggedHeroIdx(null);
+                          setDragOverHeroIdx(null);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedHeroIdx(null);
+                          setDragOverHeroIdx(null);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 14,
+                          padding: 14,
+                          border: isDragOver ? '2px dashed var(--gold)' : '1px solid var(--border)',
+                          borderRadius: 8,
+                          background: isDragging ? 'rgba(212, 175, 55, 0.12)' : isDragOver ? 'var(--off-white)' : 'var(--cream)',
+                          opacity: isDragging ? 0.6 : 1,
+                          transition: 'all 0.15s ease',
+                          cursor: 'grab'
+                        }}
+                      >
+                        {/* Hamburger / Drag handle */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justify: 'center',
+                            padding: '6px 4px',
+                            color: 'var(--slate)',
+                            cursor: 'grab'
+                          }}
+                          title="Drag to reorder slide to any position"
+                        >
+                          <GripVertical style={{ width: 20, height: 20 }} />
+                        </div>
+
+                        {slide.image ? (
+                          <img src={slide.image} alt={slide.title} style={{ width: 70, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                        ) : (
+                          <div style={{ width: 70, height: 48, background: 'var(--border)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--slate)' }}>No Image</div>
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontSize: 10, letterSpacing: '0.15em', color: 'var(--gold-dark)', fontWeight: 700, textTransform: 'uppercase' }}>{slide.tagline || 'HERO SLIDE'}</span>
+                          <h5 style={{ fontSize: 15, fontWeight: 700, margin: '2px 0', color: 'var(--onyx)' }}>{slide.title?.replace(/<\/?[^>]+(>|$)/g, "")}</h5>
+                          <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}>{slide.description}</p>
+                        </div>
+                        <button onClick={() => deleteHeroSlide(idx)} className="btn-secondary" style={{ color: 'var(--danger)', padding: 8 }} title="Delete slide">
+                          <Trash2 style={{ width: 15, height: 15 }} />
+                        </button>
                       </div>
-                      <button onClick={() => deleteHeroSlide(slide.id)} className="btn-secondary" style={{ color: 'var(--danger)', padding: 8 }} title="Delete slide">
-                        <Trash2 style={{ width: 15, height: 15 }} />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -2077,6 +2124,60 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* Australia Post Dispatch & Tracking Email Tool */}
+            <div style={{ border: '1.5px solid var(--gold)', background: 'rgba(212, 175, 55, 0.08)', borderRadius: 10, padding: 16, marginBottom: 20 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                🚚 Australia Post Order Dispatch
+              </h4>
+              <p style={{ fontSize: 12, color: 'var(--slate)', margin: '0 0 10px 0' }}>
+                Enter the parcel tracking number to dispatch order and email customer tracking link.
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="e.g. AP398201948AU"
+                  id={`tracking-input-${selectedOrder.id}`}
+                  defaultValue={selectedOrder.trackingNumber || 'AP398201948AU'}
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, outline: 'none' }}
+                />
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ fontSize: 12, padding: '8px 14px', whiteSpace: 'nowrap' }}
+                  onClick={async () => {
+                    const input = document.getElementById(`tracking-input-${selectedOrder.id}`);
+                    const trkNum = input ? input.value : 'AP398201948AU';
+                    try {
+                      const res = await fetch('/api/payments/send-order-dispatch-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          toEmail: selectedOrder.email,
+                          customerName: selectedOrder.customer,
+                          orderId: selectedOrder.id,
+                          trackingNumber: trkNum,
+                          shippingMethod: 'Standard Shipping (Australia Post)',
+                          shippingAddress: 'Australia'
+                        })
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        if (updateOrderStatus) updateOrderStatus(selectedOrder.id, 'Shipped');
+                        setSelectedOrder({ ...selectedOrder, status: 'Shipped', trackingNumber: trkNum });
+                        showToast(`Order marked Shipped & Australia Post email sent to ${selectedOrder.email}!`, 'check');
+                      } else {
+                        showToast(data.message || 'Dispatch email failed', 'alert-circle');
+                      }
+                    } catch (err) {
+                      showToast('Dispatch request failed', 'alert-circle');
+                    }
+                  }}
+                >
+                  Send Tracking Email
+                </button>
+              </div>
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate)' }}>Update Status:</span>
@@ -2130,37 +2231,73 @@ export default function AdminPage() {
 
             <form onSubmit={e => {
               e.preventDefault();
-              if (!heroForm.image.trim()) {
-                showToast('Hero image is mandatory.', 'alert');
+              const errors = {};
+              if (!heroForm.image || !heroForm.image.trim()) {
+                errors.image = 'Hero banner image is required.';
+              }
+              if (!heroForm.tagline || !heroForm.tagline.trim()) {
+                errors.tagline = 'Tagline / Subtitle is required.';
+              }
+              if (!heroForm.title || !heroForm.title.trim()) {
+                errors.title = 'Main title is required.';
+              }
+              if (!heroForm.description || !heroForm.description.trim()) {
+                errors.description = 'Description is required.';
+              }
+              if (!heroForm.ctaText || !heroForm.ctaText.trim()) {
+                errors.ctaText = 'CTA button text is required.';
+              }
+              if (!heroForm.ctaLink || !heroForm.ctaLink.trim()) {
+                errors.ctaLink = 'CTA button link is required.';
+              }
+
+              if (Object.keys(errors).length > 0) {
+                setHeroFormErrors(errors);
                 return;
               }
+
+              setHeroFormErrors({});
               saveHeroSlide(heroForm);
-              setShowHeroModal(false);
-              setHeroUploadSuccess(false);
-              setHeroForm({
-                tagline: '', title: '', description: '', image: '', ctaText: '', ctaLink: ''
-              });
-              showToast('New hero slide added to homepage slider!', 'check');
+              setHeroSubmittedNotice(true);
+              showToast('Hero slide added to homepage slider!', 'check');
+              setTimeout(() => {
+                setShowHeroModal(false);
+                setHeroUploadSuccess(false);
+                setHeroSubmittedNotice(false);
+                setHeroForm({
+                  tagline: '', title: '', description: '', image: '', ctaText: '', ctaLink: ''
+                });
+              }, 800);
             }}>
+              {heroSubmittedNotice && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '10px 14px', background: '#E6F4EA', color: '#137333', border: '1px solid #CEEAD6', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+                  <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0 }} />
+                  <span>✓ Hero slide created and added to homepage slider!</span>
+                </div>
+              )}
+
               {/* Hidden Native File Input for Direct Local Device Selection */}
               <input
                 type="file"
                 ref={heroFileInputRef}
                 accept="image/*"
-                onChange={handleHeroFileUpload}
+                onChange={(e) => {
+                  handleHeroFileUpload(e);
+                  if (heroFormErrors.image) setHeroFormErrors(prev => ({ ...prev, image: '' }));
+                }}
                 style={{ display: 'none' }}
               />
 
               {/* Square Upload Box */}
               <div style={{ marginBottom: 18 }}>
                 <label className="form-label" style={{ fontWeight: 700, marginBottom: 8, display: 'block' }}>
-                  HERO BANNER IMAGE *
+                  HERO BANNER IMAGE <span style={{ color: '#DC2626' }}>*</span>
                 </label>
 
                 <div
                   onClick={() => heroFileInputRef.current && heroFileInputRef.current.click()}
                   style={{
-                    border: '2px dashed var(--gold)',
+                    border: heroFormErrors.image ? '2px dashed #DC2626' : '2px dashed var(--gold)',
                     borderRadius: 12,
                     background: 'var(--cream)',
                     padding: '24px 16px',
@@ -2195,6 +2332,12 @@ export default function AdminPage() {
                   )}
                 </div>
 
+                {heroFormErrors.image && (
+                  <div style={{ color: '#DC2626', fontSize: 12, marginTop: 6, fontWeight: 600 }}>
+                    {heroFormErrors.image}
+                  </div>
+                )}
+
                 {/* Inline Success Notification */}
                 {heroUploadSuccess && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, padding: '10px 14px', background: '#E6F4EA', color: '#137333', border: '1px solid #CEEAD6', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
@@ -2216,66 +2359,196 @@ export default function AdminPage() {
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>TAGLINE / SUBTITLE</label>
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  TAGLINE / SUBTITLE <span style={{ color: '#DC2626' }}>*</span>
+                </label>
                 <input
                   type="text"
                   className="form-control"
+                  style={{ borderColor: heroFormErrors.tagline ? '#DC2626' : undefined }}
                   placeholder="e.g. THE NEW COLLECTION"
                   value={heroForm.tagline}
-                  onChange={e => setHeroForm({ ...heroForm, tagline: e.target.value })}
+                  onChange={e => {
+                    setHeroForm({ ...heroForm, tagline: e.target.value });
+                    if (heroFormErrors.tagline) setHeroFormErrors(prev => ({ ...prev, tagline: '' }));
+                  }}
                 />
+                {heroFormErrors.tagline && (
+                  <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                    {heroFormErrors.tagline}
+                  </div>
+                )}
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>MAIN TITLE</label>
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  MAIN TITLE <span style={{ color: '#DC2626' }}>*</span>
+                </label>
+                <span style={{ fontSize: 11, color: 'var(--slate)', margin: '2px 0 6px 0', display: 'block' }}>
+                  Tip: Wrap key words with &lt;b&gt;word&lt;/b&gt; to highlight them in gold (e.g. Elegance in Every &lt;b&gt;Detail&lt;/b&gt;)
+                </span>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="e.g. Elegance in Every Detail"
+                  style={{ borderColor: heroFormErrors.title ? '#DC2626' : undefined }}
+                  placeholder="e.g. Elegance in Every <b>Detail</b>"
                   value={heroForm.title}
-                  onChange={e => setHeroForm({ ...heroForm, title: e.target.value })}
+                  onChange={e => {
+                    setHeroForm({ ...heroForm, title: e.target.value });
+                    if (heroFormErrors.title) setHeroFormErrors(prev => ({ ...prev, title: '' }));
+                  }}
                 />
+                {heroFormErrors.title && (
+                  <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                    {heroFormErrors.title}
+                  </div>
+                )}
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>DESCRIPTION</label>
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  DESCRIPTION <span style={{ color: '#DC2626' }}>*</span>
+                </label>
                 <textarea
                   className="form-control"
                   rows={2}
+                  style={{ borderColor: heroFormErrors.description ? '#DC2626' : undefined }}
                   placeholder="e.g. Hand-crafted anti-tarnish gold-plated jewellery."
                   value={heroForm.description}
-                  onChange={e => setHeroForm({ ...heroForm, description: e.target.value })}
+                  onChange={e => {
+                    setHeroForm({ ...heroForm, description: e.target.value });
+                    if (heroFormErrors.description) setHeroFormErrors(prev => ({ ...prev, description: '' }));
+                  }}
                 />
+                {heroFormErrors.description && (
+                  <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                    {heroFormErrors.description}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                 <div>
-                  <label className="form-label" style={{ fontWeight: 700 }}>CTA BUTTON TEXT</label>
+                  <label className="form-label" style={{ fontWeight: 700 }}>
+                    CTA BUTTON TEXT <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
                   <input
                     type="text"
                     className="form-control"
+                    style={{ borderColor: heroFormErrors.ctaText ? '#DC2626' : undefined }}
                     placeholder="e.g. SHOP NOW"
                     value={heroForm.ctaText}
-                    onChange={e => setHeroForm({ ...heroForm, ctaText: e.target.value })}
+                    onChange={e => {
+                      setHeroForm({ ...heroForm, ctaText: e.target.value });
+                      if (heroFormErrors.ctaText) setHeroFormErrors(prev => ({ ...prev, ctaText: '' }));
+                    }}
                   />
+                  {heroFormErrors.ctaText && (
+                    <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                      {heroFormErrors.ctaText}
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <label className="form-label" style={{ fontWeight: 700 }}>CTA BUTTON LINK</label>
+                  <label className="form-label" style={{ fontWeight: 700 }}>
+                    CTA BUTTON LINK <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
                   <input
                     type="text"
                     className="form-control"
+                    style={{ borderColor: heroFormErrors.ctaLink ? '#DC2626' : undefined }}
                     placeholder="e.g. /shop"
                     value={heroForm.ctaLink}
-                    onChange={e => setHeroForm({ ...heroForm, ctaLink: e.target.value })}
+                    onChange={e => {
+                      setHeroForm({ ...heroForm, ctaLink: e.target.value });
+                      if (heroFormErrors.ctaLink) setHeroFormErrors(prev => ({ ...prev, ctaLink: '' }));
+                    }}
                   />
+                  {heroFormErrors.ctaLink && (
+                    <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                      {heroFormErrors.ctaLink}
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => { setShowHeroModal(false); setHeroUploadSuccess(false); }} className="btn-secondary">Cancel</button>
+                <button type="button" onClick={() => { setShowHeroModal(false); setHeroUploadSuccess(false); setHeroFormErrors({}); }} className="btn-secondary">Cancel</button>
                 <button type="submit" className="btn-primary">Add Hero Slide</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: View Message Details Popup */}
+      {selectedMessage && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 540, width: '95%', padding: 'clamp(20px, 4vw, 28px)', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div>
+                <span style={{ fontSize: 11, letterSpacing: '0.1em', fontWeight: 700, color: 'var(--gold-dark)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
+                  {selectedMessage.type === 'newsletter' || selectedMessage.subject?.toLowerCase().includes('newsletter') ? 'NEWSLETTER SUBSCRIPTION' : 'CLIENT CONTACT INQUIRY'}
+                </span>
+                <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>
+                  {selectedMessage.subject || 'Message Details'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedMessage(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--slate)', cursor: 'pointer', padding: 4 }}
+              >
+                <X style={{ width: 20, height: 20 }} />
+              </button>
+            </div>
+
+            <div style={{ background: 'var(--off-white)', padding: 16, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <span style={{ fontSize: 11, color: 'var(--slate)', fontWeight: 600, display: 'block' }}>SENDER NAME</span>
+                  <strong style={{ fontSize: 14, color: 'var(--onyx)' }}>{selectedMessage.name}</strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: 11, color: 'var(--slate)', fontWeight: 600, display: 'block' }}>DATE RECEIVED</span>
+                  <span style={{ fontSize: 13, color: 'var(--onyx)', fontWeight: 600 }}>{selectedMessage.date}</span>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--slate)', fontWeight: 600, display: 'block' }}>EMAIL ADDRESS</span>
+                <a href={`mailto:${selectedMessage.email}`} style={{ fontSize: 13, color: 'var(--gold-dark)', fontWeight: 600, textDecoration: 'underline' }}>
+                  {selectedMessage.email}
+                </a>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label className="form-label" style={{ fontWeight: 700, fontSize: 12, marginBottom: 8, display: 'block', color: 'var(--onyx)' }}>
+                MESSAGE CONTENT
+              </label>
+              <div style={{ background: 'var(--cream)', padding: 18, borderRadius: 10, border: '1px solid var(--border)', fontSize: 14, lineHeight: 1.6, color: 'var(--onyx)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight: 80 }}>
+                {selectedMessage.message}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedMessage(null)}
+                className="btn-secondary"
+                style={{ padding: '8px 20px', fontSize: 13 }}
+              >
+                Close
+              </button>
+              <a
+                href={`mailto:${selectedMessage.email}?subject=${encodeURIComponent('Re: ' + (selectedMessage.subject || 'Inquiry'))}`}
+                className="btn-primary"
+                style={{ padding: '8px 20px', fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                Reply via Email
+              </a>
+            </div>
           </div>
         </div>
       )}

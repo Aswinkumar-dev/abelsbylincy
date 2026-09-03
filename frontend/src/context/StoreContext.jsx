@@ -103,8 +103,39 @@ const DEFAULT_ROLES = [
   { user: 'Lincy Titus', loginId: 'lincy', password: 'A@b@e@l@s@12345', role: 'Super Admin', permissions: ['all'] },
 ];
 
-const DEFAULT_MESSAGES = [];
-const DEFAULT_SUBSCRIBERS = [];
+const DEFAULT_MESSAGES = [
+  {
+    id: 'm1',
+    name: 'Lincy Titus',
+    email: 'lincy@gmail.com',
+    subject: 'Contact Inquiry',
+    message: 'Hello, I have a question regarding custom gold-plated necklace sizing and care instructions.',
+    date: '03 Sept 2026',
+    type: 'contact'
+  },
+  {
+    id: 'm2',
+    name: 'Lincy Titus',
+    email: 'abelsbylincy@gmail.com',
+    subject: 'Contact Inquiry',
+    message: 'Sellers display products on websites, mobile apps, or online marketplaces. Customers pay securely online using credit cards, digital wallets, or buy now pay later services.',
+    date: '03 Sept 2026',
+    type: 'contact'
+  },
+  {
+    id: 'm3',
+    name: 'Newsletter Subscriber',
+    email: 'lincytitus8@gmail.com',
+    subject: 'Newsletter Subscription',
+    message: 'New client subscribed to newsletter updates & VIP offers (lincytitus8@gmail.com).',
+    date: '03 Sept 2026',
+    type: 'newsletter'
+  }
+];
+
+const DEFAULT_SUBSCRIBERS = [
+  { id: 'sub1', email: 'lincytitus8@gmail.com', date: '03 Sept 2026', status: 'Active' }
+];
 
 // ============================================================
 // Helpers
@@ -144,29 +175,59 @@ export function StoreProvider({ children }) {
   const [currentUser, setCurrentUserRaw] = useState(() => readLS('abl_current_user', null));
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => readLS('abl_admin_auth', false));
   const [adminUser, setAdminUserRaw] = useState(() => readLS('abl_admin_user', null));
-  const [messages, setMessagesRaw] = useState(() => readLS('abl_messages', DEFAULT_MESSAGES));
-  const [subscribers, setSubscribersRaw] = useState(() => readLS('abl_subscribers_v1', DEFAULT_SUBSCRIBERS));
+  const [messages, setMessagesRaw] = useState(() => readLS('abl_messages_v2', DEFAULT_MESSAGES));
+  const [subscribers, setSubscribersRaw] = useState(() => readLS('abl_subscribers_v2', DEFAULT_SUBSCRIBERS));
 
   // Toast state
   const [toasts, setToasts] = useState([]);
 
   // Persisting helpers
-  const setProducts = useCallback((v) => { setProductsRaw(v); writeLS('abl_products_v5', v); }, []);
+  const setProducts = useCallback((updaterOrValue) => {
+    setProductsRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_products_v5', next);
+      return next;
+    });
+  }, []);
   const setCategories = useCallback((v) => { setCategoriesRaw(v); writeLS('abl_categories_v5', v); }, []);
   const setOrders = useCallback((v) => { setOrdersRaw(v); writeLS('abl_orders_v6', v); }, []);
   const setCustomers = useCallback((v) => { setCustomersRaw(v); writeLS('abl_customers_v6', v); }, []);
   const setCoupons = useCallback((v) => { setCouponsRaw(v); writeLS('abl_coupons_v6', v); }, []);
-  const setReviews = useCallback((v) => { setReviewsRaw(v); writeLS('abl_reviews_v6', v); }, []);
+  const setReviews = useCallback((updaterOrValue) => {
+    setReviewsRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_reviews_v6', next);
+      return next;
+    });
+  }, []);
   const setStockHistory = useCallback((v) => { setStockHistoryRaw(v); writeLS('abl_stock_history_v6', v); }, []);
   const setRoles = useCallback((v) => { setRolesRaw(v); writeLS('abl_roles', v); }, []);
   const setSettings = useCallback((v) => { setSettingsRaw(v); writeLS('abl_settings', v); }, []);
-  const setSubscribers = useCallback((v) => { setSubscribersRaw(v); writeLS('abl_subscribers_v1', v); }, []);
-  const setCMS = useCallback((v) => { setCMSRaw(v); writeLS('abl_cms_v5', v); }, []);
+  const setSubscribers = useCallback((updaterOrValue) => {
+    setSubscribersRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_subscribers_v2', next);
+      return next;
+    });
+  }, []);
+  const setCMS = useCallback((updaterOrValue) => {
+    setCMSRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_cms_v5', next);
+      return next;
+    });
+  }, []);
   const setCart = useCallback((v) => { setCartRaw(v); writeLS('abl_cart', v); }, []);
   const setWishlist = useCallback((v) => { setWishlistRaw(v); writeLS('abl_wishlist', v); }, []);
   const setCurrentUser = useCallback((v) => { setCurrentUserRaw(v); writeLS('abl_current_user', v); }, []);
   const setAdminUser = useCallback((v) => { setAdminUserRaw(v); writeLS('abl_admin_user', v); }, []);
-  const setMessages = useCallback((v) => { setMessagesRaw(v); writeLS('abl_messages', v); }, []);
+  const setMessages = useCallback((updaterOrValue) => {
+    setMessagesRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_messages_v2', next);
+      return next;
+    });
+  }, []);
 
   // ============================================================
   // showToast
@@ -444,19 +505,48 @@ export function StoreProvider({ children }) {
   // Contact form
   // ============================================================
   const handleContactForm = useCallback((name, email, subject, message) => {
-    const newMsg = { id: `m${Date.now()}`, name, email, subject, message, date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) };
-    setMessages([...messages, newMsg]);
+    const newMsg = {
+      id: `m${Date.now()}`,
+      name: name || 'Website Visitor',
+      email,
+      subject: subject || 'Contact Inquiry',
+      message,
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      type: 'contact'
+    };
+    setMessages(prev => [newMsg, ...(prev || [])]);
     showToast("Message sent! We'll be in touch soon.", 'check');
     return true;
-  }, [messages, setMessages, showToast]);
+  }, [setMessages, showToast]);
 
   // ============================================================
   // Newsletter
   // ============================================================
   const handleNewsletter = useCallback((email) => {
+    const newSubMsg = {
+      id: `sub_${Date.now()}`,
+      name: 'Newsletter Subscriber',
+      email: email,
+      subject: 'Newsletter Subscription',
+      message: `Client subscribed to newsletter updates & VIP offers (${email}).`,
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      type: 'newsletter'
+    };
+    setMessages(prev => {
+      const list = prev || [];
+      if (list.some(m => m.email?.toLowerCase() === email.toLowerCase() && m.type === 'newsletter')) {
+        return list;
+      }
+      return [newSubMsg, ...list];
+    });
+    setSubscribers(prev => {
+      const list = prev || [];
+      if (list.some(s => s.email?.toLowerCase() === email.toLowerCase())) return list;
+      return [{ id: `s_${Date.now()}`, email, date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), status: 'Active' }, ...list];
+    });
     showToast('Thank you for joining the Circle!', 'check');
     return true;
-  }, [showToast]);
+  }, [setMessages, setSubscribers, showToast]);
 
   // ============================================================
   // Place order
@@ -610,35 +700,62 @@ export function StoreProvider({ children }) {
   }, [coupons, setCoupons, showToast]);
 
   const saveGlobalCMS = useCallback((updates) => {
-    setCMS({ ...cms, ...updates });
+    setCMS(prev => ({ ...prev, ...updates }));
     showToast('CMS settings updated!', 'check');
-  }, [cms, setCMS, showToast]);
+  }, [setCMS, showToast]);
 
-  const saveHeroSlide = useCallback((idx, slideData) => {
-    const slides = [...(cms.heroSlides || [])];
-    if (idx === -1) {
-      slides.push({ ...slideData, id: `s${Date.now()}` });
-    } else {
-      slides[idx] = { ...slides[idx], ...slideData };
-    }
-    setCMS({ ...cms, heroSlides: slides });
+  const saveHeroSlide = useCallback((idxOrData, slideData) => {
+    setCMS(prev => {
+      const slides = [...(prev?.heroSlides || [])];
+      let idx = typeof idxOrData === 'number' ? idxOrData : -1;
+      let data = typeof idxOrData === 'object' ? idxOrData : slideData;
+      if (idx === -1) {
+        slides.push({ ...data, id: data?.id || `s${Date.now()}` });
+      } else {
+        slides[idx] = { ...slides[idx], ...data };
+      }
+      return { ...prev, heroSlides: slides };
+    });
     showToast('Slide saved!', 'check');
-  }, [cms, setCMS, showToast]);
+  }, [setCMS, showToast]);
 
-  const deleteHeroSlide = useCallback((idx) => {
-    const slides = [...(cms.heroSlides || [])];
-    slides.splice(idx, 1);
-    setCMS({ ...cms, heroSlides: slides });
+  const deleteHeroSlide = useCallback((target) => {
+    setCMS(prev => {
+      const slides = [...(prev?.heroSlides || [])];
+      let newSlides;
+      if (typeof target === 'number') {
+        newSlides = slides.filter((_, i) => i !== target);
+      } else {
+        newSlides = slides.filter(s => s.id !== target);
+      }
+      return { ...prev, heroSlides: newSlides };
+    });
     showToast('Slide deleted', 'check');
-  }, [cms, setCMS, showToast]);
+  }, [setCMS, showToast]);
 
   const moveHeroSlide = useCallback((idx, dir) => {
-    const slides = [...(cms.heroSlides || [])];
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= slides.length) return;
-    [slides[idx], slides[newIdx]] = [slides[newIdx], slides[idx]];
-    setCMS({ ...cms, heroSlides: slides });
-  }, [cms, setCMS]);
+    setCMS(prev => {
+      const slides = [...(prev?.heroSlides || [])];
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= slides.length) return prev;
+      const temp = slides[idx];
+      slides[idx] = slides[newIdx];
+      slides[newIdx] = temp;
+      return { ...prev, heroSlides: slides };
+    });
+    showToast('Hero slide reordered!', 'check');
+  }, [setCMS, showToast]);
+
+  const reorderHeroSlides = useCallback((fromIdx, toIdx) => {
+    setCMS(prev => {
+      const slides = [...(prev?.heroSlides || [])];
+      if (fromIdx < 0 || fromIdx >= slides.length || toIdx < 0 || toIdx >= slides.length || fromIdx === toIdx) return prev;
+      const [movedItem] = slides.splice(fromIdx, 1);
+      slides.splice(toIdx, 0, movedItem);
+      return { ...prev, heroSlides: slides };
+    });
+    showToast('Hero slide reordered!', 'check');
+  }, [setCMS, showToast]);
 
   const saveStoreSettings = useCallback((updates) => {
     setSettings({ ...settings, ...updates });
@@ -646,10 +763,29 @@ export function StoreProvider({ children }) {
   }, [settings, setSettings, showToast]);
 
 
-  const deleteSubscriber = useCallback((id) => {
-    setSubscribers(subscribers.filter(s => s.id !== id));
+  const deleteSubscriber = useCallback((idOrEmail) => {
+    setSubscribers(prev => (prev || []).filter(s => s.id !== idOrEmail && s.email !== idOrEmail));
+    setMessages(prev => (prev || []).filter(m => m.id !== idOrEmail && m.email !== idOrEmail));
     showToast('Subscriber removed', 'check');
-  }, [subscribers, setSubscribers, showToast]);
+  }, [setSubscribers, setMessages, showToast]);
+
+  const addReview = useCallback((reviewData) => {
+    const newRev = {
+      id: `rev_${Date.now()}`,
+      productId: reviewData.productId,
+      productName: reviewData.productName || 'Jewelry Piece',
+      author: reviewData.author || 'Customer',
+      rating: Number(reviewData.rating) || 1,
+      title: reviewData.title || `${reviewData.rating || 1} Star Rating`,
+      text: reviewData.text || '',
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      status: 'approved',
+      verified: true
+    };
+    setReviews(prev => [newRev, ...(prev || [])]);
+    showToast('Review submitted! Thank you.', 'check');
+    return newRev;
+  }, [setReviews, showToast]);
 
 
   const applyCoupon = useCallback((code, subtotal) => {
@@ -712,7 +848,7 @@ export function StoreProvider({ children }) {
     toggleWishlist,
     loginWithEmail, registerUser, loginWithGoogle, logoutUser, saveUserAddress,
     adminLogin, adminLogout,
-    handleContactForm, handleNewsletter, deleteSubscriber,
+    handleContactForm, handleNewsletter, deleteSubscriber, addReview,
     placeOrder, applyCoupon,
     // Admin CRUD
     saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,
@@ -720,7 +856,7 @@ export function StoreProvider({ children }) {
     updateOrderStatus, cycleOrderStatus, deleteOrder,
     saveCustomer, deleteCustomer,
     saveCoupon, deleteCoupon,
-    saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide,
+    saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide, reorderHeroSlides,
     saveStoreSettings,
     exportFilteredCSV,
   };

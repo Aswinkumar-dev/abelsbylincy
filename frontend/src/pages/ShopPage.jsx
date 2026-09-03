@@ -66,8 +66,8 @@ export default function ShopPage() {
   const filteredProducts = products
     .filter(p => {
       if (activeCategory === 'all') return true;
-      if (activeCategory === 'new-arrivals') return p.newArrival;
-      if (activeCategory === 'best-sellers') return p.bestSeller;
+      if (activeCategory === 'new-arrivals') return Boolean(p.newArrival);
+      if (activeCategory === 'best-sellers') return Boolean(p.bestSeller);
       if (activeCategory === 'silver-collections') return p.material?.toLowerCase().includes('silver');
       if (activeCategory === 'seasonal-collections') return p.tags?.includes('seasonal');
       return p.category === activeCategory;

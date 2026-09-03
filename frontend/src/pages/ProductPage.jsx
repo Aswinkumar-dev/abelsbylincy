@@ -5,7 +5,7 @@ import { useStore } from '../context/StoreContext';
 import ProductCard from '../components/ProductCard';
 
 export default function ProductPage() {
-  const { products, addToCart, toggleWishlist, wishlist, currentUser, formatMoney, showToast } = useStore();
+  const { products, addToCart, toggleWishlist, wishlist, currentUser, formatMoney, showToast, reviews: globalReviews, addReview } = useStore();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const productId = searchParams.get('id');
@@ -21,8 +21,9 @@ export default function ProductPage() {
   const [sizeModalOpen, setSizeModalOpen] = useState(false);
   const [reviewFormOpen, setReviewFormOpen] = useState(false);
   const [reviewText, setReviewText] = useState('');
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviews, setReviews] = useState([]);
+  const [reviewRating, setReviewRating] = useState(1);
+
+  const productReviews = (globalReviews || []).filter(r => String(r.productId) === String(productId) && r.status !== 'hidden');
 
   useEffect(() => {
     if (!productId) { navigate('/shop'); return; }
@@ -32,10 +33,6 @@ export default function ProductPage() {
     setSelectedSize(product?.sizes?.[0] || '');
     const defaultColor = product?.colors?.[0] || (product?.colorImages ? Object.keys(product.colorImages)[0] : '');
     setSelectedColor(defaultColor || '');
-    try {
-      const stored = localStorage.getItem(`abl_reviews_${productId}`);
-      setReviews(stored ? JSON.parse(stored) : []);
-    } catch { setReviews([]); }
   }, [productId, product, navigate]);
 
   if (!product) return null;
@@ -75,13 +72,17 @@ export default function ProductPage() {
   const handleReviewSubmit = (e) => {
     e.preventDefault();
     if (!currentUser) { showToast('Please sign in to leave a review', 'alert-circle'); return; }
-    const newReview = { id: Date.now(), author: currentUser.name, rating: reviewRating, text: reviewText, date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) };
-    const updated = [newReview, ...reviews];
-    setReviews(updated);
-    localStorage.setItem(`abl_reviews_${productId}`, JSON.stringify(updated));
+    addReview({
+      productId: product.id,
+      productName: product.name,
+      author: currentUser.name || currentUser.email || 'Verified Buyer',
+      rating: reviewRating,
+      text: reviewText,
+      title: `${reviewRating} Star Rating`
+    });
     setReviewText('');
+    setReviewRating(1);
     setReviewFormOpen(false);
-    showToast('Review submitted!', 'check');
   };
 
   const accordionTabs = [
@@ -148,7 +149,7 @@ export default function ProductPage() {
               <div className="stars" style={{ display: 'flex', color: 'var(--gold)' }}>
                 {[1,2,3,4,5].map(i => <Star key={i} style={{ width: 14, height: 14, fill: 'var(--gold)', color: 'var(--gold)' }} />)}
               </div>
-              <span className="review-count" style={{ fontSize: 13, color: 'var(--slate)' }}>({reviews.length} reviews)</span>
+              <span className="review-count" style={{ fontSize: 13, color: 'var(--slate)' }}>({productReviews.length} reviews)</span>
             </div>
 
             <div className="pdp-price-row" style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
@@ -286,7 +287,7 @@ export default function ProductPage() {
         <div className="container">
           <div className="section-header">
             <p className="section-subtitle">Client Experiences</p>
-            <h2 className="section-title">Reviews ({reviews.length})</h2>
+            <h2 className="section-title">Reviews ({productReviews.length})</h2>
           </div>
 
           <div style={{ textAlign: 'center', marginBottom: 16 }}>
@@ -321,13 +322,13 @@ export default function ProductPage() {
             </form>
           )}
 
-          {reviews.length === 0 ? (
+          {productReviews.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '4px 0 12px 0', color: 'var(--slate)' }}>
               <p style={{ fontSize: 15, textAlign: 'center', margin: 0 }}>No reviews yet. Be the first to review this piece!</p>
             </div>
           ) : (
             <div className="bs-grid">
-              {reviews.map(r => (
+              {productReviews.map(r => (
                 <div key={r.id} style={{ background: 'var(--cloud-white)', padding: 20, borderRadius: 8, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--gold)', color: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>

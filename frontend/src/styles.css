@@ -76,6 +76,12 @@
   padding: 0;
 }
 
+html, body, #root {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box;
+}
+
 html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
@@ -88,7 +94,6 @@ body {
   color: var(--onyx);
   line-height: 1.55;
   font-size: 15px;
-  overflow-x: hidden;
 }
 
 img {
@@ -2911,10 +2916,28 @@ input, select, textarea {
 }
 
 @media (max-width: 768px) {
+  html, body, #root {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    position: relative !important;
+  }
+
   .admin-layout {
     flex-direction: column !important;
     height: 100vh !important;
     overflow: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+
+  .admin-main {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
   }
 
   .admin-sidebar {
@@ -2925,14 +2948,19 @@ input, select, textarea {
     display: flex !important;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
   }
 
   .admin-topbar {
     height: 60px !important;
-    padding: 0 16px !important;
+    padding: 0 12px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
   .admin-user-info-text {
@@ -2940,17 +2968,45 @@ input, select, textarea {
   }
 
   .admin-body {
-    padding: 16px !important;
+    padding: 14px 12px !important;
     overflow-y: auto !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .admin-table-card {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden !important;
+    margin-bottom: 20px !important;
+    width: 100% !important;
+  }
+  .admin-messages-subtabs {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  .admin-messages-subtab-btn {
+    flex: 1 1 calc(50% - 8px) !important;
+    min-width: 130px !important;
+    text-align: center !important;
+    justify-content: center !important;
+    padding: 10px 12px !important;
+    font-size: 11px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
   }
   .kpi-grid {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
     gap: 12px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-messages-subtab-btn {
+    flex: 1 1 100% !important;
+    width: 100% !important;
   }
 }
 
@@ -2994,10 +3050,16 @@ input, select, textarea {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden !important;
   margin-bottom: 28px;
   width: 100%;
+}
+
+.admin-table-scroll-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: inherit;
 }
 
 .table-header {

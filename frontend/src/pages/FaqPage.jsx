@@ -9,9 +9,10 @@ export default function FaqPage() {
     {
       category: 'Orders & Shipping',
       items: [
-        { q: 'How long does shipping take?', a: 'We offer complimentary express shipping on all Australian orders. Standard delivery is 2-4 business days and express is 1-2 business days from dispatch. Orders are generally processed within 1-2 business days.' },
-        { q: 'Do you ship internationally?', a: 'Currently, we ship within Australia only. International shipping is planned for the near future. Sign up to our newsletter to be notified when international shipping launches.' },
-        { q: 'How can I track my order?', a: 'Once your order is dispatched, you will receive an email with your tracking number and a direct link to track your parcel via Australia Post.' },
+        { q: 'How much does shipping cost?', a: 'Standard Shipping via Australia Post is $10.00 AUD, or FREE on orders over $60.00 AUD. Express Shipping is available for $15.00 AUD if you need your order urgently.' },
+        { q: 'How long does shipping take?', a: 'Orders are packed and dispatched within 1–3 business days after payment (usually next-day dispatch on weekdays). Standard delivery via Australia Post is generally 2–5 business days after dispatch. Express delivery is 1–2 business days after dispatch.' },
+        { q: 'Do you ship internationally?', a: 'Currently, we ship across Australia via Australia Post. International shipping is planned for the near future. Sign up for our newsletter to be notified when international shipping launches.' },
+        { q: 'How can I track my order?', a: 'Once your order has been packed and dispatched, you will receive a tracking confirmation email with your Australia Post tracking number and a direct tracking link.' },
       ]
     },
     {

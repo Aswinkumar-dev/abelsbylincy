@@ -10,8 +10,8 @@ export default function HomePage() {
   const [testimonialIdx, setTestimonialIdx] = useState(0);
   const slideTimer = useRef(null);
 
-  // Hero slides using ONLY images ending with '-hero.webp' / 'hero.webp'
-  const heroSlides = [
+  // Hero slides (dynamic from CMS state or fallback)
+  const DEFAULT_SLIDES = [
     {
       id: 'slide-1',
       tagline: 'THE BRACELET COLLECTION',
@@ -53,6 +53,8 @@ export default function HomePage() {
       theme: 'gold'
     }
   ];
+
+  const heroSlides = (cms?.heroSlides && cms.heroSlides.length > 0) ? cms.heroSlides : DEFAULT_SLIDES;
 
   const currentSlide = heroSlides[slideIdx % heroSlides.length];
 
@@ -122,8 +124,17 @@ export default function HomePage() {
 
   const currentTestimonial = testimonials[testimonialIdx % testimonials.length];
 
-  const newArrivals = products.filter(p => p.newArrival);
-  const bestSellers = products.filter(p => p.bestSeller);
+  const formatHeroTitle = (title) => {
+    if (!title) return '';
+    if (/<[a-z][\s\S]*>/i.test(title)) return title;
+    const words = title.trim().split(/\s+/);
+    if (words.length <= 1) return title;
+    const lastWord = words.pop();
+    return `${words.join(' ')} <b>${lastWord}</b>`;
+  };
+
+  const newArrivals = (products || []).filter(p => Boolean(p.newArrival));
+  const bestSellers = (products || []).filter(p => Boolean(p.bestSeller));
 
   return (
     <>
@@ -154,7 +165,7 @@ export default function HomePage() {
             <div className="hero-slide-content-overlay">
               <div className={`hero-slide-text-box theme-${currentSlide.theme || 'gold'}`}>
                 {currentSlide.tagline && <p className="hero-slide-tagline">{currentSlide.tagline}</p>}
-                <h2 className="hero-slide-title" dangerouslySetInnerHTML={{ __html: currentSlide.title }}></h2>
+                <h2 className="hero-slide-title" dangerouslySetInnerHTML={{ __html: formatHeroTitle(currentSlide.title) }}></h2>
                 {currentSlide.description && <p className="hero-slide-desc">{currentSlide.description}</p>}
                 <Link to={currentSlide.ctaLink || '/shop'} className="hero-slide-cta">
                   {currentSlide.ctaText || 'SHOP COLLECTION'} <ArrowRight style={{ width: 16, height: 16 }} />

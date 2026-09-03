@@ -245,6 +245,21 @@ const createCheckoutSession = async (req, res, next) => {
       });
     }
 
+    // Add Australia Post shipping fee line item if applicable
+    const validShippingFee = parseFloat(req.body.shippingFee) || 0;
+    if (validShippingFee > 0) {
+      lineItems.push({
+        price_data: {
+          currency: 'aud',
+          product_data: {
+            name: req.body.shippingMethod || 'Australia Post Shipping',
+          },
+          unit_amount: Math.round(validShippingFee * 100),
+        },
+        quantity: 1,
+      });
+    }
+
     const crypto = require('crypto');
     const cartFingerprint = items.map(i => `${i.id || i.name}:${i.quantity || 1}`).join('|');
     const idempotencyKey = `cs_idemp_${crypto.createHash('md5').update(`${email || ''}:${cartFingerprint}`).digest('hex')}`;
@@ -253,6 +268,8 @@ const createCheckoutSession = async (req, res, next) => {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
+      locale: 'en',
+      adaptive_pricing: { enabled: false },
       customer_email: email || (req.user ? req.user.email : undefined),
       success_url: `${origin}/checkout?session_id={CHECKOUT_SESSION_ID}&success=true`,
       cancel_url: `${origin}/checkout?canceled=true`,
@@ -271,7 +288,7 @@ const createCheckoutSession = async (req, res, next) => {
   }
 };
 
-const { sendOrderConfirmationEmail, sendNewsletterWelcomeEmail } = require('../services/email.service');
+const { sendOrderConfirmationEmail, sendNewsletterWelcomeEmail, sendOrderDispatchEmail } = require('../services/email.service');
 
 const sendConfirmationEmail = async (req, res, next) => {
   try {
@@ -318,6 +335,26 @@ const reconcilePayments = async (req, res, next) => {
   }
 };
 
+const sendDispatchEmail = async (req, res, next) => {
+  try {
+    const { toEmail, customerName, orderId, trackingNumber, shippingMethod, shippingAddress } = req.body;
+    if (!toEmail) return res.status(400).json({ success: false, message: 'Customer email is required.' });
+
+    const result = await sendOrderDispatchEmail({
+      toEmail,
+      customerName,
+      orderId,
+      trackingNumber,
+      shippingMethod,
+      shippingAddress
+    });
+
+    res.status(200).json({ success: true, message: 'Australia Post tracking email sent successfully.', result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createStripeIntent,
   createCheckoutSession,
@@ -325,5 +362,6 @@ module.exports = {
   processAdminRefund,
   sendConfirmationEmail,
   sendNewsletterEmail,
+  sendDispatchEmail,
   reconcilePayments
 };

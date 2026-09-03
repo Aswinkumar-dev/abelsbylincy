@@ -29,7 +29,10 @@ export default function CheckoutPage() {
     postcode: savedAddress?.postcode || '',
   });
 
+  const [shippingMethod, setShippingMethod] = useState('standard');
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const shippingFee = shippingMethod === 'express' ? 15 : (subtotal >= 60 ? 0 : 10);
+  const grandTotal = subtotal + shippingFee;
 
   // Auth guard
   useEffect(() => {
@@ -190,7 +193,9 @@ export default function CheckoutPage() {
     const payload = JSON.stringify({
       items: checkoutItems,
       email: email,
-      shippingAddress: formData
+      shippingAddress: formData,
+      shippingFee: shippingFee,
+      shippingMethod: shippingMethod === 'express' ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)'
     });
 
     let data = null;
@@ -453,14 +458,52 @@ export default function CheckoutPage() {
                     <label className="form-label">Postcode *</label>
                     <input type="text" className="form-control" value={formData.postcode} onChange={e => setFormData(f => ({...f, postcode: e.target.value}))} required />
                   </div>
-                  <div style={{ margin: '10px 0 20px 0', background: 'var(--cream)', borderRadius: 'var(--radius-md)', padding: '12px 16px' }}>
-                    <label className="filter-checkbox-label" style={{ fontSize: 13, color: 'var(--onyx)', cursor: 'pointer', userSelect: 'none' }}>
-                      <input type="checkbox" className="filter-checkbox" checked={saveAddress} onChange={e => setSaveAddress(e.target.checked)} />
-                      <span><strong>Save these details</strong> for faster 1-click checkout next time</span>
-                    </label>
+                  {/* Delivery Options (Australia Post) */}
+                  <div style={{ marginTop: 24, marginBottom: 20 }}>
+                    <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 600, marginBottom: 12, color: 'var(--onyx)' }}>
+                      Delivery Method (Australia Post)
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {/* Standard Shipping */}
+                      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', border: `2px solid ${shippingMethod === 'standard' ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: shippingMethod === 'standard' ? 'var(--cream)' : '#fff', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <input type="radio" name="shippingMethod" value="standard" checked={shippingMethod === 'standard'} onChange={() => setShippingMethod('standard')} style={{ accentColor: 'var(--gold)' }} />
+                          <div>
+                            <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Standard Shipping</p>
+                            <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Delivery in 2–5 business days</p>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)' }}>
+                          {subtotal >= 60 ? 'FREE' : '$10.00 AUD'}
+                        </span>
+                      </label>
+
+                      {/* Express Shipping */}
+                      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', border: `2px solid ${shippingMethod === 'express' ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: shippingMethod === 'express' ? 'var(--cream)' : '#fff', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <input type="radio" name="shippingMethod" value="express" checked={shippingMethod === 'express'} onChange={() => setShippingMethod('express')} style={{ accentColor: 'var(--gold)' }} />
+                          <div>
+                            <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Express Shipping</p>
+                            <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Delivery in 1–2 business days</p>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)' }}>$15.00 AUD</span>
+                      </label>
+                    </div>
                   </div>
-                  <button type="submit" className="btn-primary" style={{ width: '100%', height: 48, fontSize: 14 }}>
-                    Proceed to Stripe Secure Checkout <Lock style={{ width: 14, height: 14, marginLeft: 4 }} />
+
+                  {/* Show "Save these details" checkbox ONLY if customer has not saved address yet */}
+                  {!savedAddress && (
+                    <div style={{ margin: '10px 0 20px 0', background: 'var(--cream)', borderRadius: 'var(--radius-md)', padding: '12px 16px' }}>
+                      <label className="filter-checkbox-label" style={{ fontSize: 13, color: 'var(--onyx)', cursor: 'pointer', userSelect: 'none' }}>
+                        <input type="checkbox" className="filter-checkbox" checked={saveAddress} onChange={e => setSaveAddress(e.target.checked)} />
+                        <span><strong>Save these details</strong> for faster 1-click checkout next time</span>
+                      </label>
+                    </div>
+                  )}
+
+                  <button type="submit" className="btn-primary" style={{ width: '100%', height: 48, fontSize: 14, marginTop: savedAddress ? 20 : 0 }}>
+                    Proceed to Payment <Lock style={{ width: 14, height: 14, marginLeft: 4 }} />
                   </button>
                 </form>
               )}
@@ -583,15 +626,19 @@ export default function CheckoutPage() {
                 <span style={{ fontWeight: 600 }}>{formatMoney(subtotal)}</span>
               </div>
               <div className="summary-row" style={{ fontSize: 13, marginBottom: 8 }}>
-                <span style={{ color: 'var(--slate)' }}>Express Shipping</span>
-                <span style={{ fontWeight: 600, color: 'var(--success)' }}>FREE (Included)</span>
+                <span style={{ color: 'var(--slate)' }}>
+                  {shippingMethod === 'express' ? 'Express Shipping (AusPost)' : 'Standard Shipping (AusPost)'}
+                </span>
+                <span style={{ fontWeight: 600, color: shippingFee === 0 ? 'var(--success)' : 'var(--onyx)' }}>
+                  {shippingFee === 0 ? 'FREE' : formatMoney(shippingFee)}
+                </span>
               </div>
               <div className="summary-row summary-total" style={{ fontSize: 16, marginTop: 10, paddingTop: 10 }}>
                 <span>Total</span>
-                <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--onyx)' }}>{formatMoney(subtotal)}</span>
+                <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--onyx)' }}>{formatMoney(grandTotal)}</span>
               </div>
               <p style={{ fontSize: 11, color: 'var(--slate)', fontStyle: 'italic', marginTop: 8, textAlign: 'center' }}>
-                * Product prices are all-inclusive of GST &amp; Express Shipping. No extra fees.
+                * All prices are inclusive of GST.
               </p>
             </div>
           </div>
