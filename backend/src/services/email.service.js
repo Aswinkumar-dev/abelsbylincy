@@ -269,18 +269,22 @@ const sendOrderDispatchEmail = async (dispatchData) => {
 
     if (!toEmail) return { success: false, message: 'No customer email provided' };
 
-    const subject = `Your Abel's By Lincy Order #${orderId || 'ABL-1001'} Has Been Dispatched!`;
-    console.log(`✉️ [DISPATCH EMAIL SERVICE] Sending Australia Post Dispatch Email to: ${toEmail}`);
+    const formattedOrderId = orderId ? (String(orderId).startsWith('#') ? String(orderId) : `#${orderId}`) : '#ABL-1001';
+    const cleanCustomerName = (customerName || 'Valued Customer').replace(/\bClient\b/gi, '').trim() || 'Valued Customer';
+    const cleanTrackingNumber = (trackingNumber || 'AP398201948AU').trim();
+
+    const subject = `Your Abel's By Lincy Order ${formattedOrderId} Has Been Dispatched!`;
+    console.log(`✉️ [DISPATCH EMAIL SERVICE] Sending Australia Post Dispatch Email to: ${toEmail} (Order Ref: ${formattedOrderId}, Tracking: ${cleanTrackingNumber})`);
 
     return await sendEmail({
       to: toEmail,
       subject: subject,
       templateName: 'order_dispatch',
       variables: {
-        customerName: customerName || 'Valued Customer',
-        orderId: orderId || 'ABL-1001',
-        trackingNumber: trackingNumber || 'AP398201948AU',
-        shippingMethod: shippingMethod || 'Standard Shipping (Australia Post)',
+        customerName: cleanCustomerName,
+        orderId: formattedOrderId,
+        trackingNumber: cleanTrackingNumber,
+        shippingMethod: shippingMethod || 'Express Shipping (Australia Post)',
         shippingAddress: shippingAddress || 'Australia'
       }
     });
@@ -290,9 +294,64 @@ const sendOrderDispatchEmail = async (dispatchData) => {
   }
 };
 
+const sendOrderRefundEmail = async (refundData) => {
+  try {
+    const {
+      toEmail,
+      customerName,
+      orderId,
+      refundAmount,
+      isFullRefund,
+      originalTotal,
+      daysTimeline
+    } = refundData;
+
+    if (!toEmail) return { success: false, message: 'No customer email provided' };
+
+    const formattedOrderId = orderId ? (String(orderId).startsWith('#') ? String(orderId) : `#${orderId}`) : '#ABL-1001';
+    const cleanCustomerName = (customerName || 'Valued Customer').replace(/\bClient\b/gi, '').trim() || 'Valued Customer';
+    
+    let formattedRefundAmt = String(refundAmount || '0.00').trim();
+    if (!formattedRefundAmt.startsWith('$')) formattedRefundAmt = `$${formattedRefundAmt}`;
+    if (!formattedRefundAmt.toUpperCase().includes('AUD')) formattedRefundAmt = `${formattedRefundAmt} AUD`;
+
+    let formattedOriginalTotal = String(originalTotal || formattedRefundAmt).trim();
+    if (!formattedOriginalTotal.startsWith('$')) formattedOriginalTotal = `$${formattedOriginalTotal}`;
+    if (!formattedOriginalTotal.toUpperCase().includes('AUD')) formattedOriginalTotal = `${formattedOriginalTotal} AUD`;
+
+    const refundType = isFullRefund ? 'Full Refund' : 'Partial Refund';
+    const timelineStr = daysTimeline || '5 to 10 business days';
+
+    const subject = `Your Refund of ${formattedRefundAmt} Has Been Processed — Abel's By Lincy (${formattedOrderId})`;
+    console.log(`✉️ [REFUND EMAIL SERVICE] Sending Stripe Refund Email to: ${toEmail} (Order Ref: ${formattedOrderId}, Amount: ${formattedRefundAmt})`);
+
+    return await sendEmail({
+      to: toEmail,
+      subject: subject,
+      templateName: 'order_refund',
+      variables: {
+        customerName: cleanCustomerName,
+        orderNumber: formattedOrderId,
+        refundHeading: isFullRefund ? 'Your Order Refund Has Been Processed' : 'Your Partial Refund Has Been Processed',
+        refundMessage: isFullRefund 
+          ? `We are confirming that a full refund of ${formattedRefundAmt} has been issued for your order ${formattedOrderId}.`
+          : `We are confirming that a partial refund of ${formattedRefundAmt} has been issued for your order ${formattedOrderId}.`,
+        refundAmount: formattedRefundAmt,
+        refundType: refundType,
+        originalTotal: formattedOriginalTotal,
+        timelineDays: timelineStr
+      }
+    });
+  } catch (error) {
+    console.error('Order refund email error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   sendEmail,
   sendOrderConfirmationEmail,
   sendNewsletterWelcomeEmail,
-  sendOrderDispatchEmail
+  sendOrderDispatchEmail,
+  sendOrderRefundEmail
 };

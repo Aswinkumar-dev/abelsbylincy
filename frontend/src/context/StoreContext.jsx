@@ -661,10 +661,41 @@ export function StoreProvider({ children }) {
     showToast('Category deleted', 'check');
   }, [categories, setCategories, showToast]);
 
-  const updateOrderStatus = useCallback((id, newStatus) => {
-    setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
+  const updateOrderStatus = useCallback((id, newStatus, additionalData = {}) => {
+    let affectedOrder = null;
+    setOrders(orders.map(o => {
+      if (o.id === id) {
+        const isCancelled = newStatus === 'Cancelled' || newStatus === 'Refunded';
+        const rawAmt = o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0;
+        const refundAmt = isCancelled ? (additionalData.refundAmount !== undefined ? Number(additionalData.refundAmount) : rawAmt) : (additionalData.refundAmount || 0);
+        affectedOrder = {
+          ...o,
+          status: newStatus,
+          refundAmount: refundAmt,
+          refundStatus: isCancelled ? (additionalData.refundStatus || 'Stripe Refund Processed') : undefined,
+          refundDate: isCancelled ? (o.refundDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })) : undefined,
+          ...additionalData
+        };
+        return affectedOrder;
+      }
+      return o;
+    }));
+
+    // Update customer spending when an order is cancelled or refunded
+    if (affectedOrder && (newStatus === 'Cancelled' || newStatus === 'Refunded') && affectedOrder.email) {
+      setCustomers(prev => prev.map(c => {
+        if (c.email?.toLowerCase() === affectedOrder.email?.toLowerCase()) {
+          const currentSpent = parseFloat(String(c.spent || '0').replace(/[^0-9.]/g, '')) || 0;
+          const refundAmt = Number(affectedOrder.refundAmount || affectedOrder.rawAmount || 0);
+          const newSpent = Math.max(0, currentSpent - refundAmt);
+          return { ...c, spent: `$${newSpent.toLocaleString()}` };
+        }
+        return c;
+      }));
+    }
+
     showToast(`Order status updated to ${newStatus}`, 'check');
-  }, [orders, setOrders, showToast]);
+  }, [orders, setOrders, setCustomers, showToast]);
 
   const cycleOrderStatus = useCallback((id) => {
     const statuses = ['Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];

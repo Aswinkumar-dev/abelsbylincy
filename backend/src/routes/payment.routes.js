@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createStripeIntent, createCheckoutSession, handleStripeWebhook, processAdminRefund, sendConfirmationEmail, sendNewsletterEmail, sendDispatchEmail, reconcilePayments, recordStripeOrder, getSessionDetails } = require('../controllers/payment.controller');
+const { createStripeIntent, createCheckoutSession, handleStripeWebhook, processAdminRefund, sendConfirmationEmail, sendNewsletterEmail, sendDispatchEmail, sendRefundEmail, reconcilePayments, recordStripeOrder, getSessionDetails, checkStripeRefund } = require('../controllers/payment.controller');
 const authenticateToken = require('../middleware/auth.middleware');
 
 // Public Stripe webhook receiver (expects RAW body buffer, parsed in app.js entry point)
@@ -23,6 +23,12 @@ router.post('/subscribe-newsletter', sendNewsletterEmail);
 
 // Send Australia Post Order Dispatch Email
 router.post('/send-order-dispatch-email', sendDispatchEmail);
+
+// Send Customer Stripe Refund Email
+router.post('/send-order-refund-email', sendRefundEmail);
+
+// Check / verify Stripe refund status live
+router.post('/check-stripe-refund', checkStripeRefund);
 
 // Protected endpoint to create PaymentIntent for logged-in user
 router.post('/create-intent', authenticateToken, createStripeIntent);

@@ -353,10 +353,102 @@ const reconcilePendingPaymentsWithStripe = async () => {
   }
 };
 
+const checkStripeRefundStatus = async ({ orderId, sessionId, paymentIntentId, email }) => {
+  try {
+    let piId = paymentIntentId;
+    let totalPaid = 0;
+
+    // 1. If sessionId provided, retrieve session
+    if (sessionId && String(sessionId).startsWith('cs_')) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        if (session) {
+          piId = session.payment_intent;
+          totalPaid = session.amount_total ? session.amount_total / 100 : 0;
+        }
+      } catch (err) {
+        console.warn('Session retrieval note in refund check:', err.message);
+      }
+    }
+
+    // 2. If no payment intent id yet, lookup from database
+    if (!piId && orderId) {
+      const cleanOrderId = String(orderId).replace(/^#/, '');
+      try {
+        const [payments] = await db.query(
+          "SELECT stripe_payment_intent_id, amount FROM payments WHERE order_id = ? OR order_id LIKE ? ORDER BY id DESC LIMIT 1",
+          [cleanOrderId, `%${cleanOrderId}%`]
+        );
+        if (payments.length > 0 && payments[0].stripe_payment_intent_id) {
+          piId = payments[0].stripe_payment_intent_id;
+          totalPaid = parseFloat(payments[0].amount) || totalPaid;
+        }
+      } catch {}
+    }
+
+    // 3. If still no piId and email provided, check recent Stripe PaymentIntents
+    if (!piId && email) {
+      try {
+        const pis = await stripe.paymentIntents.list({ limit: 15 });
+        const matchingPi = pis.data.find(p => p.receipt_email?.toLowerCase() === email.toLowerCase() || p.metadata?.email?.toLowerCase() === email.toLowerCase());
+        if (matchingPi) {
+          piId = matchingPi.id;
+          totalPaid = matchingPi.amount / 100;
+        }
+      } catch {}
+    }
+
+    // If we have a PaymentIntent ID, inspect charges & amount refunded from Stripe
+    if (piId && (String(piId).startsWith('pi_') || String(piId).startsWith('ch_'))) {
+      try {
+        const pi = String(piId).startsWith('pi_') ? await stripe.paymentIntents.retrieve(piId, { expand: ['charges.data'] }) : null;
+        if (pi) {
+          totalPaid = pi.amount ? pi.amount / 100 : totalPaid;
+          const charges = pi.charges?.data || [];
+          const totalRefundedInCents = charges.reduce((sum, ch) => sum + (ch.amount_refunded || 0), 0);
+          const amountRefunded = totalRefundedInCents / 100;
+          const isRefundedInStripe = amountRefunded > 0;
+          const isFullRefund = isRefundedInStripe && amountRefunded >= (totalPaid - 0.05);
+
+          return {
+            success: true,
+            paymentIntentId: pi.id,
+            totalPaid,
+            isRefundedInStripe,
+            amountRefunded,
+            isFullRefund,
+            refundStatus: isRefundedInStripe ? (isFullRefund ? 'Full Refund Processed' : 'Partial Refund Processed') : 'Not Refunded on Stripe',
+            refundCount: charges.reduce((count, ch) => count + (ch.refunds?.data?.length || 0), 0)
+          };
+        }
+      } catch (piErr) {
+        console.warn('PaymentIntent retrieval note:', piErr.message);
+      }
+    }
+
+    return {
+      success: true,
+      isRefundedInStripe: false,
+      amountRefunded: 0,
+      totalPaid: totalPaid || 0,
+      refundStatus: 'Not Refunded on Stripe'
+    };
+  } catch (error) {
+    console.error('Check Stripe refund error:', error.message);
+    return {
+      success: false,
+      isRefundedInStripe: false,
+      amountRefunded: 0,
+      error: error.message
+    };
+  }
+};
+
 module.exports = {
   getOrCreateStripeCustomer,
   createPaymentIntentForOrder,
   handleWebhookEvent,
   createRefundForOrder,
-  reconcilePendingPaymentsWithStripe
+  reconcilePendingPaymentsWithStripe,
+  checkStripeRefundStatus
 };

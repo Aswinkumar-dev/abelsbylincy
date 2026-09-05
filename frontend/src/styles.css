@@ -2915,6 +2915,25 @@ input, select, textarea {
   font-weight: 700;
 }
 
+.admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1050;
+  backdrop-filter: blur(2px);
+}
+
+@media (min-width: 769px) {
+  .admin-modal-overlay {
+    padding-left: 284px !important; /* Offsets 260px left sidebar so modal centers over the right content area */
+    padding-right: 24px !important;
+  }
+}
+
 @media (max-width: 768px) {
   html, body, #root {
     width: 100% !important;

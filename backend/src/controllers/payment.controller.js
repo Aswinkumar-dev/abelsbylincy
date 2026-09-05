@@ -473,6 +473,40 @@ const getSessionDetails = async (req, res, next) => {
   }
 };
 
+const { sendOrderRefundEmail } = require('../services/email.service');
+const { checkStripeRefundStatus } = require('../services/stripe.service');
+
+const checkStripeRefund = async (req, res, next) => {
+  try {
+    const { orderId, sessionId, paymentIntentId, email } = req.body;
+    const result = await checkStripeRefundStatus({ orderId, sessionId, paymentIntentId, email });
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const sendRefundEmail = async (req, res, next) => {
+  try {
+    const { toEmail, customerName, orderId, refundAmount, isFullRefund, originalTotal, daysTimeline } = req.body;
+    if (!toEmail) return res.status(400).json({ success: false, message: 'Customer email is required.' });
+
+    const result = await sendOrderRefundEmail({
+      toEmail,
+      customerName,
+      orderId,
+      refundAmount,
+      isFullRefund,
+      originalTotal,
+      daysTimeline: daysTimeline || '5 to 10 business days'
+    });
+
+    res.status(200).json({ success: true, message: 'Refund confirmation email dispatched to customer.', result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createStripeIntent,
   createCheckoutSession,
@@ -481,7 +515,9 @@ module.exports = {
   sendConfirmationEmail,
   sendNewsletterEmail,
   sendDispatchEmail,
+  sendRefundEmail,
   reconcilePayments,
   recordStripeOrder,
-  getSessionDetails
+  getSessionDetails,
+  checkStripeRefund
 };

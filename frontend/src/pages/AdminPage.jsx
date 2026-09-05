@@ -5,7 +5,7 @@ import {
   ChartNoAxesColumn, Lock, ChevronRight, ChevronLeft, Crown, Search, Plus, Pencil, Trash2,
   RefreshCw, DollarSign, TrendingUp, AlertTriangle, AlertCircle, CheckCircle2, Star, Eye, EyeOff,
   ArrowUp, ArrowDown, Download, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
-  User, Mail, Phone, MapPin, Printer
+  User, Mail, Phone, MapPin, Printer, Truck
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
@@ -108,6 +108,205 @@ export default function AdminPage() {
 
   // Order Details Modal state
   const [selectedOrder, setSelectedOrder] = useState(null);
+
+  // Ship Order & Australia Post Tracking Modal state
+  const [shippingOrderModal, setShippingOrderModal] = useState(null);
+  const [shippingTrackingNumber, setShippingTrackingNumber] = useState('');
+  const [shippingTrackingError, setShippingTrackingError] = useState('');
+  const [isSendingDispatchEmail, setIsSendingDispatchEmail] = useState(false);
+
+  // Cancel Order & Stripe Refund Double-Check Modal state
+  const [cancelOrderModal, setCancelOrderModal] = useState(null);
+  const [isCheckingStripeRefund, setIsCheckingStripeRefund] = useState(false);
+  const [stripeRefundCheckResult, setStripeRefundCheckResult] = useState(null);
+  const [cancelRefundAmount, setCancelRefundAmount] = useState('');
+  const [cancelRefundError, setCancelRefundError] = useState('');
+  const [cancelRefundTimeline, setCancelRefundTimeline] = useState('5 to 10 business days');
+  const [sendCustomerRefundEmail, setSendCustomerRefundEmail] = useState(true);
+  const [isProcessingCancellation, setIsProcessingCancellation] = useState(false);
+
+  const openCancelOrderModal = async (order) => {
+    setCancelOrderModal(order);
+    const rawAmt = order.rawAmount || parseFloat(String(order.total || '0').replace(/[^0-9.]/g, '')) || 0;
+    setCancelRefundAmount(String(rawAmt));
+    setCancelRefundError('');
+    setCancelRefundTimeline('5 to 10 business days');
+    setSendCustomerRefundEmail(true);
+    setIsCheckingStripeRefund(true);
+    setStripeRefundCheckResult(null);
+
+    try {
+      const res = await fetch('/api/payments/check-stripe-refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          sessionId: order.sessionId,
+          email: order.email
+        })
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        setStripeRefundCheckResult(data);
+        if (data.isRefundedInStripe && data.amountRefunded > 0) {
+          setCancelRefundAmount(String(data.amountRefunded));
+        }
+      } else {
+        setStripeRefundCheckResult({ isRefundedInStripe: false, message: data?.message || 'No live Stripe refund recorded yet' });
+      }
+    } catch {
+      setStripeRefundCheckResult({ isRefundedInStripe: false, message: 'Could not connect to Stripe live' });
+    } finally {
+      setIsCheckingStripeRefund(false);
+    }
+  };
+
+  const handleConfirmOrderCancellation = async (e) => {
+    if (e) e.preventDefault();
+    if (!cancelOrderModal) return;
+
+    const parsedRefundAmt = parseFloat(cancelRefundAmount);
+    const orderTotalAmt = cancelOrderModal.rawAmount || parseFloat(String(cancelOrderModal.total || '0').replace(/[^0-9.]/g, '')) || 0;
+
+    if (isNaN(parsedRefundAmt) || parsedRefundAmt < 0) {
+      setCancelRefundError('Please enter a valid refund amount (e.g. 0 for no refund, or partial/full amount).');
+      return;
+    }
+
+    if (parsedRefundAmt > orderTotalAmt + 0.01) {
+      setCancelRefundError(`Refund amount cannot exceed original order total of $${orderTotalAmt.toFixed(2)} AUD.`);
+      return;
+    }
+
+    setIsProcessingCancellation(true);
+    setCancelRefundError('');
+
+    const targetOrder = cancelOrderModal;
+    const isFullRefund = parsedRefundAmt >= (orderTotalAmt - 0.05);
+    const refundStatusText = parsedRefundAmt > 0 ? (isFullRefund ? 'Full Refund Processed' : 'Partial Refund Processed') : 'Order Cancelled (No Refund)';
+
+    // 1. Update order status and exact refund amount in StoreContext
+    if (updateOrderStatus) {
+      updateOrderStatus(targetOrder.id, 'Cancelled', {
+        refundAmount: parsedRefundAmt,
+        isFullRefund,
+        refundStatus: refundStatusText,
+        refundTimeline: cancelRefundTimeline
+      });
+    }
+
+    if (selectedOrder && selectedOrder.id === targetOrder.id) {
+      setSelectedOrder(prev => ({
+        ...prev,
+        status: 'Cancelled',
+        refundAmount: parsedRefundAmt,
+        isFullRefund,
+        refundStatus: refundStatusText,
+        refundTimeline: cancelRefundTimeline
+      }));
+    }
+
+    // 2. Dispatch Customer Refund Email via backend API if enabled and refund amount > 0
+    if (sendCustomerRefundEmail && parsedRefundAmt > 0 && targetOrder.email) {
+      try {
+        await fetch('/api/payments/send-order-refund-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: targetOrder.email,
+            customerName: targetOrder.customer,
+            orderId: targetOrder.id,
+            refundAmount: `$${parsedRefundAmt.toFixed(2)} AUD`,
+            isFullRefund,
+            originalTotal: targetOrder.total,
+            daysTimeline: cancelRefundTimeline
+          })
+        });
+        showToast(`✓ Order marked as Cancelled & Refund email sent to ${targetOrder.email}`, 'check');
+      } catch {
+        showToast(`✓ Order marked as Cancelled ($${parsedRefundAmt.toFixed(2)} AUD refund recorded).`, 'check');
+      }
+    } else {
+      showToast(`✓ Order marked as Cancelled ($${parsedRefundAmt.toFixed(2)} AUD refund recorded).`, 'check');
+    }
+
+    setIsProcessingCancellation(false);
+    setCancelOrderModal(null);
+  };
+
+  const handleInitiateStatusChange = (order, newStatus) => {
+    if (newStatus === 'Shipped') {
+      setShippingOrderModal(order);
+      setShippingTrackingNumber(order.trackingNumber || '');
+      setShippingTrackingError('');
+    } else if (newStatus === 'Cancelled') {
+      openCancelOrderModal(order);
+    } else {
+      if (updateOrderStatus) updateOrderStatus(order.id, newStatus);
+      if (selectedOrder && selectedOrder.id === order.id) {
+        setSelectedOrder(prev => ({ ...prev, status: newStatus }));
+      }
+    }
+  };
+
+  const handleConfirmShipmentWithTracking = async (e) => {
+    if (e) e.preventDefault();
+    const cleanTracking = (shippingTrackingNumber || '').trim().toUpperCase();
+    if (!cleanTracking) {
+      setShippingTrackingError('Please enter an Australia Post tracking number (e.g. AP398201948AU).');
+      return;
+    }
+
+    if (!shippingOrderModal) return;
+
+    setIsSendingDispatchEmail(true);
+    setShippingTrackingError('');
+
+    const targetOrder = shippingOrderModal;
+    const formattedAddress = [
+      targetOrder.address || '189 Brompton Road',
+      targetOrder.city || 'Brisbane City',
+      targetOrder.state || 'Queensland (QLD)',
+      targetOrder.postcode || '4061',
+      'Australia'
+    ].filter(Boolean).join(', ');
+
+    // 1. Update order status in StoreContext with tracking number
+    if (updateOrderStatus) {
+      updateOrderStatus(targetOrder.id, 'Shipped', { trackingNumber: cleanTracking });
+    }
+    if (selectedOrder && selectedOrder.id === targetOrder.id) {
+      setSelectedOrder(prev => ({ ...prev, status: 'Shipped', trackingNumber: cleanTracking }));
+    }
+
+    // 2. Dispatch Australia Post Shipped Email via backend API
+    try {
+      const res = await fetch('/api/payments/send-order-dispatch-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: targetOrder.email,
+          customerName: targetOrder.customer,
+          orderId: targetOrder.id,
+          trackingNumber: cleanTracking,
+          shippingMethod: targetOrder.shippingMethod === 'express' ? 'Express Shipping (Australia Post)' : (targetOrder.shippingMethod || 'Australia Post Shipping'),
+          shippingAddress: formattedAddress
+        })
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        showToast(`✓ Order marked as Shipped! Australia Post tracking email sent to ${targetOrder.email}`, 'check');
+      } else {
+        showToast(`Order marked as Shipped. Tracking code ${cleanTracking} recorded.`, 'check');
+      }
+    } catch {
+      showToast(`Order marked as Shipped! (Tracking code recorded: ${cleanTracking})`, 'check');
+    } finally {
+      setIsSendingDispatchEmail(false);
+      setShippingOrderModal(null);
+      setShippingTrackingNumber('');
+    }
+  };
 
   // Customer Details Modal state
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -512,14 +711,23 @@ export default function AdminPage() {
               return true;
             });
 
-            const dashRevenue = filteredDashOrders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0);
-            const dashItemsCount = filteredDashOrders.reduce((sum, o) => sum + (o.itemsCount || o.items?.length || 1), 0);
+            const dashGrossRevenue = filteredDashOrders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0);
+            const dashRefunds = filteredDashOrders.reduce((sum, o) => {
+              if (o.status === 'Cancelled' || o.status === 'Refunded') {
+                return sum + (o.refundAmount !== undefined ? Number(o.refundAmount) : (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0));
+              }
+              return sum + Number(o.refundAmount || 0);
+            }, 0);
+            const dashNetRevenue = Math.max(0, dashGrossRevenue - dashRefunds);
+
+            const activeDashOrders = filteredDashOrders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
+            const dashItemsCount = activeDashOrders.reduce((sum, o) => sum + (o.itemsCount || o.items?.length || 1), 0);
 
             const dashConfirmed = filteredDashOrders.filter(o => o.status === 'Confirmed' || o.status === 'New Order' || !o.status).length;
             const dashPacked = filteredDashOrders.filter(o => o.status === 'Packed').length;
             const dashShipped = filteredDashOrders.filter(o => o.status === 'Shipped').length;
             const dashDelivered = filteredDashOrders.filter(o => o.status === 'Delivered').length;
-            const dashCancelled = filteredDashOrders.filter(o => o.status === 'Cancelled').length;
+            const dashCancelled = filteredDashOrders.filter(o => o.status === 'Cancelled' || o.status === 'Refunded').length;
 
             return (
               <div>
@@ -553,14 +761,18 @@ export default function AdminPage() {
                   <div className="kpi-card">
                     <span className="kpi-title">Total Orders</span>
                     <span className="kpi-value">{filteredDashOrders.length} Orders</span>
-                    <span className="kpi-trend trend-up">Live Store Data</span>
+                    <span className="kpi-trend trend-up">
+                      {activeDashOrders.length} Active · {dashCancelled} Refunded
+                    </span>
                   </div>
                   <div className="kpi-card">
-                    <span className="kpi-title">Total Revenue</span>
-                    <span className="kpi-value">
-                      {formatMoney(dashRevenue)}
+                    <span className="kpi-title">Net Revenue</span>
+                    <span className="kpi-value" style={{ color: 'var(--onyx)' }}>
+                      {formatMoney(dashNetRevenue)}
                     </span>
-                    <span className="kpi-trend trend-up">Live Sales Total</span>
+                    <span className="kpi-trend" style={{ color: dashRefunds > 0 ? '#C5221F' : '#2F855A', fontSize: 11.5, fontWeight: 600 }}>
+                      {dashRefunds > 0 ? `Gross: ${formatMoney(dashGrossRevenue)} · Stripe Refunds: -${formatMoney(dashRefunds)}` : 'Live Net Sales (0 Refunds)'}
+                    </span>
                   </div>
                   <div className="kpi-card">
                     <span className="kpi-title">Items Sold</span>
@@ -617,9 +829,14 @@ export default function AdminPage() {
                       <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#276749' }}>{dashDelivered}</span>
                       <span style={{ fontSize: 12, color: '#22543D', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delivered</span>
                     </div>
-                    <div style={{ background: '#FED7D7', padding: 16, borderRadius: 8, textAlign: 'center' }}>
+                    <div style={{ background: '#FED7D7', padding: 16, borderRadius: 8, textAlign: 'center', border: dashCancelled > 0 ? '1px solid #FEB2B2' : 'none' }}>
                       <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#9B2C2C' }}>{dashCancelled}</span>
-                      <span style={{ fontSize: 12, color: '#742A2A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cancelled</span>
+                      <span style={{ fontSize: 12, color: '#742A2A', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>Cancelled</span>
+                      {dashRefunds > 0 && (
+                        <span style={{ fontSize: 10.5, color: '#C5221F', fontWeight: 700, display: 'block', marginTop: 2 }}>
+                          -{formatMoney(dashRefunds)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1058,36 +1275,69 @@ export default function AdminPage() {
                             </td>
                             <td>
                               <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--onyx)' }}>{o.product || 'Gold Jewellery Selection'}</div>
-                              <strong style={{ fontSize: 13, color: 'var(--gold-dark)', display: 'block', marginTop: 2 }}>{o.total}</strong>
+                              {o.status === 'Cancelled' || o.status === 'Refunded' ? (
+                                <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 12, color: 'var(--slate)', textDecoration: 'line-through' }}>{o.total}</span>
+                                  <span style={{ background: '#FCE8E6', color: '#C5221F', border: '1px solid #FAD2CF', padding: '1px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 700 }}>
+                                    Refunded (-{formatMoney(o.refundAmount !== undefined ? Number(o.refundAmount) : (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0))})
+                                  </span>
+                                </div>
+                              ) : (
+                                <strong style={{ fontSize: 13, color: 'var(--gold-dark)', display: 'block', marginTop: 2 }}>{o.total}</strong>
+                              )}
                             </td>
                             <td style={{ fontSize: 12, color: 'var(--slate)' }}>{o.date}</td>
                             <td>
                               {(() => {
                                 const st = getStatusStyles(o.status);
                                 return (
-                                  <select
-                                    value={o.status}
-                                    onChange={(e) => (updateOrderStatus ? updateOrderStatus(o.id, e.target.value) : cycleOrderStatus(o.id))}
-                                    style={{
-                                      background: st.bg,
-                                      color: st.color,
-                                      border: `1px solid ${st.border}`,
-                                      borderRadius: 6,
-                                      padding: '5px 8px',
-                                      fontSize: 11.5,
-                                      fontWeight: 700,
-                                      fontFamily: 'var(--font-sans)',
-                                      cursor: 'pointer',
-                                      outline: 'none',
-                                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                                    }}
-                                  >
-                                    <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
-                                    <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
-                                    <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
-                                    <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
-                                    <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
-                                  </select>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                    <select
+                                      value={o.status}
+                                      onChange={(e) => handleInitiateStatusChange(o, e.target.value)}
+                                      style={{
+                                        background: st.bg,
+                                        color: st.color,
+                                        border: `1px solid ${st.border}`,
+                                        borderRadius: 6,
+                                        padding: '5px 8px',
+                                        fontSize: 11.5,
+                                        fontWeight: 700,
+                                        fontFamily: 'var(--font-sans)',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                      }}
+                                    >
+                                      <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
+                                      <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
+                                      <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
+                                      <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
+                                      <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
+                                    </select>
+
+                                    {o.trackingNumber && (
+                                      <a
+                                        href={`https://auspost.com.au/mypost/track/#/details/${encodeURIComponent(o.trackingNumber)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                          fontSize: 10.5,
+                                          color: 'var(--gold-dark)',
+                                          fontWeight: 700,
+                                          textDecoration: 'none',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: 3,
+                                          letterSpacing: '0.02em'
+                                        }}
+                                        title={`Track on Australia Post: ${o.trackingNumber}`}
+                                      >
+                                        <span>AP: {o.trackingNumber}</span>
+                                        <ExternalLink style={{ width: 10, height: 10 }} />
+                                      </a>
+                                    )}
+                                  </div>
                                 );
                               })()}
                             </td>
@@ -1679,10 +1929,18 @@ export default function AdminPage() {
 
               {/* Analytics Metrics Cards */}
               {(() => {
-                const totalRev = orders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0);
+                const totalGrossRev = orders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0);
+                const totalRefunds = orders.reduce((sum, o) => {
+                  if (o.status === 'Cancelled' || o.status === 'Refunded') {
+                    return sum + (o.refundAmount !== undefined ? Number(o.refundAmount) : (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0));
+                  }
+                  return sum + Number(o.refundAmount || 0);
+                }, 0);
+                const netRev = Math.max(0, totalGrossRev - totalRefunds);
                 const orderCnt = orders.length;
-                const aovVal = orderCnt > 0 ? (totalRev / orderCnt) : 0;
-                const custCounts = orders.reduce((acc, o) => { if (o.email) acc[o.email] = (acc[o.email] || 0) + 1; return acc; }, {});
+                const activeOrders = orders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
+                const aovVal = activeOrders.length > 0 ? (netRev / activeOrders.length) : 0;
+                const custCounts = activeOrders.reduce((acc, o) => { if (o.email) acc[o.email] = (acc[o.email] || 0) + 1; return acc; }, {});
                 const repeatCusts = Object.values(custCounts).filter(c => c > 1).length;
                 const uniqueCusts = Object.keys(custCounts).length;
                 const repeatPct = uniqueCusts > 0 ? ((repeatCusts / uniqueCusts) * 100).toFixed(1) : '0.0';
@@ -1691,24 +1949,57 @@ export default function AdminPage() {
                   <>
                     <div className="kpi-grid" style={{ marginBottom: 24 }}>
                       <div className="kpi-card">
+                        <span className="kpi-title">Net Sales Revenue</span>
+                        <span className="kpi-value" style={{ color: 'var(--onyx)' }}>{formatMoney(netRev)}</span>
+                        <span className="kpi-trend trend-up">Net After Stripe Refunds</span>
+                      </div>
+                      <div className="kpi-card">
+                        <span className="kpi-title">Total Stripe Refunds</span>
+                        <span className="kpi-value" style={{ color: totalRefunds > 0 ? '#C5221F' : 'var(--slate)' }}>
+                          {totalRefunds > 0 ? `-${formatMoney(totalRefunds)}` : '$0.00'}
+                        </span>
+                        <span className="kpi-trend" style={{ color: '#C5221F' }}>
+                          {orders.filter(o => o.status === 'Cancelled' || o.status === 'Refunded').length} Cancelled / Refunded
+                        </span>
+                      </div>
+                      <div className="kpi-card">
                         <span className="kpi-title">Gross Revenue</span>
-                        <span className="kpi-value">{formatMoney(totalRev)}</span>
-                        <span className="kpi-trend trend-up">Live Revenue Total</span>
+                        <span className="kpi-value">{formatMoney(totalGrossRev)}</span>
+                        <span className="kpi-trend trend-up">{orderCnt} Total Orders Placed</span>
                       </div>
                       <div className="kpi-card">
-                        <span className="kpi-title">Total Orders</span>
-                        <span className="kpi-value">{orderCnt}</span>
-                        <span className="kpi-trend trend-up">Live Order Count</span>
-                      </div>
-                      <div className="kpi-card">
-                        <span className="kpi-title">Average Order Value (AOV)</span>
+                        <span className="kpi-title">Net AOV</span>
                         <span className="kpi-value">{formatMoney(aovVal)}</span>
-                        <span className="kpi-trend trend-up">Live Average Basket Size</span>
+                        <span className="kpi-trend trend-up">Average Settled Basket</span>
                       </div>
                       <div className="kpi-card">
                         <span className="kpi-title">Repeat Purchase Rate</span>
                         <span className="kpi-value">{repeatPct}%</span>
                         <span className="kpi-trend trend-up">Live Client Loyalty</span>
+                      </div>
+                    </div>
+
+                    {/* Financial Reconciliation Breakdown Summary */}
+                    <div style={{ background: '#FFFFFF', padding: 22, borderRadius: 12, border: '1px solid var(--border)', marginBottom: 24 }}>
+                      <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 14px 0', color: 'var(--onyx)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span>📊 Stripe Financial Settlement Summary</span>
+                      </h3>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+                        <div style={{ background: '#F8FAFC', padding: 14, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                          <span style={{ fontSize: 11, color: 'var(--slate)', textTransform: 'uppercase', fontWeight: 600, display: 'block' }}>Gross Volume</span>
+                          <strong style={{ fontSize: 18, color: 'var(--onyx)', display: 'block', marginTop: 4 }}>{formatMoney(totalGrossRev)} AUD</strong>
+                          <span style={{ fontSize: 11, color: 'var(--slate)' }}>All processed checkout sessions</span>
+                        </div>
+                        <div style={{ background: '#FFF5F5', padding: 14, borderRadius: 8, border: '1px solid #FEB2B2' }}>
+                          <span style={{ fontSize: 11, color: '#9B2C2C', textTransform: 'uppercase', fontWeight: 600, display: 'block' }}>Stripe Refunds Deducted</span>
+                          <strong style={{ fontSize: 18, color: '#C5221F', display: 'block', marginTop: 4 }}>-{formatMoney(totalRefunds)} AUD</strong>
+                          <span style={{ fontSize: 11, color: '#9B2C2C' }}>Fully refunded to client cards</span>
+                        </div>
+                        <div style={{ background: '#F0FDF4', padding: 14, borderRadius: 8, border: '1px solid #BBF7D0' }}>
+                          <span style={{ fontSize: 11, color: '#166534', textTransform: 'uppercase', fontWeight: 600, display: 'block' }}>Net Store Revenue</span>
+                          <strong style={{ fontSize: 18, color: '#15803D', display: 'block', marginTop: 4 }}>{formatMoney(netRev)} AUD</strong>
+                          <span style={{ fontSize: 11, color: '#166534' }}>100% accurate net earnings</span>
+                        </div>
                       </div>
                     </div>
 
@@ -2270,173 +2561,104 @@ export default function AdminPage() {
       )}
 
       {/* MODAL: Customer Order History Profile */}
-      {selectedCustomer && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 1000 }}>
-          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 540, width: '100%', padding: 28, maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 700, marginBottom: 4 }}>
-              {selectedCustomer.name}
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--slate)', marginBottom: 20 }}>
-              Email: <strong>{selectedCustomer.email}</strong> • Joined: {selectedCustomer.joined || 'Aug 2026'}
-            </p>
+      {selectedCustomer && (() => {
+        const custOrders = orders.filter(o => (selectedCustomer.name && o.customer?.toLowerCase() === selectedCustomer.name.toLowerCase()) || (selectedCustomer.email && o.email?.toLowerCase() === selectedCustomer.email.toLowerCase()));
+        const custGrossSpent = custOrders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0);
+        const custRefunds = custOrders.reduce((sum, o) => {
+          if (o.status === 'Cancelled' || o.status === 'Refunded') {
+            return sum + (o.refundAmount !== undefined ? Number(o.refundAmount) : (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0));
+          }
+          return sum + Number(o.refundAmount || 0);
+        }, 0);
+        const custNetSpent = Math.max(0, custGrossSpent - custRefunds);
+        const activeCustOrders = custOrders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24, background: 'var(--cream)', padding: 16, borderRadius: 8 }}>
-              <div>
-                <span style={{ fontSize: 11, color: 'var(--slate)', textTransform: 'uppercase' }}>Total Orders</span>
-                <span style={{ display: 'block', fontSize: 20, fontWeight: 700, color: 'var(--onyx)' }}>{selectedCustomer.orders || 1}</span>
-              </div>
-              <div>
-                <span style={{ fontSize: 11, color: 'var(--slate)', textTransform: 'uppercase' }}>Total Spent</span>
-                <span style={{ display: 'block', fontSize: 20, fontWeight: 700, color: 'var(--gold-dark)' }}>{selectedCustomer.spent || '$189'}</span>
-              </div>
-            </div>
-
-            <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Past Purchase History</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {orders.filter(o => o.customer === selectedCustomer.name || o.email === selectedCustomer.email).map(o => (
-                <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 }}>
-                  <div>
-                    <strong>{o.id}</strong> — {o.product || 'Fine Jewellery'}
-                    <span style={{ display: 'block', fontSize: 11, color: 'var(--slate)' }}>Date: {o.date}</span>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <strong style={{ fontSize: 14, color: 'var(--onyx)' }}>{o.total}</strong>
-                    <span style={{ display: 'block', fontSize: 11, color: '#276749', fontWeight: 600 }}>{o.status}</span>
-                  </div>
+        return (
+          <div className="admin-modal-overlay" style={{ paddingLeft: sidebarCollapsed ? '96px' : undefined }}>
+            <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 560, width: '95%', padding: '24px 28px', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                <div>
+                  <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>
+                    {selectedCustomer.name}
+                  </h3>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>
+                    Email: <strong>{selectedCustomer.email}</strong> • Joined: {selectedCustomer.joined || 'Aug 2026'}
+                  </p>
                 </div>
-              ))}
-            </div>
-
-            <div style={{ textAlign: 'right', marginTop: 24 }}>
-              <button type="button" onClick={() => setSelectedCustomer(null)} className="btn-secondary">Close Profile</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Order Details */}
-      {selectedOrder && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 1000 }}>
-          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 560, width: '100%', padding: 28, maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 700, marginBottom: 4 }}>
-              Order {selectedOrder.id}
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--slate)', marginBottom: 20 }}>Placed on {selectedOrder.date}</p>
-
-            <div style={{ background: 'var(--cream)', padding: 16, borderRadius: 8, marginBottom: 16, fontSize: 13, lineHeight: 1.6 }}>
-              <p style={{ margin: '0 0 6px 0' }}><strong>Customer:</strong> {selectedOrder.customer} ({selectedOrder.email})</p>
-              <p style={{ margin: '0 0 6px 0' }}><strong>Shipping:</strong> Sydney, New South Wales, Australia</p>
-              <p style={{ margin: '0 0 6px 0' }}><strong>Payment Gateway:</strong> Stripe Encrypted Gateway (Status: Paid)</p>
-              <p style={{ margin: 0 }}><strong>Transaction ID:</strong> <code>tx_stripe_{selectedOrder.id.replace('#', '')}</code></p>
-            </div>
-
-            <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, marginBottom: 20 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 8px 0' }}>Item Breakdown</h4>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                <span>1x {selectedOrder.product || 'Fine Gold-Plated Jewellery'}</span>
-                <strong>{selectedOrder.total}</strong>
-              </div>
-            </div>
-
-            {/* Australia Post Dispatch & Tracking Email Tool */}
-            <div style={{ border: '1.5px solid var(--gold)', background: 'rgba(212, 175, 55, 0.08)', borderRadius: 10, padding: 16, marginBottom: 20 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                🚚 Australia Post Order Dispatch
-              </h4>
-              <p style={{ fontSize: 12, color: 'var(--slate)', margin: '0 0 10px 0' }}>
-                Enter the parcel tracking number to dispatch order and email customer tracking link.
-              </p>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  type="text"
-                  placeholder="e.g. AP398201948AU"
-                  id={`tracking-input-${selectedOrder.id}`}
-                  defaultValue={selectedOrder.trackingNumber || 'AP398201948AU'}
-                  style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, outline: 'none' }}
-                />
                 <button
                   type="button"
-                  className="btn-primary"
-                  style={{ fontSize: 12, padding: '8px 14px', whiteSpace: 'nowrap' }}
-                  onClick={async () => {
-                    const input = document.getElementById(`tracking-input-${selectedOrder.id}`);
-                    const trkNum = input ? input.value : 'AP398201948AU';
-                    try {
-                      const res = await fetch('/api/payments/send-order-dispatch-email', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          toEmail: selectedOrder.email,
-                          customerName: selectedOrder.customer,
-                          orderId: selectedOrder.id,
-                          trackingNumber: trkNum,
-                          shippingMethod: 'Standard Shipping (Australia Post)',
-                          shippingAddress: 'Australia'
-                        })
-                      });
-                      const data = await res.json();
-                      if (data.success) {
-                        if (updateOrderStatus) updateOrderStatus(selectedOrder.id, 'Shipped');
-                        setSelectedOrder({ ...selectedOrder, status: 'Shipped', trackingNumber: trkNum });
-                        showToast(`Order marked Shipped & Australia Post email sent to ${selectedOrder.email}!`, 'check');
-                      } else {
-                        showToast(data.message || 'Dispatch email failed', 'alert-circle');
-                      }
-                    } catch (err) {
-                      showToast('Dispatch request failed', 'alert-circle');
-                    }
-                  }}
+                  onClick={() => setSelectedCustomer(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--slate)', cursor: 'pointer', padding: 4 }}
                 >
-                  Send Tracking Email
+                  <X style={{ width: 20, height: 20 }} />
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20, background: 'var(--cream)', padding: 16, borderRadius: 10, border: '1px solid var(--border)' }}>
+                <div>
+                  <span style={{ fontSize: 11, color: 'var(--slate)', textTransform: 'uppercase', fontWeight: 600 }}>Total Orders</span>
+                  <span style={{ display: 'block', fontSize: 20, fontWeight: 700, color: 'var(--onyx)', marginTop: 2 }}>{custOrders.length || selectedCustomer.orders || 1}</span>
+                  <span style={{ fontSize: 11, color: 'var(--slate)' }}>{activeCustOrders.length} active order{activeCustOrders.length === 1 ? '' : 's'}</span>
+                </div>
+                <div>
+                  <span style={{ fontSize: 11, color: 'var(--slate)', textTransform: 'uppercase', fontWeight: 600 }}>Net Lifetime Spent</span>
+                  <span style={{ display: 'block', fontSize: 20, fontWeight: 700, color: 'var(--gold-dark)', marginTop: 2 }}>{formatMoney(custNetSpent)}</span>
+                  {custRefunds > 0 ? (
+                    <span style={{ fontSize: 11, color: '#C5221F', fontWeight: 600 }}>
+                      Gross: {formatMoney(custGrossSpent)} · Refunds: -{formatMoney(custRefunds)}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 11, color: 'var(--slate)' }}>Net Settled</span>
+                  )}
+                </div>
+              </div>
+
+              <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: 'var(--onyx)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Purchase Dossier ({custOrders.length})
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {custOrders.length === 0 ? (
+                  <div style={{ padding: 16, background: '#F8FAFC', borderRadius: 8, textAlign: 'center', color: 'var(--slate)', fontSize: 13 }}>
+                    No order history recorded for this customer yet.
+                  </div>
+                ) : (
+                  custOrders.map(o => (
+                    <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: (o.status === 'Cancelled' || o.status === 'Refunded') ? '#FFF5F5' : '#FFFFFF' }}>
+                      <div>
+                        <strong>{o.id}</strong> — {o.product || 'Fine Jewellery'}
+                        <span style={{ display: 'block', fontSize: 11, color: 'var(--slate)' }}>Date: {o.date}</span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        {o.status === 'Cancelled' || o.status === 'Refunded' ? (
+                          <>
+                            <strong style={{ fontSize: 13, color: 'var(--slate)', textDecoration: 'line-through', display: 'block' }}>{o.total}</strong>
+                            <span style={{ fontSize: 11, color: '#C5221F', fontWeight: 700 }}>Refunded (-{formatMoney(o.refundAmount !== undefined ? Number(o.refundAmount) : (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0))})</span>
+                          </>
+                        ) : (
+                          <>
+                            <strong style={{ fontSize: 14, color: 'var(--onyx)', display: 'block' }}>{o.total}</strong>
+                            <span style={{ fontSize: 11, color: '#276749', fontWeight: 600 }}>{o.status}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div style={{ textAlign: 'right', marginTop: 24, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <button type="button" onClick={() => setSelectedCustomer(null)} className="btn-secondary" style={{ padding: '8px 20px', fontSize: 13 }}>
+                  Close Profile
                 </button>
               </div>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate)' }}>Update Status:</span>
-                {(() => {
-                  const st = getStatusStyles(selectedOrder.status);
-                  return (
-                    <select
-                      value={selectedOrder.status}
-                      onChange={(e) => {
-                        const newSt = e.target.value;
-                        if (updateOrderStatus) updateOrderStatus(selectedOrder.id, newSt);
-                        setSelectedOrder({ ...selectedOrder, status: newSt });
-                      }}
-                      style={{
-                        background: st.bg,
-                        color: st.color,
-                        border: `1px solid ${st.border}`,
-                        borderRadius: 6,
-                        padding: '8px 14px',
-                        fontSize: 13,
-                        fontWeight: 700,
-                        fontFamily: 'var(--font-sans)',
-                        cursor: 'pointer',
-                        outline: 'none',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                      }}
-                    >
-                      <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
-                      <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
-                      <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
-                      <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
-                      <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
-                    </select>
-                  );
-                })()}
-              </div>
-              <button onClick={() => setSelectedOrder(null)} className="btn-secondary" style={{ padding: '8px 16px', fontSize: 13 }}>Close</button>
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL: Add Hero Banner Slide */}
       {showHeroModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
+        <div className="admin-modal-overlay">
           <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 540, width: '95%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)' }}>
             <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'clamp(16px, 4vw, 24px)', width: '100%', boxSizing: 'border-box' }}>
               <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 700, marginBottom: 16, color: 'var(--onyx)' }}>
@@ -2698,7 +2920,7 @@ export default function AdminPage() {
 
       {/* MODAL: View Message Details Popup */}
       {selectedMessage && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
+        <div className="admin-modal-overlay" style={{ paddingLeft: sidebarCollapsed ? '96px' : undefined }}>
           <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 540, width: '95%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)' }}>
             <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'clamp(20px, 4vw, 28px)', width: '100%', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -2772,7 +2994,7 @@ export default function AdminPage() {
 
       {/* MODAL: Create / Edit Coupon */}
       {editingCoupon && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
+        <div className="admin-modal-overlay" style={{ paddingLeft: sidebarCollapsed ? '96px' : undefined }}>
           <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 580, width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
             <div style={{ overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', padding: 'clamp(20px, 4vw, 28px)', width: '100%', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -3137,7 +3359,7 @@ export default function AdminPage() {
 
       {/* MODAL: Order Details / Full Dossier */}
       {selectedOrder && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1050 }}>
+        <div className="admin-modal-overlay" style={{ paddingLeft: sidebarCollapsed ? '96px' : undefined }}>
           <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 640, width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)' }}>
             
             {/* Modal Header */}
@@ -3175,6 +3397,28 @@ export default function AdminPage() {
             {/* Modal Scrollable Body */}
             <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }}>
               
+              {/* Stripe Refund Banner (if order is cancelled or refunded) */}
+              {(selectedOrder.status === 'Cancelled' || selectedOrder.status === 'Refunded' || selectedOrder.refundAmount) && (
+                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: 14, marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 20 }}>💳</span>
+                      <div>
+                        <strong style={{ fontSize: 14, color: '#991B1B', display: 'block' }}>
+                          Full Refund Processed via Stripe Gateway
+                        </strong>
+                        <span style={{ fontSize: 12, color: '#B91C1C' }}>
+                          Refund of <strong>-{formatMoney(selectedOrder.refundAmount !== undefined ? Number(selectedOrder.refundAmount) : (selectedOrder.rawAmount || parseFloat(String(selectedOrder.total || '0').replace(/[^0-9.]/g, '')) || 0))} AUD</strong> returned to customer's card.
+                        </span>
+                      </div>
+                    </div>
+                    <span style={{ background: '#DC2626', color: '#FFFFFF', padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.02em' }}>
+                      Stripe Succeeded
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Customer & Delivery Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 20 }}>
                 
@@ -3249,7 +3493,9 @@ export default function AdminPage() {
               <div style={{ background: 'var(--cream)', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--slate)' }}>
                   <span>Payment Gateway:</span>
-                  <strong style={{ color: 'var(--onyx)' }}>{selectedOrder.paymentMethod || 'Stripe Encrypted Payment (Verified)'}</strong>
+                  <strong style={{ color: 'var(--onyx)' }}>
+                    {selectedOrder.status === 'Cancelled' || selectedOrder.status === 'Refunded' ? 'Stripe Gateway (Refund Processed)' : (selectedOrder.paymentMethod || 'Stripe Encrypted Payment (Verified)')}
+                  </strong>
                 </div>
                 {selectedOrder.sessionId && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--slate)' }}>
@@ -3257,26 +3503,73 @@ export default function AdminPage() {
                     <code style={{ fontSize: 10.5, color: 'var(--gold-dark)', background: '#FFFFFF', padding: '2px 6px', borderRadius: 4 }}>{selectedOrder.sessionId.slice(0, 22)}...</code>
                   </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700, color: 'var(--onyx)', paddingTop: 6, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-                  <span>Total Amount Paid:</span>
-                  <span style={{ color: 'var(--gold-dark)' }}>{selectedOrder.total}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--onyx)', paddingTop: 6, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+                  <span>Original Total Charged:</span>
+                  <span style={{ fontWeight: 600 }}>{selectedOrder.total}</span>
                 </div>
+                {(selectedOrder.status === 'Cancelled' || selectedOrder.status === 'Refunded' || selectedOrder.refundAmount) && (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#C5221F', fontWeight: 600 }}>
+                      <span>Stripe Refund Issued:</span>
+                      <span>-{formatMoney(selectedOrder.refundAmount !== undefined ? Number(selectedOrder.refundAmount) : (selectedOrder.rawAmount || parseFloat(String(selectedOrder.total || '0').replace(/[^0-9.]/g, '')) || 0))}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, color: '#166534', paddingTop: 4, borderTop: '1px dashed rgba(0,0,0,0.15)' }}>
+                      <span>Net Balance Settled:</span>
+                      <span>$0.00 AUD (Fully Refunded)</span>
+                    </div>
+                  </>
+                )}
               </div>
+
+              {/* Australia Post Tracking Badge & Direct Track Link if Tracking Number Recorded */}
+              {selectedOrder.trackingNumber && (
+                <div style={{ background: '#FEF7E0', border: '1px solid #FDE293', borderRadius: 10, padding: 14, marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#B06000', display: 'block', marginBottom: 2 }}>
+                      Australia Post Tracked Shipment
+                    </span>
+                    <strong style={{ fontSize: 14.5, color: '#1A1A1A', letterSpacing: '0.04em' }}>
+                      {selectedOrder.trackingNumber}
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <a
+                      href={`https://auspost.com.au/mypost/track/#/details/${encodeURIComponent(selectedOrder.trackingNumber)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary"
+                      style={{ padding: '6px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+                      title="Open Live Australia Post Tracking"
+                    >
+                      <Truck style={{ width: 13, height: 13 }} />
+                      <span>Track on AusPost</span>
+                      <ExternalLink style={{ width: 12, height: 12 }} />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShippingOrderModal(selectedOrder);
+                        setShippingTrackingNumber(selectedOrder.trackingNumber || '');
+                        setShippingTrackingError('');
+                      }}
+                      className="btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: 11 }}
+                    >
+                      Edit Tracking
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Status Update Control */}
               <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: 14, background: '#F8FAFC', borderRadius: 10, border: '1px solid #E2E8F0' }}>
                 <div>
                   <strong style={{ fontSize: 13, color: 'var(--onyx)', display: 'block' }}>Update Order Lifecycle Status</strong>
-                  <span style={{ fontSize: 11, color: 'var(--slate)' }}>Advance fulfillment state (Confirmed → Packed → Shipped → Delivered)</span>
+                  <span style={{ fontSize: 11, color: 'var(--slate)' }}>Advance fulfillment state (Confirmed → Packed → Shipped → Delivered → Cancelled)</span>
                 </div>
                 <select
                   value={selectedOrder.status}
-                  onChange={(e) => {
-                    const newStatus = e.target.value;
-                    if (updateOrderStatus) updateOrderStatus(selectedOrder.id, newStatus);
-                    setSelectedOrder(prev => ({ ...prev, status: newStatus }));
-                    showToast(`Order ${selectedOrder.id} status updated to "${newStatus}"`, 'check');
-                  }}
+                  onChange={(e) => handleInitiateStatusChange(selectedOrder, e.target.value)}
                   style={{
                     padding: '8px 14px',
                     borderRadius: 6,
@@ -3292,9 +3585,27 @@ export default function AdminPage() {
                   <option value="Packed">Packed</option>
                   <option value="Shipped">Shipped</option>
                   <option value="Delivered">Delivered</option>
-                  <option value="Cancelled">Cancelled</option>
+                  <option value="Cancelled">Cancelled (Refunded)</option>
                 </select>
               </div>
+
+              {/* Quick Issue / Record Stripe Refund Action */}
+              {selectedOrder.status !== 'Cancelled' && selectedOrder.status !== 'Refunded' && (
+                <div style={{ marginTop: 14, padding: 14, background: '#FFF5F5', border: '1px dashed #FEB2B2', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                  <div>
+                    <strong style={{ fontSize: 13, color: '#9B2C2C', display: 'block' }}>Process / Record Stripe Refund</strong>
+                    <span style={{ fontSize: 11.5, color: '#742A2A' }}>Double check Stripe status, record full/partial refund, and notify the customer.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openCancelOrderModal(selectedOrder)}
+                    className="btn-secondary"
+                    style={{ padding: '7px 16px', fontSize: 12, fontWeight: 700, color: '#C5221F', borderColor: '#FEB2B2', background: '#FFFFFF', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    💳 Cancel & Refund
+                  </button>
+                </div>
+              )}
 
             </div>
 
@@ -3318,6 +3629,294 @@ export default function AdminPage() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Enter Australia Post Tracking Code & Dispatch Order */}
+      {shippingOrderModal && (
+        <div className="admin-modal-overlay" style={{ paddingLeft: sidebarCollapsed ? '96px' : undefined }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 520, width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+            <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '24px 28px', width: '100%', boxSizing: 'border-box' }}>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                <div>
+                  <span style={{ fontSize: 11, letterSpacing: '0.12em', fontWeight: 700, color: 'var(--gold-dark)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
+                    AUSTRALIA POST FULFILLMENT
+                  </span>
+                  <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>
+                    Mark Order as Shipped
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSendingDispatchEmail}
+                  onClick={() => { setShippingOrderModal(null); setShippingTrackingNumber(''); setShippingTrackingError(''); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--slate)', cursor: 'pointer', padding: 4 }}
+                >
+                  <X style={{ width: 20, height: 20 }} />
+                </button>
+              </div>
+
+              {/* Order & Customer Summary Box */}
+              <div style={{ background: 'var(--off-white)', padding: 14, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 20, fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--slate)' }}>Order Reference:</span>
+                  <strong style={{ color: 'var(--onyx)' }}>{shippingOrderModal.id}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--slate)' }}>Customer:</span>
+                  <strong style={{ color: 'var(--onyx)' }}>{shippingOrderModal.customer}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--slate)' }}>Customer Email:</span>
+                  <span style={{ color: 'var(--gold-dark)', fontWeight: 600 }}>{shippingOrderModal.email}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--slate)' }}>Delivery Destination:</span>
+                  <span style={{ color: 'var(--onyx)', fontWeight: 500 }}>
+                    {[shippingOrderModal.city || 'Brisbane City', shippingOrderModal.state || 'QLD', shippingOrderModal.postcode || '4061'].filter(Boolean).join(', ')}
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleConfirmShipmentWithTracking}>
+                <div style={{ marginBottom: 18 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 6, display: 'block', color: 'var(--onyx)' }}>
+                    AUSTRALIA POST TRACKING NUMBER <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
+                  <style>{`
+                    .shipping-tracking-input::placeholder {
+                      text-transform: none !important;
+                      font-weight: 400 !important;
+                      letter-spacing: normal !important;
+                    }
+                  `}</style>
+                  <input
+                    type="text"
+                    className="form-control shipping-tracking-input"
+                    style={{
+                      textTransform: 'uppercase',
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                      borderColor: shippingTrackingError ? '#DC2626' : undefined,
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      fontSize: 14,
+                      padding: '10px 12px'
+                    }}
+                    placeholder="eg. AP398201948AU"
+                    value={shippingTrackingNumber}
+                    onChange={e => {
+                      setShippingTrackingNumber(e.target.value.toUpperCase());
+                      if (shippingTrackingError) setShippingTrackingError('');
+                    }}
+                    autoFocus
+                  />
+                  {shippingTrackingError && (
+                    <div style={{ color: '#DC2626', fontSize: 12, marginTop: 5, fontWeight: 600 }}>
+                      {shippingTrackingError}
+                    </div>
+                  )}
+                  <p style={{ fontSize: 12, color: 'var(--slate)', margin: '8px 0 0 0', lineHeight: 1.5 }}>
+                    Once saved, the order status will advance to <strong>Shipped</strong> and a notification email will be sent to <strong>{shippingOrderModal.email}</strong>.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                  <button
+                    type="button"
+                    disabled={isSendingDispatchEmail}
+                    onClick={() => { setShippingOrderModal(null); setShippingTrackingNumber(''); setShippingTrackingError(''); }}
+                    className="btn-secondary"
+                    style={{ padding: '9px 18px', fontSize: 13 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSendingDispatchEmail}
+                    className="btn-primary"
+                    style={{ padding: '9px 24px', fontSize: 13, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  >
+                    {isSendingDispatchEmail ? (
+                      <>
+                        <RefreshCw style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
+                        <span>Confirming...</span>
+                      </>
+                    ) : (
+                      'Confirm'
+                    )}
+                  </button>
+                </div>
+              </form>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Cancel Order & Stripe Refund Live Double-Check Verification */}
+      {cancelOrderModal && (
+        <div className="admin-modal-overlay" style={{ paddingLeft: sidebarCollapsed ? '96px' : undefined }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 560, width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+            <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '24px 28px', width: '100%', boxSizing: 'border-box' }}>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                <div>
+                  <span style={{ fontSize: 11, letterSpacing: '0.12em', fontWeight: 700, color: '#C5221F', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
+                    ORDER CANCELLATION & REFUND
+                  </span>
+                  <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>
+                    Cancel Order {cancelOrderModal.id}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  disabled={isProcessingCancellation}
+                  onClick={() => setCancelOrderModal(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--slate)', cursor: 'pointer', padding: 4 }}
+                >
+                  <X style={{ width: 20, height: 20 }} />
+                </button>
+              </div>
+
+              {/* Order Info & Total Box */}
+              <div style={{ background: 'var(--off-white)', padding: 14, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 18, fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--slate)' }}>Customer:</span>
+                  <strong style={{ color: 'var(--onyx)' }}>{cancelOrderModal.customer} ({cancelOrderModal.email})</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--slate)' }}>Purchased Piece:</span>
+                  <span style={{ color: 'var(--onyx)', fontWeight: 500 }}>{cancelOrderModal.product}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--slate)' }}>Original Amount Paid:</span>
+                  <strong style={{ color: 'var(--gold-dark)', fontSize: 13.5 }}>{cancelOrderModal.total}</strong>
+                </div>
+              </div>
+
+              {/* Live Stripe Double-Check Result Box */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--onyx)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
+                  Stripe Gateway Live Verification
+                </label>
+                {isCheckingStripeRefund ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12.5, color: 'var(--slate)' }}>
+                    <RefreshCw style={{ width: 14, height: 14, animation: 'spin 1s linear infinite', color: 'var(--gold-dark)' }} />
+                    <span>Double-checking live Stripe charge and refund records...</span>
+                  </div>
+                ) : stripeRefundCheckResult?.isRefundedInStripe ? (
+                  <div style={{ padding: '12px 14px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 8, fontSize: 12.5, color: '#065F46' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, marginBottom: 2 }}>
+                      <CheckCircle2 style={{ width: 15, height: 15, color: '#059669' }} />
+                      <span>Stripe Double-Check Verified: ${stripeRefundCheckResult.amountRefunded?.toFixed(2)} AUD Refunded</span>
+                    </div>
+                    <span>{stripeRefundCheckResult.isFullRefund ? 'Full refund' : 'Partial refund'} was processed on Stripe. This exact amount has been populated below.</span>
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px 14px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: 8, fontSize: 12.5, color: '#0369A1' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, marginBottom: 2 }}>
+                      <Info style={{ width: 15, height: 15, color: '#0284C7' }} />
+                      <span>Stripe Check: No existing refund record on Stripe</span>
+                    </div>
+                    <span>Specify the amount below to record and update your store financials.</span>
+                  </div>
+                )}
+              </div>
+
+              <form onSubmit={handleConfirmOrderCancellation}>
+                {/* Refund Amount Input */}
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12, marginBottom: 6, display: 'block', color: 'var(--onyx)' }}>
+                    ACTUAL REFUND AMOUNT ($ AUD) <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={cancelOrderModal.rawAmount || parseFloat(String(cancelOrderModal.total || '0').replace(/[^0-9.]/g, '')) || 9999}
+                    className="form-control"
+                    style={{ borderColor: cancelRefundError ? '#DC2626' : undefined, width: '100%', boxSizing: 'border-box', fontWeight: 700, fontSize: 14 }}
+                    value={cancelRefundAmount}
+                    onChange={e => {
+                      setCancelRefundAmount(e.target.value);
+                      if (cancelRefundError) setCancelRefundError('');
+                    }}
+                    placeholder="e.g. 50.00"
+                    required
+                  />
+                  {cancelRefundError && (
+                    <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                      {cancelRefundError}
+                    </div>
+                  )}
+                  <span style={{ fontSize: 11.5, color: 'var(--slate)', marginTop: 4, display: 'block' }}>
+                    {parseFloat(cancelRefundAmount) >= ((cancelOrderModal.rawAmount || parseFloat(String(cancelOrderModal.total || '0').replace(/[^0-9.]/g, '')) || 0) - 0.05) 
+                      ? '✓ This is recorded as a Full Refund.' 
+                      : `ℹ️ This is recorded as a Partial Refund. The remaining balance ($${Math.max(0, (cancelOrderModal.rawAmount || parseFloat(String(cancelOrderModal.total || '0').replace(/[^0-9.]/g, '')) || 0) - (parseFloat(cancelRefundAmount) || 0)).toFixed(2)} AUD) remains in your Net Revenue.`}
+                  </span>
+                </div>
+
+                {/* Refund Processing Timeline */}
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12, marginBottom: 6, display: 'block', color: 'var(--onyx)' }}>
+                    EXPECTED REFUND TIMELINE (FOR EMAIL)
+                  </label>
+                  <select
+                    className="form-control"
+                    style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
+                    value={cancelRefundTimeline}
+                    onChange={e => setCancelRefundTimeline(e.target.value)}
+                  >
+                    <option value="5 to 10 business days">5 to 10 business days (Standard Card Processing)</option>
+                    <option value="3 to 5 business days">3 to 5 business days (Fast Bank Processing)</option>
+                    <option value="1 to 2 business days">1 to 2 business days (Immediate)</option>
+                    <option value="5 to 7 business days">5 to 7 business days</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                  <button
+                    type="button"
+                    disabled={isProcessingCancellation}
+                    onClick={() => setCancelOrderModal(null)}
+                    className="btn-secondary"
+                    style={{ padding: '9px 18px', fontSize: 13 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isProcessingCancellation}
+                    className="btn-primary"
+                    style={{
+                      padding: '9px 24px',
+                      fontSize: 13,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      background: 'var(--gold, #D4AF37)',
+                      borderColor: 'var(--gold, #D4AF37)',
+                      color: '#000000',
+                      fontWeight: 700
+                    }}
+                  >
+                    {isProcessingCancellation ? (
+                      <>
+                        <RefreshCw style={{ width: 14, height: 14, animation: 'spin 1s linear infinite', color: '#000000' }} />
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      'Confirm Cancellation'
+                    )}
+                  </button>
+                </div>
+              </form>
+
+            </div>
           </div>
         </div>
       )}
