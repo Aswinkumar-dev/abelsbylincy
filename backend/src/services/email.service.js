@@ -131,21 +131,25 @@ const sendOrderConfirmationEmail = async (orderData) => {
       .trim();
     if (!cleanCustomerName) cleanCustomerName = 'Valued Customer';
 
-    // Calculate total amount from items to guarantee exact figure display
-    let calculatedTotal = 0;
-    if (Array.isArray(purchasedItems) && purchasedItems.length > 0) {
-      calculatedTotal = purchasedItems.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (parseInt(item.quantity || 1))), 0);
-    }
-
+    // Prioritize authoritative order total passed from Stripe / Checkout
     let finalTotalStr = '';
-    if (calculatedTotal > 0) {
-      finalTotalStr = `$${calculatedTotal.toFixed(2)} AUD`;
-    } else if (orderTotal) {
-      finalTotalStr = String(orderTotal);
-      if (!finalTotalStr.includes('$')) finalTotalStr = `$${finalTotalStr}`;
-      if (!finalTotalStr.includes('AUD')) finalTotalStr = `${finalTotalStr} AUD`;
+    if (orderTotal) {
+      finalTotalStr = String(orderTotal).trim();
+      if (!finalTotalStr.startsWith('$')) finalTotalStr = `$${finalTotalStr}`;
+      if (!finalTotalStr.toUpperCase().includes('AUD')) finalTotalStr = `${finalTotalStr} AUD`;
+    } else if (orderData.rawAmount || orderData.finalPaidAmount) {
+      const amt = parseFloat(orderData.rawAmount || orderData.finalPaidAmount || 0);
+      finalTotalStr = `$${amt.toFixed(2)} AUD`;
     } else {
-      finalTotalStr = '$129.00 AUD';
+      let calculatedTotal = 0;
+      if (Array.isArray(purchasedItems) && purchasedItems.length > 0) {
+        calculatedTotal = purchasedItems.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (parseInt(item.quantity || 1))), 0);
+      }
+      if (calculatedTotal > 0) {
+        finalTotalStr = `$${calculatedTotal.toFixed(2)} AUD`;
+      } else {
+        finalTotalStr = '$0.00 AUD';
+      }
     }
 
     // Format purchased items table rows with Poppins font
@@ -158,7 +162,7 @@ const sendOrderConfirmationEmail = async (orderData) => {
             <span style="font-size: 11px; color: #989A92;">Fine 18K Gold Plated · SKU: ${item.sku || 'ABL-JEW-001'}</span>
           </td>
           <td style="text-align: center; font-family: 'Poppins', sans-serif !important;">${item.quantity || 1}</td>
-          <td style="text-align: right; font-weight: 600; font-family: 'Poppins', sans-serif !important;">$${(item.price * (item.quantity || 1)).toFixed(2)} AUD</td>
+          <td style="text-align: right; font-weight: 600; font-family: 'Poppins', sans-serif !important;">$${(parseFloat(item.price || 0) * (parseInt(item.quantity || 1))).toFixed(2)} AUD</td>
         </tr>
       `).join('');
     } else {
@@ -167,6 +171,32 @@ const sendOrderConfirmationEmail = async (orderData) => {
           <td style="font-family: 'Poppins', sans-serif !important;"><strong style="color: #1A1A1A;">Fine Gold-Plated Jewellery Collection</strong></td>
           <td style="text-align: center; font-family: 'Poppins', sans-serif !important;">1</td>
           <td style="text-align: right; font-weight: 600; font-family: 'Poppins', sans-serif !important;">${finalTotalStr}</td>
+        </tr>
+      `;
+    }
+
+    // Append discount and shipping breakdown rows if applicable
+    const emailDiscount = parseFloat(orderData.discountAmount || orderData.discount || 0);
+    const emailShipping = parseFloat(orderData.shippingFee || (orderData.shippingMethod === 'express' ? 15 : 0));
+    
+    if (emailDiscount > 0) {
+      itemsHtml += `
+        <tr style="font-family: 'Poppins', sans-serif !important; color: #047857;">
+          <td colspan="2" style="font-family: 'Poppins', sans-serif !important; padding: 10px 0;">
+            <strong style="color: #047857;">Coupon Discount ${orderData.couponCode ? `(${orderData.couponCode})` : ''}</strong>
+          </td>
+          <td style="text-align: right; font-weight: 700; font-family: 'Poppins', sans-serif !important; color: #047857; padding: 10px 0;">-$${emailDiscount.toFixed(2)} AUD</td>
+        </tr>
+      `;
+    }
+
+    if (emailShipping > 0) {
+      itemsHtml += `
+        <tr style="font-family: 'Poppins', sans-serif !important; color: #4A4D45;">
+          <td colspan="2" style="font-family: 'Poppins', sans-serif !important; padding: 10px 0;">
+            <strong style="color: #1A1A1A;">Express Shipping (Australia Post)</strong>
+          </td>
+          <td style="text-align: right; font-weight: 600; font-family: 'Poppins', sans-serif !important; color: #1A1A1A; padding: 10px 0;">+$${emailShipping.toFixed(2)} AUD</td>
         </tr>
       `;
     }

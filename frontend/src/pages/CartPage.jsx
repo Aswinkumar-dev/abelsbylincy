@@ -4,28 +4,15 @@ import { Trash2, Plus, Minus, ShoppingBag, Tag, ArrowRight, Truck } from 'lucide
 import { useStore } from '../context/StoreContext';
 
 export default function CartPage() {
-  const { cart, updateCartQty, removeFromCart, formatMoney, settings, coupons, showToast, currentUser } = useStore();
+  const { cart, updateCartQty, removeFromCart, formatMoney, settings, currentUser } = useStore();
   const navigate = useNavigate();
-  const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const freeShippingThreshold = settings?.freeShippingThreshold || 150;
+  const freeShippingThreshold = 60;
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-  const discount = appliedCoupon
-    ? appliedCoupon.discountType === 'percentage'
-      ? (subtotal * appliedCoupon.value) / 100
-      : appliedCoupon.value
-    : 0;
-  const total = Math.max(0, subtotal - discount);
   const remainingForFreeShip = Math.max(0, freeShippingThreshold - subtotal);
   const freeShipProgress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
-
-  const handleApplyCoupon = () => {
-    const cp = coupons.find(c => c.code.toUpperCase() === couponCode.toUpperCase().trim() && c.active);
-    if (!cp) { showToast('Invalid or expired coupon code', 'alert-circle'); return; }
-    setAppliedCoupon(cp);
-    showToast(`Coupon "${cp.code}" applied!`, 'check');
-  };
+  const standardShippingFee = subtotal >= freeShippingThreshold ? 0 : 10;
+  const cartTotal = subtotal + standardShippingFee;
 
   const handleCheckout = () => {
     if (!currentUser) { navigate('/account'); return; }
@@ -59,7 +46,7 @@ export default function CartPage() {
           {remainingForFreeShip > 0 ? (
             <div className="free-shipping-bar">
               <p style={{ fontSize: 13, marginBottom: 8 }}>
-                Spend <strong>{formatMoney(remainingForFreeShip)}</strong> more for Free Express Shipping
+                Spend <strong>{formatMoney(remainingForFreeShip)}</strong> more for Free Standard Shipping
               </p>
               <div className="progress-track">
                 <div className="progress-fill" style={{ width: `${freeShipProgress}%` }} />
@@ -68,7 +55,7 @@ export default function CartPage() {
           ) : (
             <div className="free-shipping-bar free-shipping-bar--achieved">
               <Truck style={{ width: 16, height: 16 }} />
-              <span>You've unlocked Free Express Shipping! 🎉</span>
+              <span>You've unlocked Free Standard Shipping!</span>
             </div>
           )}
 
@@ -104,49 +91,20 @@ export default function CartPage() {
           <div className="cart-summary-card">
             <h3 className="cart-summary-title">Order Summary</h3>
 
-            {/* Coupon */}
-            {!appliedCoupon ? (
-              <div className="coupon-row">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Coupon code"
-                  value={couponCode}
-                  onChange={e => setCouponCode(e.target.value)}
-                  style={{ fontSize: 13 }}
-                />
-                <button className="btn-secondary" style={{ padding: '10px 14px', fontSize: 12 }} onClick={handleApplyCoupon}>
-                  <Tag style={{ width: 13 }} /> Apply
-                </button>
-              </div>
-            ) : (
-              <div className="coupon-applied">
-                <span><Tag style={{ width: 13 }} /> <strong>{appliedCoupon.code}</strong> applied</span>
-                <button onClick={() => { setAppliedCoupon(null); setCouponCode(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 12 }}>Remove</button>
-              </div>
-            )}
-
-            <div className="summary-row">
+            <div className="summary-row" style={{ marginTop: 14 }}>
               <span>Subtotal ({cart.reduce((s,i) => s+i.quantity, 0)} items)</span>
               <span>{formatMoney(subtotal)}</span>
             </div>
-            {discount > 0 && (
-              <div className="summary-row" style={{ color: 'var(--success)' }}>
-                <span>Coupon Discount</span>
-                <span>-{formatMoney(discount)}</span>
-              </div>
-            )}
             <div className="summary-row">
-              <span>Shipping</span>
-              <span style={{ color: 'var(--success)', fontWeight: 600 }}>FREE Express</span>
+              <span>Standard Shipping</span>
+              <span style={{ color: standardShippingFee === 0 ? 'var(--success)' : 'var(--onyx)', fontWeight: 600 }}>
+                {standardShippingFee === 0 ? 'FREE' : formatMoney(standardShippingFee)}
+              </span>
             </div>
             <div className="summary-row summary-total">
               <span>Total</span>
-              <span>{formatMoney(total)}</span>
+              <span>{formatMoney(cartTotal)}</span>
             </div>
-            <p style={{ fontSize: 11, color: 'var(--slate)', fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>
-              * All prices inclusive of GST & Express Shipping
-            </p>
 
             <button className="btn-primary" style={{ width: '100%', marginTop: 16 }} onClick={handleCheckout}>
               Proceed to Checkout <ArrowRight style={{ width: 16 }} />

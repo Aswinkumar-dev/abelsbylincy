@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  LayoutDashboard, Package, Tag, Layers, ShoppingCart, Users, Ticket, Globe, Inbox,
+  LayoutDashboard, Package, Tag, Layers, ShoppingCart, ShoppingBag, Users, Ticket, Globe, Inbox,
   ChartNoAxesColumn, Lock, ChevronRight, ChevronLeft, Crown, Search, Plus, Pencil, Trash2,
   RefreshCw, DollarSign, TrendingUp, AlertTriangle, AlertCircle, CheckCircle2, Star, Eye, EyeOff,
-  ArrowUp, ArrowDown, Download, HelpCircle, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical
+  ArrowUp, ArrowDown, Download, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
+  User, Mail, Phone, MapPin, Printer
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
@@ -21,21 +22,18 @@ export default function AdminPage() {
 
   const getStatusStyles = (status) => {
     switch (status) {
-      case 'Delivered':
-        return { bg: '#E6F4EA', color: '#137333', border: '#CEEAD6' };
-      case 'Shipped':
-        return { bg: '#FEF7E0', color: '#B06000', border: '#FDE293' };
+      case 'Confirmed':
+        return { bg: '#EBF8FF', color: '#2B6CB0', border: '#BEE3F8' };
       case 'Packed':
         return { bg: '#F3E8FF', color: '#6B21A8', border: '#E9D5FF' };
-      case 'Processing':
-        return { bg: '#E8F0FE', color: '#1A73E8', border: '#AECBFA' };
-      case 'Confirmed':
-        return { bg: '#F1F3F4', color: '#202124', border: '#DADCE0' };
+      case 'Shipped':
+        return { bg: '#FEF7E0', color: '#B06000', border: '#FDE293' };
+      case 'Delivered':
+        return { bg: '#E6F4EA', color: '#137333', border: '#CEEAD6' };
       case 'Cancelled':
         return { bg: '#FCE8E6', color: '#C5221F', border: '#FAD2CF' };
-      case 'New Order':
       default:
-        return { bg: 'rgba(212, 175, 55, 0.15)', color: '#A38025', border: 'var(--gold)' };
+        return { bg: '#EBF8FF', color: '#2B6CB0', border: '#BEE3F8' };
     }
   };
 
@@ -97,6 +95,7 @@ export default function AdminPage() {
 
   // Coupon Modal state
   const [editingCoupon, setEditingCoupon] = useState(null);
+  const [couponFormErrors, setCouponFormErrors] = useState({});
   const [couponForm, setCouponForm] = useState({
     id: '', code: '', label: '', discountType: 'percentage', value: 10, minOrder: 0, maxDiscount: 0,
     expiry: '2026-12-31', active: true, usageLimit: 100, perCustomerLimit: 1
@@ -374,12 +373,11 @@ export default function AdminPage() {
   const outOfStockProducts = products.filter(p => (p.stockQty || 0) === 0);
 
   // Status breakdown for orders
-  const pendingOrdersCount = orders.filter(o => o.status === 'Pending' || o.status === 'New Order').length;
-  const processingOrdersCount = orders.filter(o => o.status === 'Processing' || o.status === 'Confirmed').length;
-  const shippedOrdersCount = orders.filter(o => o.status === 'Shipped' || o.status === 'Packed').length;
+  const confirmedOrdersCount = orders.filter(o => o.status === 'Confirmed' || !o.status).length;
+  const packedOrdersCount = orders.filter(o => o.status === 'Packed').length;
+  const shippedOrdersCount = orders.filter(o => o.status === 'Shipped').length;
   const deliveredOrdersCount = orders.filter(o => o.status === 'Delivered').length;
   const cancelledOrdersCount = orders.filter(o => o.status === 'Cancelled').length;
-  const returnedOrdersCount = orders.filter(o => o.status === 'Returned' || o.status === 'Refunded').length;
 
   return (
     <div className="admin-layout">
@@ -505,114 +503,129 @@ export default function AdminPage() {
         <main className="admin-body">
 
           {/* 1. DASHBOARD ("How is my business doing today?") */}
-          {activeTab === 'overview' && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-                <div>
-                  <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Dashboard</h1>
-                  <p style={{ fontSize: 14, color: 'var(--gold-dark)', fontWeight: 600, marginTop: 4 }}>"How is my business doing today?"</p>
+          {activeTab === 'overview' && (() => {
+            const filteredDashOrders = (orders || []).filter(o => {
+              if (dashTimePeriod === 'today') {
+                const todayDateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                return (o.date || '').includes('Today') || (o.date || '').includes(todayDateStr);
+              }
+              return true;
+            });
+
+            const dashRevenue = filteredDashOrders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0);
+            const dashItemsCount = filteredDashOrders.reduce((sum, o) => sum + (o.itemsCount || o.items?.length || 1), 0);
+
+            const dashConfirmed = filteredDashOrders.filter(o => o.status === 'Confirmed' || o.status === 'New Order' || !o.status).length;
+            const dashPacked = filteredDashOrders.filter(o => o.status === 'Packed').length;
+            const dashShipped = filteredDashOrders.filter(o => o.status === 'Shipped').length;
+            const dashDelivered = filteredDashOrders.filter(o => o.status === 'Delivered').length;
+            const dashCancelled = filteredDashOrders.filter(o => o.status === 'Cancelled').length;
+
+            return (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+                  <div>
+                    <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Dashboard</h1>
+                    <p style={{ fontSize: 14, color: 'var(--gold-dark)', fontWeight: 600, marginTop: 4 }}>"How is my business doing today?"</p>
+                  </div>
+
+                  {/* Period Filter Buttons */}
+                  <div style={{ display: 'flex', gap: 8, background: '#FFFFFF', padding: 4, borderRadius: 8, border: '1px solid var(--border)' }}>
+                    {['today', 'week', 'month'].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setDashTimePeriod(p)}
+                        style={{
+                          padding: '6px 16px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer',
+                          background: dashTimePeriod === p ? 'var(--onyx)' : 'transparent',
+                          color: dashTimePeriod === p ? '#FFFFFF' : 'var(--slate)',
+                          textTransform: 'capitalize'
+                        }}
+                      >
+                        {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'This Month'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Period Filter Buttons */}
-                <div style={{ display: 'flex', gap: 8, background: '#FFFFFF', padding: 4, borderRadius: 8, border: '1px solid var(--border)' }}>
-                  {['today', 'week', 'month'].map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setDashTimePeriod(p)}
-                      style={{
-                        padding: '6px 16px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer',
-                        background: dashTimePeriod === p ? 'var(--onyx)' : 'transparent',
-                        color: dashTimePeriod === p ? '#FFFFFF' : 'var(--slate)',
-                        textTransform: 'capitalize'
-                      }}
-                    >
-                      {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'This Month'}
-                    </button>
-                  ))}
+                {/* Today Metrics KPIs */}
+                <div className="kpi-grid" style={{ marginBottom: 24 }}>
+                  <div className="kpi-card">
+                    <span className="kpi-title">Total Orders</span>
+                    <span className="kpi-value">{filteredDashOrders.length} Orders</span>
+                    <span className="kpi-trend trend-up">Live Store Data</span>
+                  </div>
+                  <div className="kpi-card">
+                    <span className="kpi-title">Total Revenue</span>
+                    <span className="kpi-value">
+                      {formatMoney(dashRevenue)}
+                    </span>
+                    <span className="kpi-trend trend-up">Live Sales Total</span>
+                  </div>
+                  <div className="kpi-card">
+                    <span className="kpi-title">Items Sold</span>
+                    <span className="kpi-value">{dashItemsCount} Items</span>
+                    <span className="kpi-trend trend-up">Live Fulfilled Stock</span>
+                  </div>
+                  <div className="kpi-card">
+                    <span className="kpi-title">Registered Clients</span>
+                    <span className="kpi-value">{customers.length} Clients</span>
+                    <span className="kpi-trend trend-up">Live Customer Directory</span>
+                  </div>
+                </div>
+
+                {/* Inventory Alerts Box */}
+                {(lowStockProducts.length > 0 || outOfStockProducts.length > 0) && (
+                  <div style={{ background: '#FFF8F6', border: '1px solid #FFCDC5', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#C53030', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <AlertTriangle style={{ width: 18, height: 18 }} /> Inventory Alerts
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {lowStockProducts.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#9B2C2C' }}>
+                          <span style={{ fontSize: 16 }}>⚠️</span>
+                          <span><strong>{lowStockProducts.length} products</strong> are low in stock (below 3 items): {lowStockProducts.map(p => `${p.name} (${p.stockQty})`).join(', ')}</span>
+                        </div>
+                      )}
+                      {outOfStockProducts.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#C53030' }}>
+                          <span style={{ fontSize: 16 }}>🔴</span>
+                          <span><strong>{outOfStockProducts.length} products</strong> are out of stock: {outOfStockProducts.map(p => p.name).join(', ')}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Order Status Breakdown */}
+                <div style={{ background: '#FFFFFF', padding: 24, borderRadius: 12, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--onyx)', marginBottom: 16 }}>Order Status Breakdown</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
+                    <div style={{ background: '#EBF8FF', padding: 16, borderRadius: 8, textAlign: 'center' }}>
+                      <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#2B6CB0' }}>{dashConfirmed}</span>
+                      <span style={{ fontSize: 12, color: '#2C5282', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Confirmed</span>
+                    </div>
+                    <div style={{ background: '#F3E8FF', padding: 16, borderRadius: 8, textAlign: 'center' }}>
+                      <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#6B21A8' }}>{dashPacked}</span>
+                      <span style={{ fontSize: 12, color: '#581C87', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Packed</span>
+                    </div>
+                    <div style={{ background: '#FEFCBF', padding: 16, borderRadius: 8, textAlign: 'center' }}>
+                      <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#B7791F' }}>{dashShipped}</span>
+                      <span style={{ fontSize: 12, color: '#744210', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Shipped</span>
+                    </div>
+                    <div style={{ background: '#C6F6D5', padding: 16, borderRadius: 8, textAlign: 'center' }}>
+                      <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#276749' }}>{dashDelivered}</span>
+                      <span style={{ fontSize: 12, color: '#22543D', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delivered</span>
+                    </div>
+                    <div style={{ background: '#FED7D7', padding: 16, borderRadius: 8, textAlign: 'center' }}>
+                      <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#9B2C2C' }}>{dashCancelled}</span>
+                      <span style={{ fontSize: 12, color: '#742A2A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cancelled</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              {/* Today Metrics KPIs */}
-              <div className="kpi-grid" style={{ marginBottom: 24 }}>
-                <div className="kpi-card">
-                  <span className="kpi-title">Total Orders</span>
-                  <span className="kpi-value">{orders.length} Orders</span>
-                  <span className="kpi-trend trend-up">Live Store Data</span>
-                </div>
-                <div className="kpi-card">
-                  <span className="kpi-title">Total Revenue</span>
-                  <span className="kpi-value">
-                    {formatMoney(orders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0))}
-                  </span>
-                  <span className="kpi-trend trend-up">Live Sales Total</span>
-                </div>
-                <div className="kpi-card">
-                  <span className="kpi-title">Items Sold</span>
-                  <span className="kpi-value">{orders.length} Items</span>
-                  <span className="kpi-trend trend-up">Live Fulfilled Stock</span>
-                </div>
-                <div className="kpi-card">
-                  <span className="kpi-title">Registered Clients</span>
-                  <span className="kpi-value">{customers.length} Clients</span>
-                  <span className="kpi-trend trend-up">Live Customer Directory</span>
-                </div>
-                </div>
-
-              {/* Inventory Alerts Box */}
-              {(lowStockProducts.length > 0 || outOfStockProducts.length > 0) && (
-                <div style={{ background: '#FFF8F6', border: '1px solid #FFCDC5', borderRadius: 12, padding: 20, marginBottom: 24 }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#C53030', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <AlertTriangle style={{ width: 18, height: 18 }} /> Inventory Alerts
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {lowStockProducts.length > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#9B2C2C' }}>
-                        <span style={{ fontSize: 16 }}>⚠️</span>
-                        <span><strong>{lowStockProducts.length} products</strong> are low in stock (below 3 items): {lowStockProducts.map(p => `${p.name} (${p.stockQty})`).join(', ')}</span>
-                      </div>
-                    )}
-                    {outOfStockProducts.length > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#C53030' }}>
-                        <span style={{ fontSize: 16 }}>🔴</span>
-                        <span><strong>{outOfStockProducts.length} products</strong> are out of stock: {outOfStockProducts.map(p => p.name).join(', ')}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Order Status Breakdown */}
-              <div style={{ background: '#FFFFFF', padding: 24, borderRadius: 12, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--onyx)', marginBottom: 16 }}>Order Status Breakdown</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
-                  <div style={{ background: 'var(--cream)', padding: 16, borderRadius: 8, textAlign: 'center' }}>
-                    <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: 'var(--onyx)' }}>{pendingOrdersCount}</span>
-                    <span style={{ fontSize: 12, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pending</span>
-                  </div>
-                  <div style={{ background: '#EBF8FF', padding: 16, borderRadius: 8, textAlign: 'center' }}>
-                    <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#2B6CB0' }}>{processingOrdersCount}</span>
-                    <span style={{ fontSize: 12, color: '#2C5282', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Processing</span>
-                  </div>
-                  <div style={{ background: '#FEFCBF', padding: 16, borderRadius: 8, textAlign: 'center' }}>
-                    <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#B7791F' }}>{shippedOrdersCount}</span>
-                    <span style={{ fontSize: 12, color: '#744210', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Shipped</span>
-                  </div>
-                  <div style={{ background: '#C6F6D5', padding: 16, borderRadius: 8, textAlign: 'center' }}>
-                    <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#276749' }}>{deliveredOrdersCount}</span>
-                    <span style={{ fontSize: 12, color: '#22543D', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Delivered</span>
-                  </div>
-                  <div style={{ background: '#FED7D7', padding: 16, borderRadius: 8, textAlign: 'center' }}>
-                    <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#9B2C2C' }}>{cancelledOrdersCount}</span>
-                    <span style={{ fontSize: 12, color: '#742A2A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cancelled</span>
-                  </div>
-                  <div style={{ background: '#EDF2F7', padding: 16, borderRadius: 8, textAlign: 'center' }}>
-                    <span style={{ display: 'block', fontSize: 24, fontWeight: 700, color: '#4A5568' }}>{returnedOrdersCount}</span>
-                    <span style={{ fontSize: 12, color: '#2D3748', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Returned</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* 2. PRODUCTS */}
           {activeTab === 'products' && (() => {
@@ -981,64 +994,116 @@ export default function AdminPage() {
                   <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>
                     Orders Lifecycle <span style={{ color: 'var(--onyx)', fontWeight: 600 }}>({orders.length})</span>
                   </h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Confirmed → Processing → Packed → Shipped → Delivered.</p>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Confirmed → Packed → Shipped → Delivered.</p>
                 </div>
               </div>
 
               <div className="admin-table-card" style={{ width: '100%', overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
                 <div className="admin-table-scroll-wrapper">
-                  <table className="admin-table" style={{ width: '100%', minWidth: '720px' }}>
+                  <table className="admin-table" style={{ width: '100%', minWidth: '950px' }}>
                     <thead>
                       <tr>
-                        <th style={{ width: '14%' }}>Order ID</th>
-                        <th style={{ width: '22%' }}>Customer</th>
-                        <th style={{ width: '22%' }}>Product / Items</th>
-                        <th style={{ width: '14%' }}>Date</th>
-                        <th style={{ width: '14%' }}>Status</th>
-                        <th style={{ width: '14%' }}>Total</th>
+                        <th style={{ width: '12%' }}>Order ID</th>
+                        <th style={{ width: '22%' }}>Customer & Contact</th>
+                        <th style={{ width: '24%' }}>Delivery Address</th>
+                        <th style={{ width: '16%' }}>Product / Items</th>
+                        <th style={{ width: '10%' }}>Date</th>
+                        <th style={{ width: '10%' }}>Status</th>
+                        <th style={{ width: '6%', textAlign: 'center' }}>Details</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.map(o => (
-                        <tr key={o.id}>
-                          <td><strong>{o.id}</strong></td>
-                          <td>{o.customer}<br /><span style={{ fontSize: 11, color: 'var(--slate)' }}>{o.email}</span></td>
-                          <td>{o.product || 'Gold Jewellery'}</td>
-                          <td>{o.date}</td>
-                          <td>
-                            {(() => {
-                              const st = getStatusStyles(o.status);
-                              return (
-                                <select
-                                  value={o.status}
-                                  onChange={(e) => (updateOrderStatus ? updateOrderStatus(o.id, e.target.value) : cycleOrderStatus(o.id))}
-                                  style={{
-                                    background: st.bg,
-                                    color: st.color,
-                                    border: `1px solid ${st.border}`,
-                                    borderRadius: 6,
-                                    padding: '6px 10px',
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    fontFamily: 'var(--font-sans)',
-                                    cursor: 'pointer',
-                                    outline: 'none',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                                  }}
-                                >
-                                  <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
-                                  <option value="Processing" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Processing</option>
-                                  <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
-                                  <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
-                                  <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
-                                  <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
-                                </select>
-                              );
-                            })()}
+                      {orders.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--slate)' }}>
+                            <ShoppingBag style={{ width: 32, height: 32, margin: '0 auto 10px auto', opacity: 0.4, display: 'block' }} />
+                            <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>No orders recorded yet.</p>
+                            <p style={{ margin: '4px 0 0 0', fontSize: 12 }}>Real customer purchases made via Stripe payment gateway will appear here live with full order & payment details.</p>
                           </td>
-                          <td><strong>{o.total}</strong></td>
                         </tr>
-                      ))}
+                      ) : (
+                        orders.map(o => (
+                          <tr key={o.id}>
+                            <td>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOrder(o)}
+                                style={{ background: 'var(--cream)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 7px', color: 'var(--onyx)', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'monospace' }}
+                                title="Click to view full order dossier"
+                              >
+                                {o.id}
+                              </button>
+                            </td>
+                            <td>
+                              <strong style={{ color: 'var(--onyx)', fontSize: 13, display: 'block' }}>{o.customer}</strong>
+                              <a href={`mailto:${o.email}`} style={{ fontSize: 11, color: 'var(--slate)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                                <Mail style={{ width: 11, height: 11, color: 'var(--gold-dark)' }} /> {o.email}
+                              </a>
+                              {o.phone && (
+                                <a href={`tel:${o.phone}`} style={{ fontSize: 11, color: 'var(--gold-dark)', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                                  <Phone style={{ width: 11, height: 11 }} /> {o.phone}
+                                </a>
+                              )}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                                <MapPin style={{ width: 14, height: 14, color: 'var(--gold-dark)', flexShrink: 0, marginTop: 2 }} />
+                                <div>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--onyx)' }}>{o.address || '189 Brompton Road'}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 2 }}>
+                                    {[o.city || 'Brisbane City', o.state || 'Queensland (QLD)', o.postcode || '4061'].filter(Boolean).join(', ')}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--onyx)' }}>{o.product || 'Gold Jewellery Selection'}</div>
+                              <strong style={{ fontSize: 13, color: 'var(--gold-dark)', display: 'block', marginTop: 2 }}>{o.total}</strong>
+                            </td>
+                            <td style={{ fontSize: 12, color: 'var(--slate)' }}>{o.date}</td>
+                            <td>
+                              {(() => {
+                                const st = getStatusStyles(o.status);
+                                return (
+                                  <select
+                                    value={o.status}
+                                    onChange={(e) => (updateOrderStatus ? updateOrderStatus(o.id, e.target.value) : cycleOrderStatus(o.id))}
+                                    style={{
+                                      background: st.bg,
+                                      color: st.color,
+                                      border: `1px solid ${st.border}`,
+                                      borderRadius: 6,
+                                      padding: '5px 8px',
+                                      fontSize: 11.5,
+                                      fontWeight: 700,
+                                      fontFamily: 'var(--font-sans)',
+                                      cursor: 'pointer',
+                                      outline: 'none',
+                                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                    }}
+                                  >
+                                    <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
+                                    <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
+                                    <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
+                                    <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
+                                    <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
+                                  </select>
+                                );
+                              })()}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOrder(o)}
+                                style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: 'var(--slate)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="View Complete Order"
+                              >
+                                <Eye style={{ width: 14, height: 14 }} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1060,7 +1125,8 @@ export default function AdminPage() {
                 </div>
                 <button
                   onClick={() => {
-                    setCouponForm({ id: '', code: 'WELCOME10', label: 'Welcome Offer', discountType: 'percentage', value: 10, minOrder: 50, maxDiscount: 20, expiry: '2026-12-31', active: true, usageLimit: 100, perCustomerLimit: 1 });
+                    setCouponForm({ id: '', code: '', label: '', discountType: 'percentage', value: 10, minOrder: 0, maxDiscount: 0, expiry: '2026-12-31', active: true, usageLimit: 100, perCustomerLimit: 1 });
+                    setCouponFormErrors({});
                     setEditingCoupon({});
                   }}
                   className="btn-primary"
@@ -1081,7 +1147,7 @@ export default function AdminPage() {
                         <th style={{ width: '13%' }}>Min Order</th>
                         <th style={{ width: '14%' }}>Expiry</th>
                         <th style={{ width: '16%' }}>Status</th>
-                        <th style={{ width: '10%', textAlign: 'center' }}>Actions</th>
+                        <th style={{ width: '12%', textAlign: 'center' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1098,9 +1164,23 @@ export default function AdminPage() {
                             </span>
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            <button onClick={() => deleteCoupon(cp.code)} className="btn-secondary" style={{ padding: '6px 10px', color: 'var(--danger)', display: 'inline-flex', alignItems: 'center' }} title="Delete Coupon">
-                              <Trash2 style={{ width: 14, height: 14 }} />
-                            </button>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
+                              <button
+                                onClick={() => {
+                                  setCouponForm({ ...cp });
+                                  setCouponFormErrors({});
+                                  setEditingCoupon(cp);
+                                }}
+                                className="btn-secondary"
+                                style={{ padding: '6px 8px' }}
+                                title="Edit Coupon"
+                              >
+                                <Pencil style={{ width: 14, height: 14 }} />
+                              </button>
+                              <button onClick={() => deleteCoupon(cp.code)} className="btn-secondary" style={{ padding: '6px 8px', color: 'var(--danger)' }} title="Delete Coupon">
+                                <Trash2 style={{ width: 14, height: 14 }} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -2340,7 +2420,6 @@ export default function AdminPage() {
                       }}
                     >
                       <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
-                      <option value="Processing" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Processing</option>
                       <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
                       <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
                       <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
@@ -2690,6 +2769,558 @@ export default function AdminPage() {
         </div>
       </div>
     )}
+
+      {/* MODAL: Create / Edit Coupon */}
+      {editingCoupon && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 580, width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+            <div style={{ overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', padding: 'clamp(20px, 4vw, 28px)', width: '100%', boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div>
+                  <span style={{ fontSize: 11, letterSpacing: '0.1em', fontWeight: 700, color: 'var(--gold-dark)', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>
+                    PROMOTIONAL CAMPAIGN
+                  </span>
+                  <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>
+                    {couponForm.id ? 'Edit Discount Coupon' : 'Create New Coupon'}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setEditingCoupon(null); setCouponFormErrors({}); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--slate)', cursor: 'pointer', padding: 4 }}
+                >
+                  <X style={{ width: 20, height: 20 }} />
+                </button>
+              </div>
+
+              <form onSubmit={e => {
+                e.preventDefault();
+                const errors = {};
+                const cleanCode = (couponForm.code || '').trim().toUpperCase();
+                if (!cleanCode) {
+                  errors.code = 'Coupon code is required (e.g. WELCOME10, DIWALI15).';
+                }
+                if (!couponForm.label || !couponForm.label.trim()) {
+                  errors.label = 'Coupon description / campaign title is required.';
+                }
+                const numVal = parseFloat(couponForm.value);
+                if (isNaN(numVal) || numVal <= 0) {
+                  errors.value = 'Discount value must be a positive number greater than 0.';
+                }
+                if (couponForm.discountType === 'percentage' && numVal > 100) {
+                  errors.value = 'Percentage discount cannot exceed 100%.';
+                }
+                if (couponForm.minOrder === undefined || couponForm.minOrder === '' || isNaN(parseFloat(couponForm.minOrder)) || parseFloat(couponForm.minOrder) < 0) {
+                  errors.minOrder = 'Minimum order amount is required (enter 0 for no minimum).';
+                }
+                if (!couponForm.expiry) {
+                  errors.expiry = 'Expiry date is required.';
+                } else if (couponForm.expiry < '2026-09-01') {
+                  errors.expiry = 'Expiry date cannot be before September 2026.';
+                }
+
+                if (Object.keys(errors).length > 0) {
+                  setCouponFormErrors(errors);
+                  return;
+                }
+
+                setCouponFormErrors({});
+                saveCoupon({
+                  ...couponForm,
+                  id: couponForm.id || `cp_${Date.now()}`,
+                  code: cleanCode,
+                  value: parseFloat(couponForm.value),
+                  minOrder: parseFloat(couponForm.minOrder) || 0,
+                  maxDiscount: parseFloat(couponForm.maxDiscount) || 0,
+                  usageLimit: parseInt(couponForm.usageLimit, 10) || 100,
+                  perCustomerLimit: parseInt(couponForm.perCustomerLimit, 10) || 1
+                });
+                showToast(`Coupon "${cleanCode}" saved successfully!`, 'check');
+                setEditingCoupon(null);
+              }}>
+                <style>{`
+                  .coupon-form-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 16px;
+                    margin-bottom: 16px;
+                  }
+                  @media (max-width: 520px) {
+                    .coupon-form-grid {
+                      grid-template-columns: 1fr !important;
+                      gap: 14px;
+                    }
+                  }
+                  .coupon-code-input {
+                    text-transform: uppercase;
+                    font-weight: 700;
+                    letter-spacing: 0.05em;
+                  }
+                  .coupon-code-input::placeholder {
+                    text-transform: none !important;
+                    font-weight: 400 !important;
+                    letter-spacing: normal !important;
+                  }
+                  .info-tooltip-container {
+                    position: relative;
+                    display: inline-flex;
+                    align-items: center;
+                  }
+                  .info-tooltip-trigger {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--gold-dark, #937328);
+                    cursor: pointer;
+                    line-height: 1;
+                    padding: 2px;
+                    border-radius: 50%;
+                    transition: all 0.2s ease;
+                  }
+                  .info-tooltip-trigger:hover, .info-tooltip-container:hover .info-tooltip-trigger {
+                    color: var(--onyx, #111111);
+                    transform: scale(1.18);
+                  }
+                  .info-tooltip-bubble {
+                    position: absolute;
+                    bottom: calc(100% + 8px);
+                    right: 0;
+                    left: auto;
+                    transform: translateY(4px);
+                    width: 250px;
+                    background: #141414;
+                    color: #F8F7F4;
+                    padding: 11px 13px;
+                    border-radius: 8px;
+                    border: 1px solid rgba(212, 175, 55, 0.45);
+                    font-size: 11px;
+                    line-height: 1.45;
+                    font-weight: 400;
+                    box-shadow: 0 14px 30px -4px rgba(0,0,0,0.6), 0 0 15px rgba(212, 175, 55, 0.15);
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+                    z-index: 99999;
+                    pointer-events: none;
+                    text-transform: none;
+                    letter-spacing: normal;
+                    text-align: left;
+                  }
+                  .info-tooltip-bubble::after {
+                    content: '';
+                    position: absolute;
+                    top: 100%;
+                    right: 4px;
+                    left: auto;
+                    border-width: 5px;
+                    border-style: solid;
+                    border-color: #141414 transparent transparent transparent;
+                  }
+                  .info-tooltip-container:hover .info-tooltip-bubble,
+                  .info-tooltip-container:focus-within .info-tooltip-bubble {
+                    opacity: 1;
+                    visibility: visible;
+                    transform: translateY(0);
+                  }
+                  @media (max-width: 520px) {
+                    .info-tooltip-bubble {
+                      right: -10px;
+                      width: 220px;
+                    }
+                    .info-tooltip-bubble::after {
+                      right: 14px;
+                    }
+                  }
+                `}</style>
+
+                {/* Coupon Code & Discount Type */}
+                <div className="coupon-form-grid">
+                  <div>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12, marginBottom: 6, display: 'block' }}>
+                      COUPON CODE <span style={{ color: '#DC2626' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control coupon-code-input"
+                      style={{ borderColor: couponFormErrors.code ? '#DC2626' : undefined, width: '100%', boxSizing: 'border-box' }}
+                      placeholder="e.g. WELCOME10"
+                      value={couponForm.code}
+                      onChange={e => {
+                        setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() });
+                        if (couponFormErrors.code) setCouponFormErrors(prev => ({ ...prev, code: '' }));
+                      }}
+                    />
+                    {couponFormErrors.code && (
+                      <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                        {couponFormErrors.code}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12, marginBottom: 6, display: 'block' }}>
+                      DISCOUNT TYPE <span style={{ color: '#DC2626' }}>*</span>
+                    </label>
+                    <select
+                      className="form-control"
+                      value={couponForm.discountType}
+                      onChange={e => setCouponForm({ ...couponForm, discountType: e.target.value })}
+                      style={{ fontWeight: 600, width: '100%', boxSizing: 'border-box' }}
+                    >
+                      <option value="percentage">Percentage Discount (%)</option>
+                      <option value="fixed">Fixed Amount ($ AUD)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Offer Label / Description */}
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 12, marginBottom: 6, display: 'block' }}>
+                    OFFER DESCRIPTION / CAMPAIGN TITLE <span style={{ color: '#DC2626' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    style={{ borderColor: couponFormErrors.label ? '#DC2626' : undefined, width: '100%', boxSizing: 'border-box' }}
+                    placeholder="e.g. Welcome 10% Off on First Order"
+                    value={couponForm.label}
+                    onChange={e => {
+                      setCouponForm({ ...couponForm, label: e.target.value });
+                      if (couponFormErrors.label) setCouponFormErrors(prev => ({ ...prev, label: '' }));
+                    }}
+                  />
+                  {couponFormErrors.label && (
+                    <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                      {couponFormErrors.label}
+                    </div>
+                  )}
+                </div>
+
+                {/* Discount Value & Min Order Amount */}
+                <div className="coupon-form-grid">
+                  <div>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12, marginBottom: 6, display: 'block' }}>
+                      DISCOUNT VALUE {couponForm.discountType === 'percentage' ? '(%)' : '($ AUD)'} <span style={{ color: '#DC2626' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.01"
+                      className="form-control"
+                      style={{ borderColor: couponFormErrors.value ? '#DC2626' : undefined, width: '100%', boxSizing: 'border-box' }}
+                      placeholder={couponForm.discountType === 'percentage' ? 'e.g. 10' : 'e.g. 20'}
+                      value={couponForm.value}
+                      onChange={e => {
+                        setCouponForm({ ...couponForm, value: e.target.value });
+                        if (couponFormErrors.value) setCouponFormErrors(prev => ({ ...prev, value: '' }));
+                      }}
+                    />
+                    {couponFormErrors.value && (
+                      <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                        {couponFormErrors.value}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12, marginBottom: 6, display: 'block' }}>
+                      MINIMUM ORDER ($ AUD) <span style={{ color: '#DC2626' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-control"
+                      style={{ borderColor: couponFormErrors.minOrder ? '#DC2626' : undefined, width: '100%', boxSizing: 'border-box' }}
+                      placeholder="0 for no minimum"
+                      value={couponForm.minOrder}
+                      onChange={e => {
+                        setCouponForm({ ...couponForm, minOrder: e.target.value });
+                        if (couponFormErrors.minOrder) setCouponFormErrors(prev => ({ ...prev, minOrder: '' }));
+                      }}
+                    />
+                    <span style={{ fontSize: 11, color: 'var(--slate)', marginTop: 4, display: 'block' }}>Enter 0 for no minimum spend requirement</span>
+                    {couponFormErrors.minOrder && (
+                      <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                        {couponFormErrors.minOrder}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Expiry Date & Max Discount Cap */}
+                <div className="coupon-form-grid">
+                  <div>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12, marginBottom: 6, display: 'block' }}>
+                      EXPIRY DATE <span style={{ color: '#DC2626' }}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      min="2026-09-01"
+                      className="form-control"
+                      style={{ borderColor: couponFormErrors.expiry ? '#DC2626' : undefined, width: '100%', boxSizing: 'border-box' }}
+                      value={couponForm.expiry}
+                      onChange={e => {
+                        setCouponForm({ ...couponForm, expiry: e.target.value });
+                        if (couponFormErrors.expiry) setCouponFormErrors(prev => ({ ...prev, expiry: '' }));
+                      }}
+                    />
+                    {couponFormErrors.expiry && (
+                      <div style={{ color: '#DC2626', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                        {couponFormErrors.expiry}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: 12, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>MAX DISCOUNT CAP ($ AUD)</span>
+                      <span className="info-tooltip-container">
+                        <span className="info-tooltip-trigger">
+                          <Info size={15} strokeWidth={2.2} />
+                        </span>
+                        <span className="info-tooltip-bubble">
+                          <strong style={{ display: 'block', marginBottom: 4, color: 'var(--gold, #D4AF37)', fontSize: 11.5, letterSpacing: '0.02em' }}>Max Savings Limit:</strong>
+                          <span style={{ color: '#F8F7F4' }}>Caps percentage discounts to a maximum dollar savings.</span>
+                          <div style={{ marginTop: 7, padding: '6px 8px', background: 'rgba(212, 175, 55, 0.12)', border: '1px solid rgba(212, 175, 55, 0.3)', borderRadius: 5, fontSize: 10.5, lineHeight: 1.4, color: '#F5F5F5' }}>
+                            <strong style={{ color: 'var(--gold-light, #E8D390)' }}>Example:</strong> 20% off with $50 cap &rarr; a $500 cart gets <strong style={{ color: '#FFFFFF', textDecoration: 'underline' }}>$50 off</strong> (not $100).
+                          </div>
+                          <span style={{ display: 'block', marginTop: 6, color: 'var(--gold-light, #C5A059)', fontSize: 10 }}>Leave blank for unlimited discount.</span>
+                        </span>
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-control"
+                      placeholder="e.g. 50 (optional)"
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                      value={couponForm.maxDiscount || ''}
+                      onChange={e => setCouponForm({ ...couponForm, maxDiscount: e.target.value })}
+                    />
+                    <span style={{ fontSize: 11, color: 'var(--slate)', marginTop: 4, display: 'block' }}>Optional dollar limit cap for large orders. Leave empty for uncapped.</span>
+                  </div>
+                </div>
+
+                {/* Status Toggle Checkbox */}
+                <div style={{ marginBottom: 20, padding: 12, background: 'var(--cream)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <strong style={{ fontSize: 13, color: 'var(--onyx)' }}>Active Status</strong>
+                    <span style={{ display: 'block', fontSize: 11, color: 'var(--slate)' }}>Customers can immediately redeem this coupon at checkout</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={!!couponForm.active}
+                    onChange={e => setCouponForm({ ...couponForm, active: e.target.checked })}
+                    style={{ width: 18, height: 18, cursor: 'pointer', accentColor: 'var(--onyx)' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingCoupon(null); setCouponFormErrors({}); }}
+                    className="btn-secondary"
+                    style={{ padding: '8px 20px', fontSize: 13 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    style={{ padding: '8px 22px', fontSize: 13 }}
+                  >
+                    {couponForm.id ? 'Save Changes' : 'Create Coupon'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Order Details / Full Dossier */}
+      {selectedOrder && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1050 }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 640, width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)' }}>
+            
+            {/* Modal Header */}
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--cream)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--onyx)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ShoppingBag style={{ width: 18, height: 18 }} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 18, fontFamily: 'var(--font-serif)', color: 'var(--onyx)', fontWeight: 700 }}>
+                    Order {selectedOrder.id}
+                  </h3>
+                  <span style={{ fontSize: 12, color: 'var(--slate)' }}>Placed on {selectedOrder.date}</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {(() => {
+                  const st = getStatusStyles(selectedOrder.status);
+                  return (
+                    <span style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}`, padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                      {selectedOrder.status}
+                    </span>
+                  );
+                })()}
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrder(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--slate)', cursor: 'pointer', padding: 4 }}
+                >
+                  <X style={{ width: 20, height: 20 }} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }}>
+              
+              {/* Customer & Delivery Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 20 }}>
+                
+                {/* Customer & Contact Box */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: 'var(--gold-dark)', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <User style={{ width: 14, height: 14 }} /> Customer Contact
+                  </div>
+                  <strong style={{ fontSize: 14, color: 'var(--onyx)', display: 'block', marginBottom: 4 }}>
+                    {selectedOrder.customer}
+                  </strong>
+                  <div style={{ fontSize: 12, color: 'var(--slate)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Mail style={{ width: 13, height: 13, color: 'var(--slate)' }} />
+                    <a href={`mailto:${selectedOrder.email}`} style={{ color: 'var(--onyx)', textDecoration: 'none' }}>{selectedOrder.email}</a>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--slate)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Phone style={{ width: 13, height: 13, color: 'var(--slate)' }} />
+                    <a href={`tel:${selectedOrder.phone || '+61435927824'}`} style={{ color: 'var(--gold-dark)', fontWeight: 600, textDecoration: 'none' }}>
+                      {selectedOrder.phone || '+61 435 927 824'}
+                    </a>
+                  </div>
+                </div>
+
+                {/* Delivery Address Box */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: 'var(--gold-dark)', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <MapPin style={{ width: 14, height: 14 }} /> Delivery Address
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--onyx)', marginBottom: 2 }}>
+                    {selectedOrder.address || '189 Brompton Road'}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--slate)', lineHeight: 1.4 }}>
+                    {[selectedOrder.city || 'Brisbane City', selectedOrder.state || 'Queensland (QLD)', selectedOrder.postcode || '4061'].filter(Boolean).join(', ')}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 4, fontWeight: 500 }}>
+                    Country: Australia (Australia Post Delivery)
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div style={{ marginBottom: 20 }}>
+                <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+                  Purchased Items
+                </h4>
+                <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                  {Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 ? (
+                    selectedOrder.items.map((it, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: idx < selectedOrder.items.length - 1 ? '1px solid var(--border)' : 'none', background: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <img src={it.image || '/assets/logo.svg'} alt={it.name} style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', border: '1px solid #E2E8F0' }} />
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--onyx)' }}>{it.name || selectedOrder.product}</div>
+                            <div style={{ fontSize: 11, color: 'var(--slate)' }}>Qty: {it.quantity || 1} · ${parseFloat(it.price || 129).toFixed(2)} AUD each</div>
+                          </div>
+                        </div>
+                        <strong style={{ fontSize: 13, color: 'var(--onyx)' }}>
+                          ${((it.quantity || 1) * parseFloat(it.price || 129)).toFixed(2)} AUD
+                        </strong>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--onyx)' }}>{selectedOrder.product || 'Fine Jewellery Selection'}</span>
+                      <strong style={{ fontSize: 13, color: 'var(--onyx)' }}>{selectedOrder.total}</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Financial Breakdown & Verification */}
+              <div style={{ background: 'var(--cream)', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--slate)' }}>
+                  <span>Payment Gateway:</span>
+                  <strong style={{ color: 'var(--onyx)' }}>{selectedOrder.paymentMethod || 'Stripe Encrypted Payment (Verified)'}</strong>
+                </div>
+                {selectedOrder.sessionId && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--slate)' }}>
+                    <span>Stripe Session ID:</span>
+                    <code style={{ fontSize: 10.5, color: 'var(--gold-dark)', background: '#FFFFFF', padding: '2px 6px', borderRadius: 4 }}>{selectedOrder.sessionId.slice(0, 22)}...</code>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700, color: 'var(--onyx)', paddingTop: 6, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+                  <span>Total Amount Paid:</span>
+                  <span style={{ color: 'var(--gold-dark)' }}>{selectedOrder.total}</span>
+                </div>
+              </div>
+
+              {/* Status Update Control */}
+              <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: 14, background: '#F8FAFC', borderRadius: 10, border: '1px solid #E2E8F0' }}>
+                <div>
+                  <strong style={{ fontSize: 13, color: 'var(--onyx)', display: 'block' }}>Update Order Lifecycle Status</strong>
+                  <span style={{ fontSize: 11, color: 'var(--slate)' }}>Advance fulfillment state (Confirmed → Packed → Shipped → Delivered)</span>
+                </div>
+                <select
+                  value={selectedOrder.status}
+                  onChange={(e) => {
+                    const newStatus = e.target.value;
+                    if (updateOrderStatus) updateOrderStatus(selectedOrder.id, newStatus);
+                    setSelectedOrder(prev => ({ ...prev, status: newStatus }));
+                    showToast(`Order ${selectedOrder.id} status updated to "${newStatus}"`, 'check');
+                  }}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    background: '#FFFFFF',
+                    color: 'var(--onyx)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Packed">Packed</option>
+                  <option value="Shipped">Shipped</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FFFFFF' }}>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13 }}
+              >
+                <Printer style={{ width: 15, height: 15 }} /> Print Dispatch Note
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(null)}
+                className="btn-primary"
+                style={{ padding: '8px 22px', fontSize: 13 }}
+              >
+                Done
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

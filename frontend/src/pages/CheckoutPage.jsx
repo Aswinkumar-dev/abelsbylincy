@@ -1,38 +1,213 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, CreditCard, Smartphone, Check, Lock, Truck, ShoppingBag } from 'lucide-react';
+import { ArrowRight, ShieldCheck, CreditCard, Smartphone, Check, Lock, Truck, ShoppingBag, Tag, Ticket, Sparkles, X, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 const STEPS = ['Shipping', 'Payment', 'Review & Place'];
 
 export default function CheckoutPage() {
-  const { cart, setCart, currentUser, formatMoney, placeOrder, saveUserAddress, showToast } = useStore();
+  const { cart, setCart, currentUser, formatMoney, placeOrder, saveUserAddress, showToast, orders, setOrders, customers, setCustomers, coupons } = useStore();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [paymentTab, setPaymentTab] = useState('card');
   const [completedOrder, setCompletedOrder] = useState(null);
 
+  // Restore draft state across page refreshes so refreshing never loses filled form or applied coupon
+  const draftForm = (() => {
+    try { return JSON.parse(localStorage.getItem('abl_checkout_draft_form')); } catch { return null; }
+  })();
+
+  const draftCoupon = (() => {
+    try { return JSON.parse(localStorage.getItem('abl_checkout_applied_coupon')); } catch { return null; }
+  })();
+
+  const draftShipping = (() => {
+    try { return localStorage.getItem('abl_checkout_shipping_method') || 'standard'; } catch { return 'standard'; }
+  })();
+
   const savedAddress = currentUser?.savedAddress || (() => {
     try { return JSON.parse(localStorage.getItem('abl_saved_address')); } catch { return null; }
   })();
 
-  const [saveAddress, setSaveAddress] = useState(!!savedAddress);
+  const [saveAddress, setSaveAddress] = useState(!!(savedAddress || draftForm));
 
   const [formData, setFormData] = useState({
-    firstName: savedAddress?.firstName || currentUser?.name?.split(' ')[0] || '',
-    lastName: savedAddress?.lastName || currentUser?.name?.split(' ').slice(1).join(' ') || '',
-    email: savedAddress?.email || currentUser?.email || '',
-    phone: savedAddress?.phone || '',
-    address: savedAddress?.address || '',
-    city: savedAddress?.city || '',
-    state: savedAddress?.state || '',
-    postcode: savedAddress?.postcode || '',
+    firstName: draftForm?.firstName || savedAddress?.firstName || currentUser?.name?.split(' ')[0] || '',
+    lastName: draftForm?.lastName || savedAddress?.lastName || currentUser?.name?.split(' ').slice(1).join(' ') || '',
+    email: draftForm?.email || savedAddress?.email || currentUser?.email || '',
+    phone: draftForm?.phone || savedAddress?.phone || '',
+    address: draftForm?.address || savedAddress?.address || '',
+    city: draftForm?.city || savedAddress?.city || '',
+    state: draftForm?.state || savedAddress?.state || '',
+    postcode: draftForm?.postcode || savedAddress?.postcode || '',
   });
 
-  const [shippingMethod, setShippingMethod] = useState('standard');
-  const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const [shippingMethod, setShippingMethod] = useState(draftShipping);
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(draftCoupon || null);
+  const [couponError, setCouponError] = useState('');
+  const [copiedCode, setCopiedCode] = useState('');
+  const [showOffersDropdown, setShowOffersDropdown] = useState(true);
+
+  // Auto-persist draft form, shipping method & applied coupon so refreshing page preserves entire session state
+  useEffect(() => {
+    try { localStorage.setItem('abl_checkout_draft_form', JSON.stringify(formData)); } catch {}
+  }, [formData]);
+
+  useEffect(() => {
+    try { localStorage.setItem('abl_checkout_shipping_method', shippingMethod); } catch {}
+  }, [shippingMethod]);
+
+  useEffect(() => {
+    try {
+      if (appliedCoupon) {
+        localStorage.setItem('abl_checkout_applied_coupon', JSON.stringify(appliedCoupon));
+      } else {
+        localStorage.removeItem('abl_checkout_applied_coupon');
+      }
+    } catch {}
+  }, [appliedCoupon]);
+
+  // Resolve cart items immediately from state or localStorage cache to prevent false "empty bag" on refresh
+  const resolvedCart = (cart && cart.length > 0) ? cart : (() => {
+    try {
+      const saved = localStorage.getItem('abl_cart');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      const pending = localStorage.getItem('abl_pending_checkout_items');
+      if (pending) {
+        const parsed2 = JSON.parse(pending);
+        if (Array.isArray(parsed2) && parsed2.length > 0) return parsed2;
+      }
+    } catch {}
+    return [];
+  })();
+
+  // Synchronize back into StoreContext if cart was empty on initial mount but cached in storage
+  useEffect(() => {
+    if (cart.length === 0 && resolvedCart.length > 0 && !completedOrder) {
+      setCart(resolvedCart);
+    }
+  }, [cart.length, resolvedCart, completedOrder, setCart]);
+
+  const activeCartItems = (cart && cart.length > 0) ? cart : resolvedCart;
+  const subtotal = activeCartItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const shippingFee = shippingMethod === 'express' ? 15 : (subtotal >= 60 ? 0 : 10);
-  const grandTotal = subtotal + shippingFee;
+
+  let discountAmount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discountType === 'percentage') {
+      discountAmount = (subtotal * parseFloat(appliedCoupon.value || 0)) / 100;
+    } else {
+      discountAmount = parseFloat(appliedCoupon.value || 0);
+    }
+    if (appliedCoupon.maxDiscount && discountAmount > parseFloat(appliedCoupon.maxDiscount)) {
+      discountAmount = parseFloat(appliedCoupon.maxDiscount);
+    }
+    discountAmount = Math.min(discountAmount, subtotal);
+  }
+
+  const grandTotal = Math.max(0, subtotal - discountAmount + shippingFee);
+
+  const userEmail = (currentUser?.email || formData.email || '').trim().toLowerCase();
+  const customerHasPriorOrders = (orders || []).some(o => (o.email || '').trim().toLowerCase() === userEmail) || (Number(currentUser?.orders) > 0);
+  const isFirstTimeCustomer = !customerHasPriorOrders;
+
+  // Only show first-order coupons (like FIRSTORDER, WELCOME10) for genuine first-time customers
+  const activeStoreCoupons = (coupons || []).filter(c => {
+    if (!c.active) return false;
+    const isFirstOrderCoupon = /FIRST|WELCOME/i.test(c.code) || /first order|welcome/i.test(c.label || '');
+    if (isFirstOrderCoupon && !isFirstTimeCustomer) return false;
+    return true;
+  });
+
+  const featuredOffer = activeStoreCoupons.find(c => /WELCOME|FIRST/i.test(c.code) || /Welcome|First/i.test(c.label)) || activeStoreCoupons[0];
+
+  const handleCopyCoupon = (code, e) => {
+    if (e) e.stopPropagation();
+    try {
+      navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(''), 2500);
+    } catch {}
+  };
+
+  const handleApplyCoupon = (codeToApply) => {
+    setCouponError('');
+    const raw = (codeToApply || couponInput || '').trim();
+    if (!raw) {
+      const err = 'Please enter a coupon code.';
+      setCouponError(err);
+      showToast(err, 'alert-circle');
+      return;
+    }
+
+    // Strict sanitization: alphanumeric, hyphens, underscores only (max 30 chars)
+    // Completely blocks SQL injection patterns (' OR '1'='1, ;, --, <script>, UNION, DROP)
+    const sanitized = raw.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    if (!sanitized || sanitized.length > 30 || sanitized !== raw.toUpperCase()) {
+      const err = 'Invalid coupon code format. Use only letters and numbers without special symbols.';
+      setCouponError(err);
+      showToast(err, 'alert-circle');
+      return;
+    }
+
+    // Direct exact lookup against active admin coupons
+    const allStoreCoupons = Array.isArray(coupons) ? coupons : [];
+    const matched = allStoreCoupons.find(c => (c.code || '').trim().toUpperCase() === sanitized);
+
+    if (!matched) {
+      const err = `Coupon "${sanitized}" is invalid or not found in store records.`;
+      setCouponError(err);
+      showToast(err, 'alert-circle');
+      return;
+    }
+
+    if (!matched.active) {
+      const err = `Coupon "${matched.code}" is currently disabled.`;
+      setCouponError(err);
+      showToast(err, 'alert-circle');
+      return;
+    }
+
+    // First order restriction check
+    const isFirstOrderCoupon = /FIRST|WELCOME/i.test(matched.code) || /first order|welcome/i.test(matched.label || '');
+    if (isFirstOrderCoupon && !isFirstTimeCustomer) {
+      const err = `Coupon "${matched.code}" is valid only for your first order.`;
+      setCouponError(err);
+      showToast(err, 'alert-circle');
+      return;
+    }
+
+    if (matched.expiry) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (matched.expiry < todayStr) {
+        const err = `Coupon "${matched.code}" expired on ${matched.expiry}.`;
+        setCouponError(err);
+        showToast(err, 'alert-circle');
+        return;
+      }
+    }
+
+    const minSpend = parseFloat(matched.minOrder) || 0;
+    if (minSpend > 0 && subtotal < minSpend) {
+      const err = `Minimum cart spend of $${minSpend.toFixed(2)} AUD required for "${matched.code}" (Current: ${formatMoney(subtotal)}).`;
+      setCouponError(err);
+      showToast(err, 'alert-circle');
+      return;
+    }
+
+    setAppliedCoupon(matched);
+    setCouponInput('');
+    setCouponError('');
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError('');
+  };
 
   // Auth guard
   useEffect(() => {
@@ -68,8 +243,26 @@ export default function CheckoutPage() {
         return cart.length > 0 ? cart : [];
       })();
 
-      const rawTotal = purchasedItems.reduce((s, i) => s + (i.price * (i.quantity || 1)), 0);
-      const formattedTotal = formatMoney ? formatMoney(rawTotal) : `$${rawTotal.toFixed(2)}`;
+      const savedDiscountInfo = (() => {
+        try { return JSON.parse(localStorage.getItem('abl_pending_checkout_discount')) || {}; } catch { return {}; }
+      })();
+
+      const savedMeta = (() => {
+        try { return JSON.parse(localStorage.getItem('abl_pending_checkout_meta')) || {}; } catch { return {}; }
+      })();
+
+      const returnDiscount = parseFloat(savedDiscountInfo.discountAmount ?? savedMeta.discountAmount ?? 0);
+      const itemsSum = purchasedItems.reduce((s, i) => s + ((parseFloat(i.price) || 0) * (i.quantity || 1)), 0);
+      const shippingMethodChoice = savedMeta.shippingMethod || savedFormData?.shippingMethod || 'standard';
+      const returnShipping = savedMeta.shippingFee !== undefined
+        ? parseFloat(savedMeta.shippingFee)
+        : (shippingMethodChoice === 'express' ? 15 : (itemsSum - returnDiscount >= 60 ? 0 : 10));
+
+      let finalPaidAmount = savedMeta.grandTotal !== undefined
+        ? parseFloat(savedMeta.grandTotal)
+        : Math.max(0, itemsSum - returnDiscount) + returnShipping;
+
+      let formattedTotal = formatMoney ? formatMoney(finalPaidAmount) : `$${finalPaidAmount.toFixed(2)}`;
 
       const estDelivery = new Date();
       estDelivery.setDate(estDelivery.getDate() + 4);
@@ -84,13 +277,17 @@ export default function CheckoutPage() {
         city: savedFormData?.city || formData.city || 'Brisbane City',
         state: savedFormData?.state || formData.state || 'Queensland (QLD)',
         postcode: savedFormData?.postcode || formData.postcode || '4061',
-        product: purchasedItems[0]?.name || 'Fine Jewellery Selection',
+        product: purchasedItems.length > 1 ? `${purchasedItems[0]?.name || 'Fine Jewellery'} (+${purchasedItems.length - 1} items)` : (purchasedItems[0]?.name || 'Fine Jewellery Selection'),
         items: purchasedItems.length > 0 ? purchasedItems : [{ id: 'p1', name: 'Fine Gold-Plated Jewellery Collection', price: 129, quantity: 1, image: '/assets/logo.svg' }],
         date: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
         deliveryEstimate: deliveryDateStr,
-        status: 'Confirmed & Dispatching',
+        status: 'Confirmed',
         total: formattedTotal,
-        rawAmount: rawTotal,
+        rawAmount: finalPaidAmount,
+        discount: returnDiscount > 0 ? `$${returnDiscount.toFixed(2)}` : null,
+        couponCode: savedDiscountInfo.couponCode || savedMeta.couponCode || null,
+        shippingMethod: shippingMethodChoice,
+        shippingFee: returnShipping,
         paymentMethod: 'Stripe Encrypted Payment (Verified)',
         sessionId: sessionId
       };
@@ -99,9 +296,74 @@ export default function CheckoutPage() {
       setStep(3);
       setCart([]);
       localStorage.removeItem('abl_pending_checkout_items');
+      localStorage.removeItem('abl_pending_checkout_discount');
+      localStorage.removeItem('abl_pending_checkout_meta');
+      localStorage.removeItem('abl_checkout_draft_form');
+      localStorage.removeItem('abl_checkout_applied_coupon');
+      localStorage.removeItem('abl_checkout_shipping_method');
+
+      // Fetch authoritative session details directly from Stripe to ensure exact match
+      fetch(`/api/payments/session-details/${sessionId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(sessionData => {
+          if (sessionData && sessionData.success && typeof sessionData.amountTotal === 'number' && sessionData.amountTotal > 0) {
+            const authoritativePaid = sessionData.amountTotal;
+            const authoritativeFormatted = formatMoney ? formatMoney(authoritativePaid) : `$${authoritativePaid.toFixed(2)}`;
+            setCompletedOrder(prev => prev ? {
+              ...prev,
+              total: authoritativeFormatted,
+              rawAmount: authoritativePaid
+            } : prev);
+          }
+        })
+        .catch(err => console.warn('Stripe session retrieval note:', err));
+
+      // Persist Stripe order into StoreContext orders & customers for Dashboard & Analytics visibility
+      if (setOrders) {
+        setOrders(prevOrders => {
+          const currentOrders = Array.isArray(prevOrders) ? prevOrders : [];
+          const exists = currentOrders.some(o => o.sessionId === sessionId || o.id === confirmedOrder.id);
+          return exists ? currentOrders : [confirmedOrder, ...currentOrders];
+        });
+      }
+
+      if (setCustomers && confirmedOrder.email) {
+        setCustomers(prevCusts => {
+          const currentCusts = Array.isArray(prevCusts) ? prevCusts : [];
+          const custEmail = confirmedOrder.email.toLowerCase();
+          const custIdx = currentCusts.findIndex(c => c.email.toLowerCase() === custEmail);
+          let updatedCusts = [...currentCusts];
+          if (custIdx !== -1) {
+            const cust = { ...updatedCusts[custIdx] };
+            cust.orders = (cust.orders || 0) + 1;
+            const currentSpent = parseFloat(String(cust.spent || '0').replace(/[^0-9.]/g, '')) || 0;
+            cust.spent = `$${(currentSpent + finalPaidAmount).toFixed(2)}`;
+            updatedCusts[custIdx] = cust;
+          } else {
+            updatedCusts.push({
+              id: `c_${Date.now()}`,
+              name: confirmedOrder.customer,
+              email: confirmedOrder.email,
+              orders: 1,
+              spent: `$${finalPaidAmount.toFixed(2)}`,
+              joined: 'Aug 2026',
+              status: 'Active'
+            });
+          }
+          return updatedCusts;
+        });
+      }
+
       window.history.replaceState(null, '', window.location.pathname);
 
-      // Asynchronous background email dispatch (non-blocking)
+      // Record Stripe order to backend API & DB (non-blocking)
+      fetch('/api/payments/record-stripe-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: confirmedOrder })
+      }).catch(e => console.warn('Backend order record note:', e));
+
+      // Asynchronous background email dispatch (non-blocking) with exact paid total
       fetch('/api/payments/send-order-confirmation-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,6 +380,11 @@ export default function CheckoutPage() {
             estimatedDeliveryDate: deliveryDateStr,
             purchasedItems: purchasedItems,
             orderTotal: formattedTotal,
+            discountAmount: returnDiscount,
+            couponCode: savedDiscountInfo.couponCode || savedMeta.couponCode || null,
+            shippingFee: returnShipping,
+            shippingMethod: shippingMethodChoice,
+            rawAmount: finalPaidAmount,
             orderDate: confirmedOrder.date
           }
         })
@@ -183,9 +450,23 @@ export default function CheckoutPage() {
       { id: 'p_test', name: 'Fine Jewellery Selection', price: 129, quantity: 1, image: '/assets/logo.svg' }
     ];
 
-    // Store checkout items in localStorage so all N items appear on return
+    // Store checkout items and full checkout metadata in localStorage so return screen displays accurate totals
     try {
       localStorage.setItem('abl_pending_checkout_items', JSON.stringify(checkoutItems));
+      localStorage.setItem('abl_pending_checkout_discount', JSON.stringify({
+        discountAmount,
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        couponLabel: appliedCoupon ? appliedCoupon.label : null
+      }));
+      localStorage.setItem('abl_pending_checkout_meta', JSON.stringify({
+        subtotal,
+        discountAmount,
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        couponLabel: appliedCoupon ? appliedCoupon.label : null,
+        shippingFee,
+        shippingMethod,
+        grandTotal
+      }));
     } catch (err) {
       console.warn('Failed to cache pending checkout items', err);
     }
@@ -195,6 +476,8 @@ export default function CheckoutPage() {
       email: email,
       shippingAddress: formData,
       shippingFee: shippingFee,
+      discountAmount: discountAmount,
+      couponCode: appliedCoupon ? appliedCoupon.code : null,
       shippingMethod: shippingMethod === 'express' ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)'
     });
 
@@ -246,11 +529,15 @@ export default function CheckoutPage() {
   };
 
   const handlePlaceOrder = () => {
-    if (cart.length === 0) { showToast('Your bag is empty', 'alert-circle'); return; }
+    if (activeCartItems.length === 0) { showToast('Your bag is empty', 'alert-circle'); return; }
     const order = placeOrder(formData, paymentTab);
     if (order) {
       setCompletedOrder(order);
       setStep(3);
+      localStorage.removeItem('abl_checkout_draft_form');
+      localStorage.removeItem('abl_checkout_applied_coupon');
+      localStorage.removeItem('abl_checkout_shipping_method');
+      localStorage.removeItem('abl_pending_checkout_items');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -279,8 +566,8 @@ export default function CheckoutPage() {
     );
   }
 
-  // Empty Bag Protection View (If cart is empty and not on completed order screen)
-  if (cart.length === 0 && step !== 3 && !completedOrder) {
+  // Empty Bag Protection View (If cart is truly empty and not on completed order screen)
+  if (activeCartItems.length === 0 && step !== 3 && !completedOrder) {
     return (
       <div className="container" style={{ padding: '80px 16px 100px 16px', maxWidth: 600, textAlign: 'center' }}>
         <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--cream)', color: 'var(--gold)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
@@ -365,7 +652,7 @@ export default function CheckoutPage() {
             Purchased Items Summary
           </h4>
           {completedOrder.items && completedOrder.items.map((item, idx) => (
-            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '10px 0', borderBottom: idx < completedOrder.items.length - 1 ? '1px dashed var(--border)' : 'none' }}>
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '10px 0', borderBottom: '1px dashed var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <img src={item.image || '/assets/logo.svg'} alt={item.name} style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 'var(--radius-md)', background: 'var(--cream)' }} />
                 <div>
@@ -373,9 +660,38 @@ export default function CheckoutPage() {
                   <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Qty: {item.quantity || 1} · Fine Gold-Plated Jewellery</p>
                 </div>
               </div>
-              <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>{formatMoney ? formatMoney(item.price * (item.quantity || 1)) : `$${item.price}`}</p>
+              <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>{formatMoney ? formatMoney((parseFloat(item.price) || 0) * (item.quantity || 1)) : `$${item.price}`}</p>
             </div>
           ))}
+
+          {/* Pricing Breakdown Rows */}
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--slate)' }}>
+              <span>Items Subtotal</span>
+              <span style={{ fontWeight: 600, color: 'var(--onyx)' }}>
+                {formatMoney ? formatMoney((completedOrder.items || []).reduce((s, i) => s + ((parseFloat(i.price) || 0) * (i.quantity || 1)), 0)) : `$${(completedOrder.items || []).reduce((s, i) => s + ((parseFloat(i.price) || 0) * (i.quantity || 1)), 0).toFixed(2)}`}
+              </span>
+            </div>
+
+            {completedOrder.discount && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#047857' }}>
+                <span>Coupon Discount {completedOrder.couponCode ? `(${completedOrder.couponCode})` : ''}</span>
+                <span style={{ fontWeight: 700 }}>- {completedOrder.discount}</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--slate)' }}>
+              <span>{completedOrder.shippingMethod === 'express' ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)'}</span>
+              <span style={{ fontWeight: 600, color: 'var(--onyx)' }}>
+                {completedOrder.shippingFee === 0 ? 'FREE' : (formatMoney ? formatMoney(completedOrder.shippingFee || 0) : `$${(completedOrder.shippingFee || 0).toFixed(2)}`)}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700, color: 'var(--onyx)', marginTop: 8, paddingTop: 12, borderTop: '1.5px solid var(--border)' }}>
+              <span>Total Paid (GST Inc.)</span>
+              <span style={{ fontSize: 18, color: 'var(--gold-dark)', fontWeight: 700 }}>{completedOrder.total}</span>
+            </div>
+          </div>
         </div>
 
         {/* Single Action Button */}
@@ -608,9 +924,9 @@ export default function CheckoutPage() {
           {/* Right: Bag Summary */}
           <div>
             <div style={{ background: 'var(--cloud-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: 20 }}>
-              <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 17, fontWeight: 600, marginBottom: 14 }}>Bag Items ({cart.length})</h4>
-              <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 14 }}>
-                {cart.map(item => (
+              <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 17, fontWeight: 600, marginBottom: 14 }}>Bag Items ({activeCartItems.length})</h4>
+              <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 16 }}>
+                {activeCartItems.map(item => (
                   <div key={`${item.id}-${item.size}`} style={{ display: 'flex', gap: 10, marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid var(--border-light)' }}>
                     <img src={item.image} style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover' }} alt={item.name} />
                     <div style={{ flex: 1 }}>
@@ -621,10 +937,141 @@ export default function CheckoutPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Coupon Code Section */}
+              <div style={{ marginBottom: 16 }}>
+                <div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="ENTER COUPON CODE"
+                      value={couponInput}
+                      onChange={e => {
+                        setCouponInput(e.target.value.toUpperCase());
+                        if (couponError) setCouponError('');
+                      }}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
+                      style={{ fontSize: 12, padding: '8px 10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em', flex: 1, borderColor: couponError ? '#DC2626' : undefined }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleApplyCoupon()}
+                      className="btn-primary"
+                      style={{ padding: '8px 14px', fontSize: 12, whiteSpace: 'nowrap' }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+
+                  {couponError && (
+                    <div style={{ color: '#DC2626', fontSize: 11.5, marginTop: 5, fontWeight: 600, lineHeight: 1.3 }}>
+                      {couponError}
+                    </div>
+                  )}
+
+                  {/* Available Active Store Coupons from Admin */}
+                  {activeStoreCoupons.length > 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowOffersDropdown(!showOffersDropdown)}
+                        style={{ background: 'none', border: 'none', color: 'var(--gold-dark)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: 0 }}
+                      >
+                        <Ticket style={{ width: 13, height: 13 }} />
+                        {showOffersDropdown ? `Hide Available Coupons (${activeStoreCoupons.length})` : `View Available Coupons (${activeStoreCoupons.length})`}
+                        {showOffersDropdown ? <ChevronUp style={{ width: 12, height: 12 }} /> : <ChevronDown style={{ width: 12, height: 12 }} />}
+                      </button>
+                      
+                      {showOffersDropdown && (
+                        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {activeStoreCoupons.map(cp => {
+                            const isCurrentApplied = appliedCoupon?.code === cp.code;
+                            return (
+                              <div
+                                key={cp.id || cp.code}
+                                style={{
+                                  background: isCurrentApplied ? '#F4FBF7' : 'var(--cream)',
+                                  padding: '10px 12px',
+                                  borderRadius: 'var(--radius-md)',
+                                  fontSize: 12,
+                                  border: isCurrentApplied ? '1px solid #10B981' : '1px solid var(--border)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 5
+                                }}
+                              >
+                                {/* Top Row: Code, Discount Badge, Applied Tag, Actions */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                    <strong style={{ color: isCurrentApplied ? '#065F46' : 'var(--onyx)', letterSpacing: '0.04em', fontSize: 12.5 }}>
+                                      {cp.code}
+                                    </strong>
+                                    <span style={{ color: '#92400E', background: '#FEF3C7', padding: '1px 6px', borderRadius: 4, fontWeight: 700, fontSize: 10.5, whiteSpace: 'nowrap' }}>
+                                      {cp.discountType === 'percentage' ? `${cp.value}% OFF` : `$${cp.value} OFF`}
+                                    </span>
+                                    {isCurrentApplied && (
+                                      <span style={{ fontSize: 10, fontWeight: 700, background: '#D1FAE5', color: '#047857', padding: '1px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+                                        ACTIVE
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleCopyCoupon(cp.code, e)}
+                                      style={{
+                                        background: '#FFFFFF',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: 4,
+                                        padding: '4px 10px',
+                                        color: 'var(--onyx)',
+                                        cursor: 'pointer',
+                                        fontSize: 11,
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                      title="Copy coupon code"
+                                    >
+                                      {copiedCode === cp.code ? <Check style={{ width: 11, height: 11, color: '#047857' }} /> : <Copy style={{ width: 11, height: 11, color: 'var(--gold-dark)' }} />}
+                                      <span style={{ color: copiedCode === cp.code ? '#047857' : 'inherit', fontWeight: 600 }}>
+                                        {copiedCode === cp.code ? 'Copied' : 'Copy'}
+                                      </span>
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Bottom Row: Description */}
+                                <div style={{ fontSize: 11, color: isCurrentApplied ? '#047857' : 'var(--slate)', lineHeight: 1.3 }}>
+                                  {cp.label} {cp.minOrder > 0 ? `· Min spend $${cp.minOrder}` : '· No min spend'}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Summary Financials */}
               <div className="summary-row" style={{ fontSize: 13, marginBottom: 8 }}>
                 <span style={{ color: 'var(--slate)' }}>Subtotal</span>
                 <span style={{ fontWeight: 600 }}>{formatMoney(subtotal)}</span>
               </div>
+
+              {discountAmount > 0 && (
+                <div className="summary-row" style={{ fontSize: 13, marginBottom: 8, color: '#047857' }}>
+                  <span>Discount ({appliedCoupon?.code})</span>
+                  <span style={{ fontWeight: 700 }}>- {formatMoney(discountAmount)}</span>
+                </div>
+              )}
+
               <div className="summary-row" style={{ fontSize: 13, marginBottom: 8 }}>
                 <span style={{ color: 'var(--slate)' }}>
                   {shippingMethod === 'express' ? 'Express Shipping (AusPost)' : 'Standard Shipping (AusPost)'}
@@ -633,12 +1080,13 @@ export default function CheckoutPage() {
                   {shippingFee === 0 ? 'FREE' : formatMoney(shippingFee)}
                 </span>
               </div>
+
               <div className="summary-row summary-total" style={{ fontSize: 16, marginTop: 10, paddingTop: 10 }}>
                 <span>Total</span>
                 <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--onyx)' }}>{formatMoney(grandTotal)}</span>
               </div>
-              <p style={{ fontSize: 11, color: 'var(--slate)', fontStyle: 'italic', marginTop: 8, textAlign: 'center' }}>
-                * All prices are inclusive of GST.
+              <p style={{ fontSize: 11, color: 'var(--slate)', fontStyle: 'italic', marginTop: 8, textAlign: 'left' }}>
+                * All prices in AUD and inclusive of GST.
               </p>
             </div>
           </div>

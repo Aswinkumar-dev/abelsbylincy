@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS = {
   primaryCurrency: 'AUD',
   currencySymbol: '$',
   gstTaxRate: '10%',
-  freeShippingThreshold: 150,
+  freeShippingThreshold: 60,
 };
 
 const DEFAULT_CMS = {
@@ -162,8 +162,8 @@ export function StoreProvider({ children }) {
   // State mirrors app.js `state` object
   const [products, setProductsRaw] = useState(() => readLS('abl_products_v5', DEFAULT_PRODUCTS));
   const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
-  const [orders, setOrdersRaw] = useState(() => readLS('abl_orders_v6', DEFAULT_ORDERS));
-  const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v6', DEFAULT_CUSTOMERS));
+  const [orders, setOrdersRaw] = useState(() => readLS('abl_orders_v7', DEFAULT_ORDERS));
+  const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v7', DEFAULT_CUSTOMERS));
   const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons_v6', DEFAULT_COUPONS));
   const [reviews, setReviewsRaw] = useState(() => readLS('abl_reviews_v6', DEFAULT_REVIEWS));
   const [stockHistory, setStockHistoryRaw] = useState(() => readLS('abl_stock_history_v6', DEFAULT_STOCK_HISTORY));
@@ -190,8 +190,20 @@ export function StoreProvider({ children }) {
     });
   }, []);
   const setCategories = useCallback((v) => { setCategoriesRaw(v); writeLS('abl_categories_v5', v); }, []);
-  const setOrders = useCallback((v) => { setOrdersRaw(v); writeLS('abl_orders_v6', v); }, []);
-  const setCustomers = useCallback((v) => { setCustomersRaw(v); writeLS('abl_customers_v6', v); }, []);
+  const setOrders = useCallback((updaterOrValue) => {
+    setOrdersRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_orders_v7', next);
+      return next;
+    });
+  }, []);
+  const setCustomers = useCallback((updaterOrValue) => {
+    setCustomersRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_customers_v7', next);
+      return next;
+    });
+  }, []);
   const setCoupons = useCallback((v) => { setCouponsRaw(v); writeLS('abl_coupons_v6', v); }, []);
   const setReviews = useCallback((updaterOrValue) => {
     setReviewsRaw(prev => {
@@ -570,9 +582,10 @@ export function StoreProvider({ children }) {
       id: `#ABL-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       customer: `${checkoutData.firstName} ${checkoutData.lastName}`.trim(),
       email: checkoutData.email,
-      product: cart[0]?.name || 'Fine Jewellery',
+      product: cart.length > 1 ? `${cart[0]?.name || 'Fine Jewellery'} (+${cart.length - 1} items)` : (cart[0]?.name || 'Fine Jewellery'),
+      items: cart,
       date: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      status: 'Processing',
+      status: 'Confirmed',
       total: formatMoney(orderSubtotal),
       rawAmount: orderSubtotal,
       itemsCount: cart.length,
@@ -654,7 +667,7 @@ export function StoreProvider({ children }) {
   }, [orders, setOrders, showToast]);
 
   const cycleOrderStatus = useCallback((id) => {
-    const statuses = ['Confirmed', 'Processing', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
+    const statuses = ['Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
     setOrders(orders.map(o => {
       if (o.id === id) {
         const idx = statuses.indexOf(o.status);
@@ -685,17 +698,19 @@ export function StoreProvider({ children }) {
   }, [customers, setCustomers, showToast]);
 
   const saveCoupon = useCallback((cpData) => {
-    const existing = coupons.find(c => c.code === cpData.code);
-    if (existing) {
-      setCoupons(coupons.map(c => c.code === cpData.code ? { ...c, ...cpData } : c));
+    const existingIdx = coupons.findIndex(c => (cpData.id && c.id === cpData.id) || c.code === cpData.code);
+    if (existingIdx !== -1) {
+      const updated = [...coupons];
+      updated[existingIdx] = { ...updated[existingIdx], ...cpData };
+      setCoupons(updated);
     } else {
       setCoupons([...coupons, cpData]);
     }
-    showToast('Coupon saved!', 'check');
+    showToast(`Coupon "${cpData.code}" saved!`, 'check');
   }, [coupons, setCoupons, showToast]);
 
-  const deleteCoupon = useCallback((code) => {
-    setCoupons(coupons.filter(c => c.code !== code));
+  const deleteCoupon = useCallback((codeOrId) => {
+    setCoupons(coupons.filter(c => c.code !== codeOrId && c.id !== codeOrId));
     showToast('Coupon deleted', 'check');
   }, [coupons, setCoupons, showToast]);
 
