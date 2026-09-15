@@ -66,13 +66,24 @@ export default function HomePage() {
     return () => clearInterval(slideTimer.current);
   }, [heroSlides.length]);
 
-  // Auto-advance testimonial slider every 4.5 seconds (4500ms)
+  const testimonialTimer = useRef(null);
+  const totalTestimonials = 6;
+
+  // Auto-advance testimonial slider every 3 seconds (3000ms) from img 1 -> last img in sequence
   useEffect(() => {
-    const testimonialTimer = setInterval(() => {
-      setTestimonialIdx(i => (i + 1) % 6);
-    }, 4500);
-    return () => clearInterval(testimonialTimer);
+    testimonialTimer.current = setInterval(() => {
+      setTestimonialIdx(i => (i + 1) % totalTestimonials);
+    }, 3000);
+    return () => clearInterval(testimonialTimer.current);
   }, []);
+
+  const goTestimonial = (idx) => {
+    setTestimonialIdx(idx);
+    if (testimonialTimer.current) clearInterval(testimonialTimer.current);
+    testimonialTimer.current = setInterval(() => {
+      setTestimonialIdx(i => (i + 1) % totalTestimonials);
+    }, 3000);
+  };
 
   // Ensure Elfsight initializes on mount
   useEffect(() => {
@@ -88,41 +99,6 @@ export default function HomePage() {
       setSlideIdx(i => (i + 1) % heroSlides.length);
     }, 5000);
   };
-
-  const testimonials = [
-    {
-      name: 'Sarah Mitchell',
-      location: 'Sydney, NSW',
-      rating: 5,
-      quote: "Abel's By Lincy is my go-to for fine jewellery. The quality is exceptional and their customer service is outstanding. My Celestial Necklace arrives every day.",
-      product: 'CELESTIAL CRESCENT NECKLACE',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop'
-    },
-    {
-      name: 'Emma Johnson',
-      location: 'Melbourne, VIC',
-      rating: 5,
-      quote: "I ordered the Aurora Ring Set for a special occasion and was blown away by the craftsmanship. The packaging was beautiful too — felt truly luxurious.",
-      product: 'AURORA STACKING RING SET',
-      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&h=150&fit=crop'
-    },
-    {
-      name: 'Olivia Chen',
-      location: 'Brisbane, QLD',
-      rating: 5,
-      quote: "Finally found a jeweller who truly understands fine craftsmanship at an accessible price point. The gold plating is thick and lasting. Highly recommend!",
-      product: 'SOLEIL GOLD BANGLE',
-      avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&h=150&fit=crop'
-    },
-  ];
-
-  // Auto-advance testimonials every 4s
-  useEffect(() => {
-    const t = setInterval(() => setTestimonialIdx(i => (i + 1) % testimonials.length), 4000);
-    return () => clearInterval(t);
-  }, [testimonials.length]);
-
-  const currentTestimonial = testimonials[testimonialIdx % testimonials.length];
 
   const formatHeroTitle = (title) => {
     if (!title) return '';
@@ -451,7 +427,7 @@ export default function HomePage() {
             {[0, 1, 2, 3, 4, 5].map((idx) => (
               <button
                 key={idx}
-                onClick={() => setTestimonialIdx(idx)}
+                onClick={() => goTestimonial(idx)}
                 aria-label={`Go to slide ${idx + 1}`}
                 style={{
                   width: idx === testimonialIdx ? 24 : 10,
