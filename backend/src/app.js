@@ -61,6 +61,31 @@ app.get(['/health', '/api/health'], (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date() });
 });
 
+app.get(['/db-status', '/api/db-status'], async (req, res) => {
+  const db = require('./config/database');
+  try {
+    const [rows] = await db.query('SELECT 1 as connected');
+    const [prodCount] = await db.query('SELECT count(*) as total FROM products');
+    res.status(200).json({
+      success: true,
+      connected: true,
+      dbHost: process.env.DB_HOST || 'default (localhost)',
+      dbName: process.env.DB_NAME || 'default',
+      dbUser: process.env.DB_USER || 'default',
+      productsInMySQL: prodCount[0]?.total ?? 0
+    });
+  } catch (err) {
+    res.status(200).json({
+      success: false,
+      connected: false,
+      dbHost: process.env.DB_HOST || 'not configured (defaults to 127.0.0.1)',
+      dbName: process.env.DB_NAME || 'not configured',
+      error: err.message,
+      code: err.code
+    });
+  }
+});
+
 // Register routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
