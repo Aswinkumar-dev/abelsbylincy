@@ -385,8 +385,21 @@ async function upsertProductToDB(p) {
 
 const syncProducts = async (req, res, next) => {
   try {
-    const { products, product, deleteId } = req.body;
+    const { products, product, deleteId, wipeAll } = req.body;
     let currentList = getStoredProducts() || [];
+
+    if (wipeAll) {
+      currentList = [];
+      saveStoredProducts([]);
+      try {
+        await db.query('DELETE FROM product_images');
+        await db.query('DELETE FROM product_variants');
+        await db.query('DELETE FROM products');
+      } catch (dbErr) {
+        console.warn('⚠️ DB wipe note:', dbErr.message);
+      }
+      return res.status(200).json({ success: true, message: 'All products wiped cleanly from DB and server.', products: [] });
+    }
 
     if (deleteId) {
       currentList = currentList.filter(p => p.id !== deleteId && p.sku !== deleteId && !isPurgedProduct(p));

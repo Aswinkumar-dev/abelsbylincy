@@ -26,12 +26,7 @@ export function isAllowedProduct(p) {
   return !REMOVED_MOCK_SKUS.includes(sku) && !REMOVED_MOCK_SKUS.includes(id);
 }
 
-const DEFAULT_PRODUCTS = [
-  { id: 'p_na3', sku: 'N49', name: 'Avacado Charm Necklace', category: 'charms', price: 45, salePrice: 35, material: '18K Gold Plated', gemstone: 'Enamel & Gold', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp'], description: 'Artisanal avocado and fruit charms necklace handcrafted in 18K gold plating.', featured: true, bestSeller: false, newArrival: true, tags: ['charms', 'necklace', 'avocado'] },
-  { id: 'p_ch_flower', sku: 'N31', name: 'Flower Charm Necklace', category: 'charms', price: 40, salePrice: 0, material: '18K Gold Plated', gemstone: 'Enamel', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp'], description: 'Delicate floral pendant charms suspended on an 18K gold-plated chain.', featured: false, bestSeller: false, newArrival: false, tags: ['charms', 'necklace', 'flower'] },
-  { id: 'p_ch_corals', sku: 'N21', name: 'Corals Necklace', category: 'charms', price: 45, salePrice: 0, material: '18K Gold Plated', gemstone: 'Gold Motifs', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp'], description: 'Seaside coral and star charm necklace in 18K gold finish.', featured: false, bestSeller: false, newArrival: false, tags: ['charms', 'necklace', 'corals'] },
-  { id: 'p_nk_cross', sku: 'N03', name: 'Cross Necklace', category: 'necklaces', price: 35, salePrice: 0, material: '18K Gold Plated', gemstone: 'None', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp'], description: 'Classic cross pendant on a dainty 18K gold-plated link chain.', featured: false, bestSeller: false, newArrival: false, tags: ['necklaces', 'cross'] }
-];
+const DEFAULT_PRODUCTS = [];
 
 const DEFAULT_CATEGORIES = [
   { id: 'rings', name: 'Rings', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796753/abels_by_lincy/Ring_Category.png' },
@@ -244,17 +239,19 @@ export function StoreProvider({ children }) {
     return readLS('abl_deleted_product_ids', []).filter(Boolean);
   });
 
-  // Products and Orders initialized from persistent storage or filtered DEFAULT_PRODUCTS
-  // Products and Orders initialized from persistent storage or filtered DEFAULT_PRODUCTS
+  // Products initialized from clean storage or empty array
   const [products, setProductsRaw] = useState(() => {
-    const deleted = readLS('abl_deleted_product_ids', []).filter(Boolean);
-    const saved = readLS('abl_products_v11', null);
-    if (saved !== null && Array.isArray(saved)) {
-      const sanitized = sanitizeProducts(saved.filter(p => isAllowedProduct(p) && (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku))));
-      writeLS('abl_products_v11', sanitized);
-      return sanitized;
+    // Clear out any old legacy mock local storage caches
+    if (typeof window !== 'undefined') {
+      ['abl_products_v11', 'abl_products_v10', 'abl_products_v9', 'abl_products_v8', 'abl_products_v7', 'abl_products_v6', 'abl_products_v5', 'abl_products_v4', 'abl_products_v3', 'abl_products_v2', 'abl_products'].forEach(k => {
+        try { localStorage.removeItem(k); } catch {}
+      });
     }
-    return DEFAULT_PRODUCTS.filter(p => isAllowedProduct(p) && (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku)));
+    const saved = readLS('abl_products_v12', null);
+    if (saved !== null && Array.isArray(saved)) {
+      return sanitizeProducts(saved.filter(isAllowedProduct));
+    }
+    return [];
   });
 
   const [orders, setOrdersRaw] = useState(() => {
@@ -283,28 +280,14 @@ export function StoreProvider({ children }) {
 
   // Authoritative sync with backend API (Orders & Products directly from Server/DB)
   const syncBackendData = useCallback(async () => {
-    const deleted = readLS('abl_deleted_product_ids', []).filter(Boolean);
-
     try {
       // 1. Fetch Orders from Server / Database
       const ordersRes = await apiFetch('/api/orders/all');
       if (ordersRes.ok) {
         const data = await ordersRes.json();
         if (data.success && Array.isArray(data.orders)) {
-          setOrdersRaw(prev => {
-            const orderMap = new Map();
-            data.orders.forEach(o => {
-              const k = o.id || o.order_number || o.uuid;
-              if (k) orderMap.set(String(k), o);
-            });
-            prev.forEach(o => {
-              const k = o.id || o.order_number || o.uuid;
-              if (k) orderMap.set(String(k), { ...(orderMap.get(String(k)) || {}), ...o });
-            });
-            const merged = Array.from(orderMap.values());
-            writeLS('abl_orders_v9', merged);
-            return merged;
-          });
+          setOrdersRaw(data.orders);
+          writeLS('abl_orders_v9', data.orders);
         }
       }
     } catch (err) {
@@ -312,40 +295,14 @@ export function StoreProvider({ children }) {
     }
 
     try {
-      // 2. Fetch Products from Server / Database
+      // 2. Fetch Products from Server / Database (Authoritative single source of truth)
       const prodRes = await apiFetch('/api/products');
       if (prodRes.ok) {
         const data = await prodRes.json();
         if (data.success && Array.isArray(data.products)) {
-          setProductsRaw(prev => {
-            const prodMap = new Map();
-            // Start with backend server products (excluding deleted and removed mock SKUs)
-            data.products.filter(isAllowedProduct).forEach(p => {
-              const k = p.id || p.sku;
-              if (k && (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku))) {
-                prodMap.set(String(k), sanitizeProduct(p));
-              }
-            });
-            // Merge all locally added or modified products from localStorage and memory
-            const localSaved = readLS('abl_products_v11', prev) || prev;
-            (Array.isArray(localSaved) ? localSaved : prev).filter(isAllowedProduct).forEach(p => {
-              const k = p.id || p.sku;
-              if (k && (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku))) {
-                prodMap.set(String(k), { ...(prodMap.get(String(k)) || {}), ...sanitizeProduct(p) });
-              }
-            });
-            const merged = sanitizeProducts(Array.from(prodMap.values()).filter(isAllowedProduct));
-            writeLS('abl_products_v11', merged);
-            // Push merged list back to server so server also stores all newly added products
-            try {
-              apiFetch('/api/products/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ products: merged })
-              }).catch(() => {});
-            } catch {}
-            return merged;
-          });
+          const cleanDBProducts = sanitizeProducts(data.products.filter(isAllowedProduct));
+          setProductsRaw(cleanDBProducts);
+          writeLS('abl_products_v12', cleanDBProducts);
         }
       }
     } catch (err) {
@@ -1074,7 +1031,7 @@ export function StoreProvider({ children }) {
             }
           });
           const merged = sanitizeProducts(Array.from(map.values()));
-          writeLS('abl_products_v11', merged);
+          writeLS('abl_products_v12', merged);
           return merged;
         });
       }
@@ -1095,7 +1052,7 @@ export function StoreProvider({ children }) {
     // 2. Remove immediately from React state and localStorage
     setProductsRaw(prev => {
       const updated = prev.filter(p => p.id !== id && p.sku !== id);
-      writeLS('abl_products_v11', updated);
+      writeLS('abl_products_v12', updated);
       return updated;
     });
 
@@ -1118,7 +1075,7 @@ export function StoreProvider({ children }) {
               }
             });
             const filtered = Array.from(map.values());
-            writeLS('abl_products_v11', filtered);
+            writeLS('abl_products_v12', filtered);
             return filtered;
           });
         }
