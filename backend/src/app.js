@@ -24,13 +24,14 @@ app.use(cors({
 
 // Express parser with raw buffer preservation for Stripe webhook verification
 app.use(express.json({
+  limit: '50mb',
   verify: (req, res, buf) => {
     if (req.originalUrl && req.originalUrl.includes('/webhook')) {
       req.body = buf; // preserve raw body buffer for stripe validation
     }
   }
 }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Log requests
 app.use((req, res, next) => {

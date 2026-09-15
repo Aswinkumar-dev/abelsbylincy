@@ -104,6 +104,38 @@ export default function AdminPage() {
     seoTitle: '', seoDesc: '', slug: ''
   });
 
+  const compressImage = (file, maxDimension = 800, quality = 0.75) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(e.target?.result || '');
+        img.src = e.target?.result;
+      };
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+  };
+
   const triggerImageUpload = (fieldKey, onComplete) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -114,6 +146,11 @@ export default function AdminPage() {
 
       setUploadingFieldKey(fieldKey);
       try {
+        const compressedBase64 = await compressImage(file);
+        if (compressedBase64) {
+          onComplete(compressedBase64);
+        }
+
         const formData = new FormData();
         formData.append('file', file);
         formData.append('upload_preset', 'abels_preset');
@@ -128,25 +165,10 @@ export default function AdminPage() {
           const data = await res.json();
           if (data.secure_url) {
             onComplete(data.secure_url);
-            return;
           }
         }
-
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          if (evt.target?.result) {
-            onComplete(evt.target.result);
-          }
-        };
-        reader.readAsDataURL(file);
       } catch {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          if (evt.target?.result) {
-            onComplete(evt.target.result);
-          }
-        };
-        reader.readAsDataURL(file);
+        // Safe fallback already handled by compressedBase64
       } finally {
         setUploadingFieldKey(null);
       }
@@ -2193,6 +2215,7 @@ export default function AdminPage() {
 
               if (Object.keys(errors).length > 0) {
                 setProdFormErrors(errors);
+                showToast(Object.values(errors)[0], 'alert-circle');
                 return;
               }
 
@@ -2205,7 +2228,7 @@ export default function AdminPage() {
               const finalDesc = prodForm.desc.trim() || `${prodForm.name.trim()} - Premium anti-tarnish jewellery handcrafted in 18K gold plating.`;
 
               const savedProduct = {
-                id: prodForm.id || `p_${Date.now()}`,
+                id: prodForm.id || '',
                 name: prodForm.name.trim(),
                 sku: skuCode,
                 desc: finalDesc,
@@ -2218,7 +2241,7 @@ export default function AdminPage() {
                 collection: prodForm.collection || 'Soleil',
                 material: editingProduct?.material || '18K Gold Plated',
                 gemstone: editingProduct?.gemstone || 'None',
-                stockQty: Number(prodForm.stockQty) || 0,
+                stockQty: Number(prodForm.stockQty) || 10,
                 status: prodForm.status || 'Active',
                 isFeatured: !!prodForm.isFeatured,
                 bestSeller: !!prodForm.bestSeller,
@@ -2240,6 +2263,7 @@ export default function AdminPage() {
                   <input
                     type="text"
                     className="form-control"
+                    placeholder="e.g. Elegant Gold Bangle"
                     style={{ borderColor: prodFormErrors.name ? '#e53e3e' : undefined }}
                     value={prodForm.name}
                     onChange={e => {
@@ -2255,11 +2279,11 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontWeight: 700, marginBottom: 4, display: 'block' }}>PRODUCT CODE *</label>
+                  <label className="form-label" style={{ fontWeight: 700, marginBottom: 4, display: 'block' }}>PRODUCT CODE (SKU)</label>
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="e.g. ABL-NK-101"
+                    placeholder="Optional (auto-generated if blank)"
                     style={{ borderColor: prodFormErrors.sku ? '#e53e3e' : undefined }}
                     value={prodForm.sku}
                     onChange={e => {
@@ -2267,11 +2291,6 @@ export default function AdminPage() {
                       if (prodFormErrors.sku) setProdFormErrors(err => ({ ...err, sku: '' }));
                     }}
                   />
-                  {prodFormErrors.sku && (
-                    <span style={{ color: '#e53e3e', fontSize: 12, marginTop: 4, display: 'block', fontWeight: 500 }}>
-                      {prodFormErrors.sku}
-                    </span>
-                  )}
                 </div>
               </div>
 
@@ -2283,15 +2302,13 @@ export default function AdminPage() {
                     type="text"
                     inputMode="decimal"
                     className="form-control"
-                    placeholder="e.g. 150"
-                    style={{ borderColor: prodFormErrors.price ? '#e53e3e' : undefined, WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+                    placeholder="e.g. 55"
+                    style={{ borderColor: prodFormErrors.price ? '#e53e3e' : undefined }}
                     value={prodForm.price === '' ? '' : prodForm.price}
                     onChange={e => {
-                      const val = e.target.value;
-                      if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                        setProdForm({ ...prodForm, price: val });
-                        if (prodFormErrors.price) setProdFormErrors(err => ({ ...err, price: '' }));
-                      }
+                      const cleanVal = e.target.value.replace(/[^0-9.]/g, '');
+                      setProdForm({ ...prodForm, price: cleanVal });
+                      if (prodFormErrors.price) setProdFormErrors(err => ({ ...err, price: '' }));
                     }}
                   />
                   {prodFormErrors.price && (
@@ -2307,13 +2324,11 @@ export default function AdminPage() {
                     type="text"
                     inputMode="decimal"
                     className="form-control"
-                    style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+                    placeholder="Optional"
                     value={prodForm.salePrice === '' || prodForm.salePrice === 0 ? '' : prodForm.salePrice}
                     onChange={e => {
-                      const val = e.target.value;
-                      if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                        setProdForm({ ...prodForm, salePrice: val });
-                      }
+                      const cleanVal = e.target.value.replace(/[^0-9.]/g, '');
+                      setProdForm({ ...prodForm, salePrice: cleanVal });
                     }}
                   />
                 </div>
@@ -2324,15 +2339,13 @@ export default function AdminPage() {
                     type="text"
                     inputMode="numeric"
                     className="form-control"
-                    placeholder="e.g. 15"
-                    style={{ borderColor: prodFormErrors.stockQty ? '#e53e3e' : undefined, WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+                    placeholder="e.g. 10"
+                    style={{ borderColor: prodFormErrors.stockQty ? '#e53e3e' : undefined }}
                     value={prodForm.stockQty === '' ? '' : prodForm.stockQty}
                     onChange={e => {
-                      const val = e.target.value;
-                      if (val === '' || /^\d*$/.test(val)) {
-                        setProdForm({ ...prodForm, stockQty: val });
-                        if (prodFormErrors.stockQty) setProdFormErrors(err => ({ ...err, stockQty: '' }));
-                      }
+                      const cleanVal = e.target.value.replace(/[^0-9]/g, '');
+                      setProdForm({ ...prodForm, stockQty: cleanVal });
+                      if (prodFormErrors.stockQty) setProdFormErrors(err => ({ ...err, stockQty: '' }));
                     }}
                   />
                   {prodFormErrors.stockQty && (

@@ -153,7 +153,16 @@ function readLS(key, fallback) {
 }
 
 function writeLS(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch (err) {
+    try {
+      ['abl_products_v10', 'abl_products_v9', 'abl_products_v8', 'abl_products_v7', 'abl_products', 'abl_orders_v8', 'abl_orders'].forEach(k => {
+        try { localStorage.removeItem(k); } catch {}
+      });
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch {}
+  }
 }
 
 // ============================================================
