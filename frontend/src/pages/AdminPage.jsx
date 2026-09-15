@@ -1100,6 +1100,12 @@ export default function AdminPage() {
               e.target.value = '';
             };
 
+            const itemsPerPage = 10;
+            const totalProdPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
+            const currentProdPage = Math.min(Math.max(1, prodPage), totalProdPages);
+            const startIndex = (currentProdPage - 1) * itemsPerPage;
+            const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+
             return (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
