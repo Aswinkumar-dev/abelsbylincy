@@ -1,12 +1,28 @@
 const db = require('../config/database');
 const { getStoredProducts, saveStoredProducts } = require('../utils/fileStore');
 
+const PURGED_MOCK_SKUS = [
+  'ABL-RG-206', 'ABL-NK-205', 'ABL-RG-204', 'ABL-BR-203', 'ABL-BR-102',
+  'ABL-ER-104', 'ABL-NK-201', 'ABL-BR-202', 'ABL-BR-106', 'ABL-BR-105', 'ABL-NK-101',
+  'p_na1', 'p_na2', 'p_na4', 'p_na5', 'p_na6', 'p_bs1', 'p_bs2', 'p_bs3', 'p_bs4', 'p_bs5', 'p_bs6'
+];
+
+const isPurgedProduct = (p) => {
+  if (!p || typeof p !== 'object') return true;
+  const sku = (p.sku || '').trim().toUpperCase();
+  const id = (p.id || '').trim();
+  return PURGED_MOCK_SKUS.includes(sku) || PURGED_MOCK_SKUS.includes(id);
+};
+
 const getProducts = async (req, res, next) => {
   try {
     const { category, search, featured, newArrival } = req.query;
 
     let dbProducts = [];
     try {
+      // Clean out any purged mock SKUs from database
+      await db.query('DELETE FROM products WHERE sku IN (?) OR id IN (?)', [PURGED_MOCK_SKUS, PURGED_MOCK_SKUS]);
+
       let query = `
         SELECT p.*, c.name as category_name, c.slug as category_slug
         FROM products p
@@ -81,7 +97,7 @@ const getProducts = async (req, res, next) => {
       }
     });
 
-    let result = Array.from(prodMap.values());
+    let result = Array.from(prodMap.values()).filter(p => !isPurgedProduct(p));
 
     if (category) {
       result = result.filter(p => {
@@ -211,7 +227,7 @@ const syncProducts = async (req, res, next) => {
     let currentList = getStoredProducts() || [];
 
     if (Array.isArray(products)) {
-      const cleanList = products.map(sanitizeServerProduct);
+      const cleanList = products.filter(p => !isPurgedProduct(p)).map(sanitizeServerProduct);
       saveStoredProducts(cleanList);
       for (const p of cleanList) {
         upsertProductToDB(p);
@@ -220,7 +236,7 @@ const syncProducts = async (req, res, next) => {
     }
 
     if (deleteId) {
-      currentList = currentList.filter(p => p.id !== deleteId && p.sku !== deleteId);
+      currentList = currentList.filter(p => p.id !== deleteId && p.sku !== deleteId && !isPurgedProduct(p));
       saveStoredProducts(currentList);
       try {
         await db.query('DELETE FROM products WHERE id = ? OR uuid = ? OR slug = ? OR sku = ?', [deleteId, deleteId, deleteId, deleteId]);
@@ -231,6 +247,9 @@ const syncProducts = async (req, res, next) => {
     }
 
     if (product) {
+      if (isPurgedProduct(product)) {
+        return res.status(400).json({ success: false, message: 'This mock product has been permanently removed.' });
+      }
       const cleanProd = sanitizeServerProduct(product);
       const key = cleanProd.id || cleanProd.sku || `p_${Date.now()}`;
       const idx = currentList.findIndex(p => p.id === key || (cleanProd.id && p.id === cleanProd.id) || (cleanProd.sku && p.sku && p.sku.toLowerCase() === cleanProd.sku.toLowerCase()));
