@@ -546,15 +546,25 @@ export default function AdminPage() {
     }
   }, [cms]);
 
-  const toggleBestSeller = (prod) => {
+  const toggleBestSeller = async (prod) => {
     const isBS = !prod.bestSeller;
-    setProducts(prev => prev.map(p => p.id === prod.id ? { ...p, bestSeller: isBS } : p));
+    const updated = {
+      ...prod,
+      bestSeller: isBS,
+      is_best_seller: isBS ? 1 : 0
+    };
+    await saveProduct(updated);
     showToast(`${prod.name} ${isBS ? 'added to' : 'removed from'} Best Sellers!`, 'check');
   };
 
-  const toggleNewArrival = (prod) => {
+  const toggleNewArrival = async (prod) => {
     const isNA = !prod.newArrival;
-    setProducts(prev => prev.map(p => p.id === prod.id ? { ...p, newArrival: isNA } : p));
+    const updated = {
+      ...prod,
+      newArrival: isNA,
+      is_new_arrival: isNA ? 1 : 0
+    };
+    await saveProduct(updated);
     showToast(`${prod.name} ${isNA ? 'added to' : 'removed from'} New Arrivals!`, 'check');
   };
 

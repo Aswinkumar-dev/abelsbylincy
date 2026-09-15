@@ -109,8 +109,8 @@ export default function HomePage() {
     return `${words.join(' ')} <b>${lastWord}</b>`;
   };
 
-  const newArrivals = (products || []).filter(p => Boolean(p.newArrival));
-  const bestSellers = (products || []).filter(p => Boolean(p.bestSeller));
+  const newArrivals = (products || []).filter(p => Boolean(p.newArrival || p.is_new_arrival || p.isNewArrival));
+  const bestSellers = (products || []).filter(p => Boolean(p.bestSeller || p.is_best_seller || p.isBestSeller));
 
   return (
     <>

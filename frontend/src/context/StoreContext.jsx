@@ -172,8 +172,18 @@ export function sanitizeProduct(p) {
     images = [img];
   }
 
+  const isBS = Boolean(p.bestSeller || p.best_seller || p.is_best_seller || p.isBestSeller);
+  const isNA = Boolean(p.newArrival || p.new_arrival || p.is_new_arrival || p.isNewArrival);
+  const isFeat = Boolean(p.featured || p.is_featured || p.isFeatured);
+
   return {
     ...p,
+    bestSeller: isBS,
+    is_best_seller: isBS ? 1 : 0,
+    newArrival: isNA,
+    is_new_arrival: isNA ? 1 : 0,
+    featured: isFeat,
+    is_featured: isFeat ? 1 : 0,
     image: img,
     images: Array.from(new Set(images))
   };
