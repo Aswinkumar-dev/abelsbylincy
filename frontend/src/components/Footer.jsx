@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
+import { useStore, apiFetch } from '../context/StoreContext';
 
 export default function Footer() {
   const { handleNewsletter } = useStore();
@@ -32,7 +31,7 @@ export default function Footer() {
       setEmail('');
       
       // Dispatch welcome email asynchronously via backend
-      fetch('/api/payments/subscribe-newsletter', {
+      apiFetch('/api/payments/subscribe-newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmed })

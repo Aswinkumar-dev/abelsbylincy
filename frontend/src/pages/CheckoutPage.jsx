@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, CreditCard, Smartphone, Check, Lock, Truck, ShoppingBag, Tag, Ticket, Sparkles, X, ChevronDown, ChevronUp, Copy } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
+import { useStore, apiFetch } from '../context/StoreContext';
 
 const STEPS = ['Shipping', 'Payment', 'Review & Place'];
 
@@ -357,14 +356,14 @@ export default function CheckoutPage() {
       window.history.replaceState(null, '', window.location.pathname);
 
       // Record Stripe order to backend API & DB (non-blocking)
-      fetch('/api/payments/record-stripe-order', {
+      apiFetch('/api/payments/record-stripe-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: confirmedOrder })
       }).catch(e => console.warn('Backend order record note:', e));
 
       // Asynchronous background email dispatch (non-blocking) with exact paid total
-      fetch('/api/payments/send-order-confirmation-email', {
+      apiFetch('/api/payments/send-order-confirmation-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -398,15 +397,15 @@ export default function CheckoutPage() {
     const isSuccess = searchParams.get('success');
 
     if (isSuccess !== 'true' && cart.length === 0) {
-      try {
-        const savedPending = localStorage.getItem('abl_pending_checkout_items');
-        if (savedPending) {
-          const parsed = JSON.parse(savedPending);
+      const savedCart = localStorage.getItem('abl_pre_checkout_cart');
+      if (savedCart) {
+        try {
+          const parsed = JSON.parse(savedCart);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setCart(parsed);
           }
-        }
-      } catch {}
+        } catch (e) {}
+      }
     }
   }, [cart.length, setCart]);
 
@@ -484,7 +483,7 @@ export default function CheckoutPage() {
     let data = null;
 
     try {
-      const r1 = await fetch('/api/payments/create-checkout-session', {
+      const r1 = await apiFetch('/api/payments/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload

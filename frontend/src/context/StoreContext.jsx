@@ -1,8 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
-// ============================================================
-// Default seed data (mirrors app.js initial state)
-// ============================================================
+// API Base URL (connects Hostinger frontend to Vercel backend API)
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '');
+
+export const apiFetch = (endpoint, options = {}) => {
+  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  return fetch(url, options);
+};
 const DEFAULT_PRODUCTS = [
   // New Arrivals & Charms (All hosted on Cloudinary CDN)
   { id: 'p_na1', sku: 'ABL-NK-101', name: 'Red Heart Shaped Necklace', category: 'necklaces', price: 179, salePrice: 0, material: '18K Gold Plated', gemstone: 'Red Gem', inStock: true, stockQty: 15, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796749/abels_by_lincy/Red_heart_shaped_necklace_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796749/abels_by_lincy/Red_heart_shaped_necklace_-_new_arrival.webp'], description: 'A striking red heart-shaped pendant suspended on a fine 18K gold-plated chain.', featured: true, bestSeller: false, newArrival: true, tags: ['necklaces', 'heart', 'red'] },
@@ -277,7 +281,7 @@ export function StoreProvider({ children }) {
 
     try {
       // 1. Fetch Orders from Server / Database
-      const ordersRes = await fetch('/api/orders/all');
+      const ordersRes = await apiFetch('/api/orders/all');
       if (ordersRes.ok) {
         const data = await ordersRes.json();
         if (data.success && Array.isArray(data.orders)) {
@@ -303,7 +307,7 @@ export function StoreProvider({ children }) {
 
     try {
       // 2. Fetch Products from Server / Database
-      const prodRes = await fetch('/api/products');
+      const prodRes = await apiFetch('/api/products');
       if (prodRes.ok) {
         const data = await prodRes.json();
         if (data.success && Array.isArray(data.products)) {
@@ -328,7 +332,7 @@ export function StoreProvider({ children }) {
             writeLS('abl_products_v11', merged);
             // Push merged list back to server so server also stores all newly added products
             try {
-              fetch('/api/products/sync', {
+              apiFetch('/api/products/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ products: merged })
@@ -609,7 +613,7 @@ export function StoreProvider({ children }) {
 
     // Sync with backend API in background
     try {
-      fetch('/api/auth/register', {
+      apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password, firstName: name })
@@ -639,7 +643,7 @@ export function StoreProvider({ children }) {
     }
 
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      const res = await apiFetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail })
@@ -673,7 +677,7 @@ export function StoreProvider({ children }) {
     }
 
     try {
-      const res = await fetch('/api/auth/reset-password', {
+      const res = await apiFetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, newPassword })
@@ -958,7 +962,7 @@ export function StoreProvider({ children }) {
 
     // Async sync to server
     try {
-      fetch('/api/orders/sync', {
+      apiFetch('/api/orders/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: newOrder })
@@ -1034,7 +1038,7 @@ export function StoreProvider({ children }) {
     // Authoritative Server & Database sync
     try {
       const cleanList = sanitizeProducts(updatedList);
-      const res = await fetch('/api/products/sync', {
+      const res = await apiFetch('/api/products/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product: productToSave, products: cleanList })
@@ -1085,7 +1089,7 @@ export function StoreProvider({ children }) {
 
     // 3. Authoritative Server & Database deletion
     try {
-      const res = await fetch('/api/products/sync', {
+      const res = await apiFetch('/api/products/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deleteId: id })
@@ -1098,25 +1102,20 @@ export function StoreProvider({ children }) {
             data.products.forEach(p => {
               const k = p.id || p.sku;
               if (k && (!p.id || !updatedDeleted.includes(p.id)) && (!p.sku || !updatedDeleted.includes(p.sku))) {
-                map.set(String(k), p);
+                map.set(String(k), sanitizeProduct(p));
               }
             });
-            prev.forEach(p => {
-              const k = p.id || p.sku;
-              if (k && (!p.id || !updatedDeleted.includes(p.id)) && (!p.sku || !updatedDeleted.includes(p.sku))) {
-                map.set(String(k), { ...(map.get(String(k)) || {}), ...p });
-              }
-            });
-            const filtered = Array.from(map.values()).filter(p => p.id !== id && p.sku !== id);
+            const filtered = Array.from(map.values());
             writeLS('abl_products_v11', filtered);
             return filtered;
           });
         }
       }
     } catch (err) {
-      console.warn('Sync server offline, removed from local state only:', err);
+      console.warn('Delete sync server offline, deleted locally only:', err);
     }
-    showToast('Product deleted from server', 'check');
+
+    showToast('Product deleted from database & store', 'trash');
   }, [showToast]);
 
   const adjustStockQty = useCallback((id, delta) => {
@@ -1152,17 +1151,12 @@ export function StoreProvider({ children }) {
 
   const updateOrderStatus = useCallback(async (id, newStatus, additionalData = {}) => {
     let affectedOrder = null;
-    setOrdersRaw(prevOrders => prevOrders.map(o => {
+    setOrdersRaw(prev => prev.map(o => {
       if (o.id === id) {
-        const isCancelled = newStatus === 'Cancelled' || newStatus === 'Refunded';
-        const rawAmt = o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0;
-        const refundAmt = isCancelled ? (additionalData.refundAmount !== undefined ? Number(additionalData.refundAmount) : rawAmt) : (additionalData.refundAmount || 0);
         affectedOrder = {
           ...o,
           status: newStatus,
-          refundAmount: refundAmt,
-          refundStatus: isCancelled ? (additionalData.refundStatus || 'Stripe Refund Processed') : undefined,
-          refundDate: isCancelled ? (o.refundDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })) : undefined,
+          lastUpdated: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
           ...additionalData
         };
         return affectedOrder;
@@ -1173,7 +1167,7 @@ export function StoreProvider({ children }) {
     // Authoritative Server sync
     if (affectedOrder) {
       try {
-        const res = await fetch('/api/orders/sync', {
+        const res = await apiFetch('/api/orders/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ order: affectedOrder })
@@ -1219,7 +1213,7 @@ export function StoreProvider({ children }) {
   const deleteOrder = useCallback(async (id) => {
     setOrdersRaw(prev => prev.filter(o => o.id !== id && o.order_number !== id));
     try {
-      const res = await fetch('/api/orders/sync', {
+      const res = await apiFetch('/api/orders/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deleteId: id })
@@ -1231,9 +1225,9 @@ export function StoreProvider({ children }) {
         }
       }
     } catch (err) {
-      console.warn('Orders sync server offline, order removed locally only:', err);
+      console.warn('Delete order sync server offline, deleted locally only:', err);
     }
-    showToast('Order deleted from server', 'check');
+    showToast('Order deleted', 'trash');
   }, [showToast]);
 
   const saveCustomer = useCallback((custData) => {

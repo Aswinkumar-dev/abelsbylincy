@@ -7,7 +7,7 @@ import {
   ArrowUp, ArrowDown, Download, Upload, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
   User, Mail, Phone, MapPin, Printer, Truck, LogOut
 } from 'lucide-react';
-import { useStore, CAT_FALLBACK_IMAGES } from '../context/StoreContext';
+import { useStore, CAT_FALLBACK_IMAGES, apiFetch } from '../context/StoreContext';
 
 export default function AdminPage() {
   const {
@@ -163,7 +163,7 @@ export default function AdminPage() {
         try {
           const formData = new FormData();
           formData.append('image', uploadFile);
-          const res = await fetch('/api/products/upload', {
+          const res = await apiFetch('/api/products/upload', {
             method: 'POST',
             body: formData
           });
@@ -220,7 +220,7 @@ export default function AdminPage() {
     if (onCleared) onCleared();
     if (imageUrl && typeof imageUrl === 'string' && imageUrl.includes('cloudinary.com')) {
       setTimeout(() => {
-        fetch('/api/products/delete-image', {
+        apiFetch('/api/products/delete-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: imageUrl })
@@ -277,7 +277,7 @@ export default function AdminPage() {
     setStripeRefundCheckResult(null);
 
     try {
-      const res = await fetch('/api/payments/check-stripe-refund', {
+      const res = await apiFetch('/api/payments/check-stripe-refund', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -350,7 +350,7 @@ export default function AdminPage() {
     // 2. Dispatch Customer Refund Email via backend API if enabled and refund amount > 0
     if (sendCustomerRefundEmail && parsedRefundAmt > 0 && targetOrder.email) {
       try {
-        await fetch('/api/payments/send-order-refund-email', {
+        await apiFetch('/api/payments/send-order-refund-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -422,7 +422,7 @@ export default function AdminPage() {
 
     // 2. Dispatch Australia Post Shipped Email via backend API
     try {
-      const res = await fetch('/api/payments/send-order-dispatch-email', {
+      const res = await apiFetch('/api/payments/send-order-dispatch-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -495,7 +495,7 @@ export default function AdminPage() {
 
       let cdnUrl = '';
       try {
-        const res = await fetch('/api/products/upload', {
+        const res = await apiFetch('/api/products/upload', {
           method: 'POST',
           body: formData
         });
