@@ -162,57 +162,24 @@ function writeLS(key, val) {
 const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
-  // State mirrors app.js `state` object
-  const [products, setProductsRaw] = useState(() => {
-    // 1. Authoritative v10 list (preserves empty list [] when items are deleted)
-    const raw10 = readLS('abl_products_v10', null);
-    if (raw10 !== null && Array.isArray(raw10)) {
-      // Purge obsolete legacy localStorage keys
-      try {
-        localStorage.removeItem('abl_products_v9');
-        localStorage.removeItem('abl_products_v8');
-        localStorage.removeItem('abl_products_v7');
-        localStorage.removeItem('abl_products');
-      } catch {}
-      return raw10;
-    }
-
-    // 2. Fresh installation: discard any stale mock products (p1..p16 / ABL-R001..ABL-B002)
-    const raw9 = readLS('abl_products_v9', null);
-    const raw8 = readLS('abl_products_v8', null);
-    const raw7 = readLS('abl_products_v7', null);
-    const legacy = readLS('abl_products', null);
-
-    const candidate = raw9 || raw8 || raw7 || legacy || DEFAULT_PRODUCTS;
-    const isOldMock = Array.isArray(candidate) && candidate.some(p => p.id === 'p1' || p.sku === 'ABL-R001' || p.name === 'Eternal Rose Gold Solitaire Ring');
-    const baseList = isOldMock ? DEFAULT_PRODUCTS : candidate;
-
-    const cleaned = (baseList || DEFAULT_PRODUCTS).map(p => ({
-      ...p,
-      category: (p.category || 'necklaces').trim().toLowerCase(),
-      inStock: p.inStock !== undefined ? Boolean(p.inStock) : ((p.stockQty || 0) > 0),
-      colors: Array.isArray(p.colors) && (p.colors.length === 0 || (p.colors.length === 1 && p.colors[0]?.toLowerCase() === 'gold' && (!p.colorImages || Object.keys(p.colorImages).length === 0))) ? [] : (p.colors || [])
-    }));
-
-    writeLS('abl_products_v10', cleaned);
+  // Purge any stale legacy localStorage keys so products/orders are always server-driven
+  useEffect(() => {
     try {
+      localStorage.removeItem('abl_products_v10');
       localStorage.removeItem('abl_products_v9');
       localStorage.removeItem('abl_products_v8');
       localStorage.removeItem('abl_products_v7');
       localStorage.removeItem('abl_products');
+      localStorage.removeItem('abl_orders_v8');
+      localStorage.removeItem('abl_orders_v7');
+      localStorage.removeItem('abl_orders');
     } catch {}
-    return cleaned;
-  });
+  }, []);
+
+  // Products and Orders are 100% Server/DB driven (in-memory React state populated from API)
+  const [products, setProductsRaw] = useState(DEFAULT_PRODUCTS);
+  const [orders, setOrdersRaw] = useState(DEFAULT_ORDERS);
   const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
-  const [orders, setOrdersRaw] = useState(() => {
-    const raw8 = readLS('abl_orders_v8', null);
-    if (raw8 && Array.isArray(raw8)) return raw8;
-    const raw7 = readLS('abl_orders_v7', null);
-    const legacy = readLS('abl_orders', null);
-    const baseList = raw7 || legacy || DEFAULT_ORDERS;
-    writeLS('abl_orders_v8', baseList);
-    return baseList;
-  });
   const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v7', DEFAULT_CUSTOMERS));
   const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons_v6', DEFAULT_COUPONS));
   const [reviews, setReviewsRaw] = useState(() => readLS('abl_reviews_v6', DEFAULT_REVIEWS));
@@ -228,75 +195,32 @@ export function StoreProvider({ children }) {
   const [messages, setMessagesRaw] = useState(() => readLS('abl_messages_v2', DEFAULT_MESSAGES));
   const [subscribers, setSubscribersRaw] = useState(() => readLS('abl_subscribers_v2', DEFAULT_SUBSCRIBERS));
 
-  // Background sync with backend API (Orders & Products)
+  // Authoritative sync with backend API (Orders & Products directly from Server/DB)
   const syncBackendData = useCallback(async () => {
     try {
-      // 1. Fetch Orders from Backend
+      // 1. Fetch Orders from Server / Database
       const ordersRes = await fetch('/api/orders/all');
       if (ordersRes.ok) {
         const data = await ordersRes.json();
-        if (data.success && Array.isArray(data.orders) && data.orders.length > 0) {
-          setOrdersRaw(prev => {
-            const orderMap = new Map();
-            data.orders.forEach(o => {
-              const k = o.id || o.order_number || o.uuid;
-              if (k) orderMap.set(String(k), o);
-            });
-            prev.forEach(o => {
-              const k = o.id || o.order_number || o.uuid;
-              if (k) orderMap.set(String(k), { ...(orderMap.get(String(k)) || {}), ...o });
-            });
-            const merged = Array.from(orderMap.values());
-            writeLS('abl_orders_v8', merged);
-            return merged;
-          });
+        if (data.success && Array.isArray(data.orders)) {
+          setOrdersRaw(data.orders);
         }
       }
-    } catch {
-      // Backend offline fallback
+    } catch (err) {
+      // Server offline fallback
     }
 
     try {
-      // 2. Fetch Products from Backend
+      // 2. Fetch Products from Server / Database
       const prodRes = await fetch('/api/products');
       if (prodRes.ok) {
         const data = await prodRes.json();
         if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-          setProductsRaw(prev => {
-            const prodMap = new Map();
-            // Start with backend server products
-            data.products.forEach(p => {
-              const key = p.id || p.sku;
-              if (key && p.id !== 'p1' && p.sku !== 'ABL-R001') {
-                prodMap.set(String(key), p);
-              }
-            });
-            // Merge all local products on top so user's newly added products are NEVER overwritten!
-            prev.forEach(p => {
-              const key = p.id || p.sku;
-              if (key && p.id !== 'p1' && p.sku !== 'ABL-R001') {
-                prodMap.set(String(key), { ...(prodMap.get(String(key)) || {}), ...p });
-              }
-            });
-            const merged = Array.from(prodMap.values());
-            if (merged.length > 0) {
-              writeLS('abl_products_v10', merged);
-              // Background sync the combined list so server also gets any newly added products
-              try {
-                fetch('/api/products/sync', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ products: merged })
-                }).catch(() => {});
-              } catch {}
-              return merged;
-            }
-            return prev;
-          });
+          setProductsRaw(data.products);
         }
       }
-    } catch {
-      // Backend offline fallback
+    } catch (err) {
+      // Server offline fallback
     }
   }, []);
 
@@ -304,15 +228,13 @@ export function StoreProvider({ children }) {
     syncBackendData();
   }, [syncBackendData, adminLoggedIn]);
 
-  // Cross-tab real-time sync via storage event
+  // Cross-tab real-time sync via storage event (for session, cart, wishlist)
   useEffect(() => {
     const handleStorage = (e) => {
       if (!e.key || !e.newValue) return;
       try {
         const val = JSON.parse(e.newValue);
-        if (e.key === 'abl_products_v10' || e.key === 'abl_products_v9') setProductsRaw(val);
-        else if (e.key === 'abl_categories_v5') setCategoriesRaw(val);
-        else if (e.key === 'abl_orders_v8' || e.key === 'abl_orders_v7') setOrdersRaw(val);
+        if (e.key === 'abl_categories_v5') setCategoriesRaw(val);
         else if (e.key === 'abl_customers_v7') setCustomersRaw(val);
         else if (e.key === 'abl_coupons_v6') setCouponsRaw(val);
         else if (e.key === 'abl_reviews_v6') setReviewsRaw(val);
@@ -340,15 +262,7 @@ export function StoreProvider({ children }) {
   // Persisting helpers
   const setProducts = useCallback((updaterOrValue) => {
     setProductsRaw(prev => {
-      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
-      writeLS('abl_products_v10', next);
-      try {
-        localStorage.removeItem('abl_products_v9');
-        localStorage.removeItem('abl_products_v8');
-        localStorage.removeItem('abl_products_v7');
-        localStorage.removeItem('abl_products');
-      } catch {}
-      return next;
+      return typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
     });
   }, []);
   const setCategories = useCallback((updaterOrValue) => {
@@ -360,9 +274,7 @@ export function StoreProvider({ children }) {
   }, []);
   const setOrders = useCallback((updaterOrValue) => {
     setOrdersRaw(prev => {
-      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
-      writeLS('abl_orders_v8', next);
-      return next;
+      return typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
     });
   }, []);
   const setCustomers = useCallback((updaterOrValue) => {
@@ -845,7 +757,7 @@ export function StoreProvider({ children }) {
   // ============================================================
   // Admin CRUD helpers
   // ============================================================
-  const saveProduct = useCallback((productData) => {
+  const saveProduct = useCallback(async (productData) => {
     const id = productData.id || `p_${Date.now()}`;
     const productToSave = {
       ...productData,
@@ -859,42 +771,57 @@ export function StoreProvider({ children }) {
       image: productData.image || (Array.isArray(productData.images) && productData.images[0]) || ''
     };
 
-    setProducts(prev => {
+    // Optimistically update React state immediately
+    setProductsRaw(prev => {
       const idx = prev.findIndex(p => p.id === id || (productData.id && p.id === productData.id) || (productData.sku && p.sku && p.sku.toLowerCase() === productData.sku.toLowerCase()));
-      let updated;
       if (idx !== -1) {
-        updated = prev.map((p, i) => i === idx ? { ...p, ...productToSave } : p);
-      } else {
-        updated = [productToSave, ...prev];
+        return prev.map((p, i) => i === idx ? { ...p, ...productToSave } : p);
       }
-      // Async sync to server
-      try {
-        fetch('/api/products/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ products: updated, product: productToSave })
-        }).catch(() => {});
-      } catch {}
-      return updated;
+      return [productToSave, ...prev];
     });
 
-    showToast('Product saved!', 'check');
-  }, [setProducts, showToast]);
+    // Authoritative Server & Database sync
+    try {
+      const res = await fetch('/api/products/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: productToSave })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.products)) {
+          setProductsRaw(data.products);
+        }
+      }
+    } catch (err) {
+      console.warn('Sync server offline, updated local state only:', err);
+    }
 
-  const deleteProduct = useCallback((id) => {
-    setProducts(prev => {
-      const updated = prev.filter(p => p.id !== id);
-      try {
-        fetch('/api/products/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ products: updated, deleteId: id })
-        }).catch(() => {});
-      } catch {}
-      return updated;
-    });
-    showToast('Product deleted', 'check');
-  }, [setProducts, showToast]);
+    showToast('Product saved successfully!', 'check');
+  }, [showToast]);
+
+  const deleteProduct = useCallback(async (id) => {
+    // Optimistically remove from state immediately
+    setProductsRaw(prev => prev.filter(p => p.id !== id && p.sku !== id));
+
+    // Authoritative Server & Database deletion
+    try {
+      const res = await fetch('/api/products/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteId: id })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.products)) {
+          setProductsRaw(data.products);
+        }
+      }
+    } catch (err) {
+      console.warn('Sync server offline, removed from local state only:', err);
+    }
+    showToast('Product deleted from server', 'check');
+  }, [showToast]);
 
   const adjustStockQty = useCallback((id, delta) => {
     setProducts(prev => prev.map(p => {
@@ -927,9 +854,9 @@ export function StoreProvider({ children }) {
     showToast('Category deleted', 'check');
   }, [setCategories, showToast]);
 
-  const updateOrderStatus = useCallback((id, newStatus, additionalData = {}) => {
+  const updateOrderStatus = useCallback(async (id, newStatus, additionalData = {}) => {
     let affectedOrder = null;
-    setOrders(prevOrders => prevOrders.map(o => {
+    setOrdersRaw(prevOrders => prevOrders.map(o => {
       if (o.id === id) {
         const isCancelled = newStatus === 'Cancelled' || newStatus === 'Refunded';
         const rawAmt = o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0;
@@ -947,15 +874,23 @@ export function StoreProvider({ children }) {
       return o;
     }));
 
-    // Async sync updated order to server
+    // Authoritative Server sync
     if (affectedOrder) {
       try {
-        fetch('/api/orders/sync', {
+        const res = await fetch('/api/orders/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ order: affectedOrder })
-        }).catch(() => {});
-      } catch {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.orders)) {
+            setOrdersRaw(data.orders);
+          }
+        }
+      } catch (err) {
+        console.warn('Orders sync server offline, status updated locally only:', err);
+      }
     }
 
     // Update customer spending when an order is cancelled or refunded
@@ -972,33 +907,38 @@ export function StoreProvider({ children }) {
     }
 
     showToast(`Order status updated to ${newStatus}`, 'check');
-  }, [setOrders, setCustomers, showToast]);
+  }, [setCustomers, showToast]);
 
   const cycleOrderStatus = useCallback((id) => {
     const statuses = ['Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
-    setOrders(prevOrders => prevOrders.map(o => {
+    setOrdersRaw(prevOrders => prevOrders.map(o => {
       if (o.id === id) {
         const idx = statuses.indexOf(o.status);
         return { ...o, status: statuses[(idx + 1) % statuses.length] };
       }
       return o;
     }));
-  }, [setOrders]);
+  }, []);
 
-  const deleteOrder = useCallback((id) => {
-    setOrders(prev => {
-      const updated = prev.filter(o => o.id !== id);
-      try {
-        fetch('/api/orders/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orders: updated, deleteId: id })
-        }).catch(() => {});
-      } catch {}
-      return updated;
-    });
-    showToast('Order deleted', 'check');
-  }, [setOrders, showToast]);
+  const deleteOrder = useCallback(async (id) => {
+    setOrdersRaw(prev => prev.filter(o => o.id !== id && o.order_number !== id));
+    try {
+      const res = await fetch('/api/orders/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteId: id })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.orders)) {
+          setOrdersRaw(data.orders);
+        }
+      }
+    } catch (err) {
+      console.warn('Orders sync server offline, order removed locally only:', err);
+    }
+    showToast('Order deleted from server', 'check');
+  }, [showToast]);
 
   const saveCustomer = useCallback((custData) => {
     const existing = customers.find(c => c.id === custData.id);
