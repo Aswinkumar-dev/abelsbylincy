@@ -12,10 +12,17 @@
   // 1. DATA REPOSITORY & PERSISTENCE
   // =========================================================================
 
+  const REMOVED_MOCK_SKUS = [
+    'ABL-RG-206', 'ABL-NK-205', 'ABL-RG-204', 'ABL-BR-203', 'ABL-BR-102',
+    'ABL-ER-104', 'ABL-NK-201', 'ABL-BR-202', 'ABL-BR-106', 'ABL-BR-105', 'ABL-NK-101',
+    'p_na1', 'p_na2', 'p_na4', 'p_na5', 'p_na6', 'p_bs1', 'p_bs2', 'p_bs3', 'p_bs4', 'p_bs5', 'p_bs6'
+  ];
+
   const DEFAULT_PRODUCTS = [
     { id: 'p_na3', sku: 'N49', name: 'Avacado Charm Necklace', category: 'charms', price: 45, salePrice: 35, material: '18K Gold Plated', gemstone: 'Enamel & Gold', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp'], description: 'Artisanal avocado and fruit charms necklace handcrafted in 18K gold plating.', featured: true, bestSeller: false, newArrival: true, tags: ['charms', 'necklace', 'avocado'] },
     { id: 'p_ch_flower', sku: 'N31', name: 'Flower Charm Necklace', category: 'charms', price: 40, salePrice: 0, material: '18K Gold Plated', gemstone: 'Enamel', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp'], description: 'Delicate floral pendant charms suspended on an 18K gold-plated chain.', featured: false, bestSeller: false, newArrival: false, tags: ['charms', 'necklace', 'flower'] },
-    { id: 'p_ch_corals', sku: 'N21', name: 'Corals Necklace', category: 'charms', price: 45, salePrice: 0, material: '18K Gold Plated', gemstone: 'Gold Motifs', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp'], description: 'Seaside coral and star charm necklace in 18K gold finish.', featured: false, bestSeller: false, newArrival: false, tags: ['charms', 'necklace', 'corals'] }
+    { id: 'p_ch_corals', sku: 'N21', name: 'Corals Necklace', category: 'charms', price: 45, salePrice: 0, material: '18K Gold Plated', gemstone: 'Gold Motifs', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp'], description: 'Seaside coral and star charm necklace in 18K gold finish.', featured: false, bestSeller: false, newArrival: false, tags: ['charms', 'necklace', 'corals'] },
+    { id: 'p_nk_cross', sku: 'N03', name: 'Cross Necklace', category: 'necklaces', price: 35, salePrice: 0, material: '18K Gold Plated', gemstone: 'None', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp'], description: 'Classic cross pendant on a dainty 18K gold-plated link chain.', featured: false, bestSeller: false, newArrival: false, tags: ['necklaces', 'cross'] }
   ];
 
   const DEFAULT_CATEGORIES = [
