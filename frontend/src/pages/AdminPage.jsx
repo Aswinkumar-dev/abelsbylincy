@@ -5,7 +5,7 @@ import {
   ChartNoAxesColumn, Lock, ChevronRight, ChevronLeft, Crown, Search, Plus, Pencil, Trash2,
   RefreshCw, DollarSign, TrendingUp, AlertTriangle, AlertCircle, CheckCircle2, Star, Eye, EyeOff,
   ArrowUp, ArrowDown, Download, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
-  User, Mail, Phone, MapPin, Printer, Truck
+  User, Mail, Phone, MapPin, Printer, Truck, LogOut
 } from 'lucide-react';
 import { useStore, CAT_FALLBACK_IMAGES } from '../context/StoreContext';
 
@@ -19,6 +19,9 @@ export default function AdminPage() {
     saveCustomer, deleteCustomer, deleteSubscriber, saveCoupon, deleteCoupon,
     saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide, reorderHeroSlides, showToast
   } = useStore();
+
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
 
   const getStatusStyles = (status) => {
     switch (status) {
@@ -810,16 +813,13 @@ export default function AdminPage() {
               </div>
             </div>
             <button
-              onClick={() => {
-                setLoginId('');
-                setLoginPass('');
-                setLoginError('');
-                adminLogout();
-              }}
+              type="button"
+              onClick={() => setShowLogoutConfirm(true)}
               className="btn-secondary"
               style={{ padding: '6px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, whiteSpace: 'nowrap' }}
             >
-              Sign Out
+              <LogOut style={{ width: 12, height: 12 }} />
+              <span>Sign Out</span>
             </button>
           </div>
         </header>
@@ -864,17 +864,16 @@ export default function AdminPage() {
 
               <div style={{ marginTop: 'auto', padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
                 <button
+                  type="button"
                   onClick={() => {
-                    setLoginId('');
-                    setLoginPass('');
-                    setLoginError('');
                     setMobileMenuOpen(false);
-                    adminLogout();
+                    setShowLogoutConfirm(true);
                   }}
                   className="btn-secondary"
                   style={{ width: '100%', padding: '10px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
-                  Sign Out ({currentAdmin.user})
+                  <LogOut style={{ width: 15, height: 15 }} />
+                  <span>Sign Out ({currentAdmin.user})</span>
                 </button>
               </div>
             </div>
@@ -4348,6 +4347,147 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Sign Out Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div
+          className="admin-modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20
+          }}
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div
+            className="admin-modal"
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 16,
+              maxWidth: 420,
+              width: '100%',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
+              border: '1px solid rgba(212, 175, 55, 0.35)',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease-out'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Luxury Gold Accent Top Bar */}
+            <div style={{ height: 4, background: 'linear-gradient(90deg, #B38728 0%, #FBF5B7 50%, #DAA520 100%)' }} />
+
+            <div style={{ padding: '28px 24px 24px', textAlign: 'center' }}>
+              {/* Icon Circle */}
+              <div style={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background: 'var(--cream, #FBF9F5)',
+                border: '2px solid var(--gold, #D4AF37)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+                boxShadow: '0 4px 12px rgba(212, 175, 55, 0.2)'
+              }}>
+                <LogOut style={{ width: 24, height: 24, color: 'var(--gold-dark, #AA7C11)' }} />
+              </div>
+
+              {/* Title */}
+              <h3 style={{
+                fontFamily: 'var(--font-serif, "Playfair Display", serif)',
+                fontSize: 20,
+                fontWeight: 700,
+                color: 'var(--onyx, #1A1A1A)',
+                margin: '0 0 8px 0',
+                letterSpacing: '0.02em'
+              }}>
+                Sign Out
+              </h3>
+
+              {/* Message */}
+              <p style={{
+                fontSize: 13,
+                color: 'var(--slate, #5A6065)',
+                lineHeight: 1.5,
+                margin: '0 0 24px 0'
+              }}>
+                Are you sure you want to sign out of the Admin Suite? You will need your credentials to log back in.
+              </p>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(false)}
+                  style={{
+                    padding: '11px 16px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderRadius: 8,
+                    background: '#FFFFFF',
+                    color: 'var(--onyx, #1A1A1A)',
+                    border: '1px solid var(--border, #E2E8F0)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginId('');
+                    setLoginPass('');
+                    setLoginError('');
+                    setShowLogoutConfirm(false);
+                    setMobileMenuOpen(false);
+                    adminLogout();
+                    showToast('You have been signed out successfully.', 'info');
+                  }}
+                  style={{
+                    padding: '11px 16px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    borderRadius: 8,
+                    background: 'var(--onyx, #1A1A1A)',
+                    color: 'var(--gold, #D4AF37)',
+                    border: '1px solid var(--onyx, #1A1A1A)',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = '#000000';
+                    e.currentTarget.style.color = '#F5D77F';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'var(--onyx, #1A1A1A)';
+                    e.currentTarget.style.color = 'var(--gold, #D4AF37)';
+                  }}
+                >
+                  <LogOut style={{ width: 14, height: 14 }} />
+                  <span>OK, Sign Out</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
