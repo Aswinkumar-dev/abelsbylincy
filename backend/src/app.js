@@ -39,8 +39,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serverless URL normalizer (handles cases where Vercel rewrites strip /api prefix)
+app.use((req, res, next) => {
+  if (req.url && !req.url.startsWith('/api') && req.url !== '/' && !req.url.startsWith('/health')) {
+    req.url = `/api${req.url.startsWith('/') ? '' : '/'}${req.url}`;
+  }
+  next();
+});
+
 // Root & Health check endpoints
-app.get('/', (req, res) => {
+app.get(['/', '/api'], (req, res) => {
   res.status(200).json({
     success: true,
     message: "Abel's By Lincy Backend API is active and running!",
@@ -49,7 +57,7 @@ app.get('/', (req, res) => {
   });
 });
 
-app.get('/health', (req, res) => {
+app.get(['/health', '/api/health'], (req, res) => {
   res.status(200).json({ status: 'ok', time: new Date() });
 });
 
