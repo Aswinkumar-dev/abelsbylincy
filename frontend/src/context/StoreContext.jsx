@@ -221,8 +221,20 @@ export function StoreProvider({ children }) {
       if (ordersRes.ok) {
         const data = await ordersRes.json();
         if (data.success && Array.isArray(data.orders)) {
-          setOrdersRaw(data.orders);
-          writeLS('abl_orders_v9', data.orders);
+          setOrdersRaw(prev => {
+            const orderMap = new Map();
+            data.orders.forEach(o => {
+              const k = o.id || o.order_number || o.uuid;
+              if (k) orderMap.set(String(k), o);
+            });
+            prev.forEach(o => {
+              const k = o.id || o.order_number || o.uuid;
+              if (k) orderMap.set(String(k), { ...(orderMap.get(String(k)) || {}), ...o });
+            });
+            const merged = Array.from(orderMap.values());
+            writeLS('abl_orders_v9', merged);
+            return merged;
+          });
         }
       }
     } catch (err) {
@@ -235,10 +247,34 @@ export function StoreProvider({ children }) {
       if (prodRes.ok) {
         const data = await prodRes.json();
         if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-          // Never resurrect any product that the user has explicitly deleted
-          const filtered = data.products.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
-          setProductsRaw(filtered);
-          writeLS('abl_products_v11', filtered);
+          setProductsRaw(prev => {
+            const prodMap = new Map();
+            // Start with backend server products (excluding deleted)
+            data.products.forEach(p => {
+              const k = p.id || p.sku;
+              if (k && !deleted.includes(p.id) && !deleted.includes(p.sku)) {
+                prodMap.set(String(k), p);
+              }
+            });
+            // Merge all locally added or modified products so user-added products (e.g. Bangles, Charms) are NEVER lost!
+            prev.forEach(p => {
+              const k = p.id || p.sku;
+              if (k && !deleted.includes(p.id) && !deleted.includes(p.sku)) {
+                prodMap.set(String(k), { ...(prodMap.get(String(k)) || {}), ...p });
+              }
+            });
+            const merged = Array.from(prodMap.values());
+            writeLS('abl_products_v11', merged);
+            // Push merged list back to server so server also stores all newly added products
+            try {
+              fetch('/api/products/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ products: merged })
+              }).catch(() => {});
+            } catch {}
+            return merged;
+          });
         }
       }
     } catch (err) {
@@ -806,16 +842,16 @@ export function StoreProvider({ children }) {
     setDeletedProductIds(newDeleted);
 
     // Optimistically update React state and storage immediately
+    let updatedList = [];
     setProductsRaw(prev => {
       const idx = prev.findIndex(p => p.id === id || (productData.id && p.id === productData.id) || (productData.sku && p.sku && p.sku.toLowerCase() === productData.sku.toLowerCase()));
-      let updated;
       if (idx !== -1) {
-        updated = prev.map((p, i) => i === idx ? { ...p, ...productToSave } : p);
+        updatedList = prev.map((p, i) => i === idx ? { ...p, ...productToSave } : p);
       } else {
-        updated = [productToSave, ...prev];
+        updatedList = [productToSave, ...prev];
       }
-      writeLS('abl_products_v11', updated);
-      return updated;
+      writeLS('abl_products_v11', updatedList);
+      return updatedList;
     });
 
     // Authoritative Server & Database sync
@@ -823,7 +859,7 @@ export function StoreProvider({ children }) {
       const res = await fetch('/api/products/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: productToSave })
+        body: JSON.stringify({ product: productToSave, products: updatedList })
       });
       if (res.ok) {
         const data = await res.json();

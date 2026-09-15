@@ -70,12 +70,31 @@ export default function ShopPage() {
       if (active === 'all') return true;
       if (active === 'new-arrivals') return Boolean(p.newArrival);
       if (active === 'best-sellers') return Boolean(p.bestSeller);
-      if (active === 'silver-collections') return pCat === 'silver-collections' || p.material?.toLowerCase().includes('silver') || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('silver')));
-      if (active === 'seasonal-collections') return pCat === 'seasonal-collections' || (p.collection && p.collection.toLowerCase().includes('seasonal')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('seasonal')));
+      if (active === 'silver-collections' || active === 'silver') {
+        return pCat === 'silver-collections' || pCat === 'silver-collection' || pCat === 'silver' || p.material?.toLowerCase().includes('silver') || (p.name && p.name.toLowerCase().includes('silver')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('silver')));
+      }
+      if (active === 'seasonal-collections' || active === 'seasonal') {
+        return pCat === 'seasonal-collections' || pCat === 'seasonal-collection' || pCat === 'seasonal' || (p.collection && p.collection.toLowerCase().includes('seasonal')) || (p.name && p.name.toLowerCase().includes('seasonal')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('seasonal')));
+      }
       if (active === 'charms' || active === 'charm') {
         return pCat === 'charms' || pCat === 'charm' || (p.name && p.name.toLowerCase().includes('charm')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('charm')));
       }
-      return pCat === active;
+      if (active === 'bangles' || active === 'bangle') {
+        return pCat === 'bangles' || pCat === 'bangle' || (p.name && p.name.toLowerCase().includes('bangle')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('bangle')));
+      }
+      if (active === 'bracelets' || active === 'bracelet') {
+        return pCat === 'bracelets' || pCat === 'bracelet' || (p.name && p.name.toLowerCase().includes('bracelet')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('bracelet')));
+      }
+      if (active === 'necklaces' || active === 'necklace') {
+        return pCat === 'necklaces' || pCat === 'necklace' || (p.name && p.name.toLowerCase().includes('necklace')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('necklace')));
+      }
+      if (active === 'rings' || active === 'ring') {
+        return pCat === 'rings' || pCat === 'ring' || (p.name && p.name.toLowerCase().includes('ring')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('ring')));
+      }
+      if (active === 'earrings' || active === 'earring') {
+        return pCat === 'earrings' || pCat === 'earring' || (p.name && p.name.toLowerCase().includes('earring')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('earring')));
+      }
+      return pCat === active || pCat.startsWith(active) || active.startsWith(pCat);
     })
     .filter(p => selectedMaterials.length === 0 || (p.material && selectedMaterials.includes(p.material)))
     .filter(p => selectedGemstones.length === 0 || (p.gemstone && selectedGemstones.includes(p.gemstone)))
