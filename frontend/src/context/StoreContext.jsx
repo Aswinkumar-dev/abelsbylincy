@@ -162,7 +162,7 @@ function writeLS(key, val) {
 const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
-  // Purge any stale legacy localStorage keys so products/orders are always server-driven
+  // Purge any stale legacy localStorage keys
   useEffect(() => {
     try {
       localStorage.removeItem('abl_products_v10');
@@ -176,9 +176,25 @@ export function StoreProvider({ children }) {
     } catch {}
   }, []);
 
-  // Products and Orders are 100% Server/DB driven (in-memory React state populated from API)
-  const [products, setProductsRaw] = useState(DEFAULT_PRODUCTS);
-  const [orders, setOrdersRaw] = useState(DEFAULT_ORDERS);
+  // Persistent blacklist for deleted products (ensures deleted items NEVER reappear on refresh)
+  const [deletedProductIds, setDeletedProductIds] = useState(() => {
+    return readLS('abl_deleted_product_ids', []);
+  });
+
+  // Products and Orders initialized from persistent storage or filtered DEFAULT_PRODUCTS
+  const [products, setProductsRaw] = useState(() => {
+    const deleted = readLS('abl_deleted_product_ids', []);
+    const saved = readLS('abl_products_v11', null);
+    if (saved !== null && Array.isArray(saved)) {
+      return saved.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
+    }
+    return DEFAULT_PRODUCTS.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
+  });
+
+  const [orders, setOrdersRaw] = useState(() => {
+    return readLS('abl_orders_v9', DEFAULT_ORDERS);
+  });
+
   const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
   const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v7', DEFAULT_CUSTOMERS));
   const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons_v6', DEFAULT_COUPONS));
@@ -197,6 +213,8 @@ export function StoreProvider({ children }) {
 
   // Authoritative sync with backend API (Orders & Products directly from Server/DB)
   const syncBackendData = useCallback(async () => {
+    const deleted = readLS('abl_deleted_product_ids', []);
+
     try {
       // 1. Fetch Orders from Server / Database
       const ordersRes = await fetch('/api/orders/all');
@@ -204,6 +222,7 @@ export function StoreProvider({ children }) {
         const data = await ordersRes.json();
         if (data.success && Array.isArray(data.orders)) {
           setOrdersRaw(data.orders);
+          writeLS('abl_orders_v9', data.orders);
         }
       }
     } catch (err) {
@@ -216,7 +235,10 @@ export function StoreProvider({ children }) {
       if (prodRes.ok) {
         const data = await prodRes.json();
         if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-          setProductsRaw(data.products);
+          // Never resurrect any product that the user has explicitly deleted
+          const filtered = data.products.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
+          setProductsRaw(filtered);
+          writeLS('abl_products_v11', filtered);
         }
       }
     } catch (err) {
@@ -228,13 +250,15 @@ export function StoreProvider({ children }) {
     syncBackendData();
   }, [syncBackendData, adminLoggedIn]);
 
-  // Cross-tab real-time sync via storage event (for session, cart, wishlist)
+  // Cross-tab real-time sync via storage event (for session, cart, wishlist, products)
   useEffect(() => {
     const handleStorage = (e) => {
       if (!e.key || !e.newValue) return;
       try {
         const val = JSON.parse(e.newValue);
-        if (e.key === 'abl_categories_v5') setCategoriesRaw(val);
+        if (e.key === 'abl_products_v11') setProductsRaw(val);
+        else if (e.key === 'abl_orders_v9') setOrdersRaw(val);
+        else if (e.key === 'abl_categories_v5') setCategoriesRaw(val);
         else if (e.key === 'abl_customers_v7') setCustomersRaw(val);
         else if (e.key === 'abl_coupons_v6') setCouponsRaw(val);
         else if (e.key === 'abl_reviews_v6') setReviewsRaw(val);
@@ -262,7 +286,9 @@ export function StoreProvider({ children }) {
   // Persisting helpers
   const setProducts = useCallback((updaterOrValue) => {
     setProductsRaw(prev => {
-      return typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_products_v11', next);
+      return next;
     });
   }, []);
   const setCategories = useCallback((updaterOrValue) => {
@@ -274,7 +300,9 @@ export function StoreProvider({ children }) {
   }, []);
   const setOrders = useCallback((updaterOrValue) => {
     setOrdersRaw(prev => {
-      return typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_orders_v9', next);
+      return next;
     });
   }, []);
   const setCustomers = useCallback((updaterOrValue) => {
@@ -771,13 +799,23 @@ export function StoreProvider({ children }) {
       image: productData.image || (Array.isArray(productData.images) && productData.images[0]) || ''
     };
 
-    // Optimistically update React state immediately
+    // Remove from deleted blacklist if saved/re-added
+    const currentDeleted = readLS('abl_deleted_product_ids', []);
+    const newDeleted = currentDeleted.filter(d => d !== id && d !== productData.sku);
+    writeLS('abl_deleted_product_ids', newDeleted);
+    setDeletedProductIds(newDeleted);
+
+    // Optimistically update React state and storage immediately
     setProductsRaw(prev => {
       const idx = prev.findIndex(p => p.id === id || (productData.id && p.id === productData.id) || (productData.sku && p.sku && p.sku.toLowerCase() === productData.sku.toLowerCase()));
+      let updated;
       if (idx !== -1) {
-        return prev.map((p, i) => i === idx ? { ...p, ...productToSave } : p);
+        updated = prev.map((p, i) => i === idx ? { ...p, ...productToSave } : p);
+      } else {
+        updated = [productToSave, ...prev];
       }
-      return [productToSave, ...prev];
+      writeLS('abl_products_v11', updated);
+      return updated;
     });
 
     // Authoritative Server & Database sync
@@ -790,7 +828,9 @@ export function StoreProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.products)) {
-          setProductsRaw(data.products);
+          const filtered = data.products.filter(p => !newDeleted.includes(p.id) && !newDeleted.includes(p.sku));
+          setProductsRaw(filtered);
+          writeLS('abl_products_v11', filtered);
         }
       }
     } catch (err) {
@@ -801,10 +841,20 @@ export function StoreProvider({ children }) {
   }, [showToast]);
 
   const deleteProduct = useCallback(async (id) => {
-    // Optimistically remove from state immediately
-    setProductsRaw(prev => prev.filter(p => p.id !== id && p.sku !== id));
+    // 1. Add to permanent deleted blacklist
+    const currentDeleted = readLS('abl_deleted_product_ids', []);
+    const updatedDeleted = Array.from(new Set([...currentDeleted, String(id)]));
+    writeLS('abl_deleted_product_ids', updatedDeleted);
+    setDeletedProductIds(updatedDeleted);
 
-    // Authoritative Server & Database deletion
+    // 2. Remove immediately from React state and localStorage
+    setProductsRaw(prev => {
+      const updated = prev.filter(p => p.id !== id && p.sku !== id);
+      writeLS('abl_products_v11', updated);
+      return updated;
+    });
+
+    // 3. Authoritative Server & Database deletion
     try {
       const res = await fetch('/api/products/sync', {
         method: 'POST',
@@ -814,7 +864,9 @@ export function StoreProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.products)) {
-          setProductsRaw(data.products);
+          const filtered = data.products.filter(p => !updatedDeleted.includes(p.id) && !updatedDeleted.includes(p.sku));
+          setProductsRaw(filtered);
+          writeLS('abl_products_v11', filtered);
         }
       }
     } catch (err) {

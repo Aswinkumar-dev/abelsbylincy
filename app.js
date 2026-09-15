@@ -157,19 +157,20 @@
 
 
   function loadProducts() {
+    const deleted = loadLocal('abl_deleted_product_ids', []);
+    const raw11 = loadLocal('abl_products_v11', null);
+    if (raw11 !== null && Array.isArray(raw11)) {
+      return raw11.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
+    }
     const raw10 = loadLocal('abl_products_v10', null);
     if (raw10 !== null && Array.isArray(raw10)) {
-      saveLocal('abl_products', raw10);
-      return raw10;
+      return raw10.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
     }
     const local = loadLocal('abl_products', null);
     if (local !== null && Array.isArray(local)) {
-      saveLocal('abl_products_v10', local);
-      return local;
+      return local.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
     }
-    saveLocal('abl_products_v10', DEFAULT_PRODUCTS);
-    saveLocal('abl_products', DEFAULT_PRODUCTS);
-    return DEFAULT_PRODUCTS;
+    return DEFAULT_PRODUCTS.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
   }
 
 

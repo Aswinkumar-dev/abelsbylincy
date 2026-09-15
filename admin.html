@@ -1709,8 +1709,14 @@
 
     function deleteProduct(id) {
       if (confirm('Are you sure you want to delete this product from the storefront?')) {
-        window.abl.state.products = window.abl.state.products.filter(p => p.id !== id);
+        let deleted = [];
+        try { deleted = JSON.parse(localStorage.getItem('abl_deleted_product_ids') || '[]'); } catch {}
+        deleted = Array.from(new Set([...deleted, String(id)]));
+        localStorage.setItem('abl_deleted_product_ids', JSON.stringify(deleted));
+
+        window.abl.state.products = window.abl.state.products.filter(p => p.id !== id && p.sku !== id);
         localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        localStorage.setItem('abl_products_v11', JSON.stringify(window.abl.state.products));
         localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
         try {
           fetch('/api/products/sync', {
