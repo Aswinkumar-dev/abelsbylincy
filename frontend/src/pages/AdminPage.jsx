@@ -1138,7 +1138,7 @@ export default function AdminPage() {
                         {paginatedProducts.length === 0 ? (
                           <tr>
                             <td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--slate)' }}>
-                              No products found matching "{prodSearchQuery}".
+                              {prodSearchQuery && prodSearchQuery.trim() ? `No products found matching "${prodSearchQuery}".` : 'No products found.'}
                             </td>
                           </tr>
                         ) : (

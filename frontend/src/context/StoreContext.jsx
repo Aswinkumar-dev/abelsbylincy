@@ -985,26 +985,25 @@ export function StoreProvider({ children }) {
     setDeletedProductIds(newDeleted);
 
     // Optimistically update React state and storage immediately
-    let updatedList = [];
     setProductsRaw(prev => {
-      const idx = isEditing ? prev.findIndex(p => p.id === id) : -1;
+      const idx = isEditing ? prev.findIndex(p => p.id === id || (productToSave.sku && p.sku && p.sku.toLowerCase() === productToSave.sku.toLowerCase())) : -1;
+      let next;
       if (idx !== -1) {
-        updatedList = prev.map((p, i) => i === idx ? { ...p, ...productToSave } : p);
+        next = prev.map((p, i) => i === idx ? { ...p, ...productToSave } : p);
       } else {
-        updatedList = [productToSave, ...prev];
+        next = [productToSave, ...prev];
       }
-      const sanitized = sanitizeProducts(updatedList);
-      writeLS('abl_products_v11', sanitized);
+      const sanitized = sanitizeProducts(next);
+      writeLS('abl_products_v12', sanitized);
       return sanitized;
     });
 
     // Authoritative Server & Database sync — wait until MySQL write finishes
     try {
-      const cleanList = sanitizeProducts(updatedList);
       const res = await apiFetch('/api/products/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: productToSave, products: cleanList })
+        body: JSON.stringify({ product: productToSave })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
@@ -1016,24 +1015,9 @@ export function StoreProvider({ children }) {
         return;
       }
       if (Array.isArray(data.products)) {
-        setProductsRaw(prev => {
-          const map = new Map();
-          data.products.forEach(p => {
-            const k = p.id || p.sku;
-            if (k && (!p.id || !newDeleted.includes(p.id)) && (!p.sku || !newDeleted.includes(p.sku))) {
-              map.set(String(k), sanitizeProduct(p));
-            }
-          });
-          prev.forEach(p => {
-            const k = p.id || p.sku;
-            if (k && (!p.id || !newDeleted.includes(p.id)) && (!p.sku || !newDeleted.includes(p.sku))) {
-              map.set(String(k), { ...(map.get(String(k)) || {}), ...sanitizeProduct(p) });
-            }
-          });
-          const merged = sanitizeProducts(Array.from(map.values()));
-          writeLS('abl_products_v12', merged);
-          return merged;
-        });
+        const cleanServerList = sanitizeProducts(data.products.filter(isAllowedProduct));
+        setProductsRaw(cleanServerList);
+        writeLS('abl_products_v12', cleanServerList);
       }
       showToast('Product saved to the store and database.', 'check');
     } catch (err) {

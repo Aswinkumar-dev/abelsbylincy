@@ -14,110 +14,91 @@ const isPurgedProduct = (p) => {
   return PURGED_MOCK_SKUS.includes(sku) || PURGED_MOCK_SKUS.includes(id);
 };
 
+const fetchAllProductsFromDB = async () => {
+  let dbProducts = [];
+  try {
+    try {
+      await db.query('DELETE FROM products WHERE sku IN (?) OR uuid IN (?)', [PURGED_MOCK_SKUS, PURGED_MOCK_SKUS]);
+    } catch {}
+
+    let query = `
+      SELECT p.*, c.name as category_name, c.slug as category_slug
+      FROM products p
+      JOIN categories c ON p.category_id = c.id
+      WHERE p.is_active = TRUE
+      ORDER BY p.created_at DESC
+    `;
+    const [rows] = await db.query(query);
+
+    for (const product of rows) {
+      const [images] = await db.query('SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC', [product.id]);
+      const [variants] = await db.query('SELECT * FROM product_variants WHERE product_id = ? AND is_active = TRUE', [product.id]);
+      product.images = images;
+      product.variants = variants;
+    }
+    dbProducts = rows;
+  } catch (e) {
+    // DB offline fallback
+  }
+
+  const fileProducts = getStoredProducts() || [];
+  const prodMap = new Map();
+
+  // 1. Add MySQL products (if active DB)
+  dbProducts.forEach(p => {
+    const k = p.id || p.sku || p.slug;
+    if (k && !isPurgedProduct(p)) {
+      const imageRows = Array.isArray(p.images) ? p.images : [];
+      const galleryUrls = imageRows.filter(img => !img.color).map(img => img.secure_url).filter(Boolean);
+      const allUrls = imageRows.map(img => img.secure_url).filter(Boolean);
+      const colorImages = {};
+      imageRows.forEach(img => {
+        if (img.color && img.secure_url) {
+          if (!colorImages[img.color]) colorImages[img.color] = [];
+          colorImages[img.color].push(img.secure_url);
+        }
+      });
+      const uuid = p.uuid ? String(p.uuid) : '';
+      const stableId = uuid.startsWith('p_') ? uuid : (p.sku || uuid || String(p.id));
+      prodMap.set(String(stableId), {
+        ...p,
+        id: stableId,
+        dbId: p.id,
+        sku: p.sku || p.variants?.[0]?.sku || '',
+        price: p.variants?.[0]?.price !== undefined ? parseFloat(p.variants[0].price) : parseFloat(p.price) || 0,
+        salePrice: p.variants?.[0]?.compare_at_price ? parseFloat(p.variants[0].compare_at_price) : (p.salePrice || 0),
+        stockQty: p.variants?.[0]?.stock_quantity ?? p.stock_quantity ?? 10,
+        inStock: (p.variants?.[0]?.stock_quantity ?? p.stock_quantity ?? 10) > 0,
+        image: galleryUrls[0] || allUrls[0] || p.image || '',
+        images: galleryUrls.length > 0 ? galleryUrls : (allUrls.length > 0 ? allUrls : (p.image ? [p.image] : [])),
+        colorImages,
+        category: p.category_slug || p.category || 'necklaces',
+        isFeatured: !!(p.is_featured || p.isFeatured || p.featured),
+        bestSeller: !!(p.is_best_seller || p.bestSeller),
+        newArrival: !!(p.is_new_arrival || p.newArrival)
+      });
+    }
+  });
+
+  // 2. Add / merge file & memory products
+  fileProducts.forEach(p => {
+    const k = p.id || p.sku || p.slug;
+    if (k && !isPurgedProduct(p)) {
+      if (prodMap.has(String(k))) {
+        prodMap.set(String(k), { ...prodMap.get(String(k)), ...p });
+      } else {
+        prodMap.set(String(k), p);
+      }
+    }
+  });
+
+  return Array.from(prodMap.values()).filter(p => !isPurgedProduct(p));
+};
+
 const getProducts = async (req, res, next) => {
   try {
     const { category, search, featured, newArrival } = req.query;
-
-    let dbProducts = [];
-    try {
-      try {
-        await db.query('DELETE FROM products WHERE sku IN (?) OR uuid IN (?)', [PURGED_MOCK_SKUS, PURGED_MOCK_SKUS]);
-      } catch {}
-
-      let query = `
-        SELECT p.*, c.name as category_name, c.slug as category_slug
-        FROM products p
-        JOIN categories c ON p.category_id = c.id
-        WHERE p.is_active = TRUE
-      `;
-      const params = [];
-
-      if (category) {
-        query += ' AND (c.slug = ? OR c.id = ?)';
-        params.push(category, category);
-      }
-
-      if (featured === 'true') {
-        query += ' AND p.is_featured = TRUE';
-      }
-
-      if (newArrival === 'true') {
-        query += ' AND p.is_new_arrival = TRUE';
-      }
-
-      if (search) {
-        query += ' AND MATCH(p.name, p.short_description, p.description) AGAINST(? IN NATURAL LANGUAGE MODE)';
-        params.push(search);
-      }
-
-      query += ' ORDER BY p.created_at DESC';
-
-      const [rows] = await db.query(query, params);
-
-      for (const product of rows) {
-        const [images] = await db.query('SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC', [product.id]);
-        const [variants] = await db.query('SELECT * FROM product_variants WHERE product_id = ? AND is_active = TRUE', [product.id]);
-        
-        product.images = images;
-        product.variants = variants;
-      }
-      dbProducts = rows;
-    } catch (e) {
-      // DB offline fallback
-    }
-
-    const fileProducts = getStoredProducts() || [];
-    const prodMap = new Map();
-
-    // 1. Add MySQL products (if active DB)
-    dbProducts.forEach(p => {
-      const k = p.id || p.sku || p.slug;
-      if (k) {
-        const imageRows = Array.isArray(p.images) ? p.images : [];
-        const galleryUrls = imageRows.filter(img => !img.color).map(img => img.secure_url).filter(Boolean);
-        const allUrls = imageRows.map(img => img.secure_url).filter(Boolean);
-        const colorImages = {};
-        imageRows.forEach(img => {
-          if (img.color && img.secure_url) {
-            if (!colorImages[img.color]) colorImages[img.color] = [];
-            colorImages[img.color].push(img.secure_url);
-          }
-        });
-        const uuid = p.uuid ? String(p.uuid) : '';
-        const stableId = uuid.startsWith('p_') ? uuid : (p.sku || uuid || String(p.id));
-        prodMap.set(String(stableId), {
-          ...p,
-          id: stableId,
-          dbId: p.id,
-          sku: p.sku || p.variants?.[0]?.sku || '',
-          price: p.variants?.[0]?.price || p.price,
-          salePrice: p.variants?.[0]?.compare_at_price ? p.variants?.[0]?.price : 0,
-          stockQty: p.variants?.[0]?.stock_quantity ?? p.stock_quantity ?? 10,
-          inStock: (p.variants?.[0]?.stock_quantity ?? p.stock_quantity ?? 10) > 0,
-          image: galleryUrls[0] || allUrls[0] || p.image || '',
-          images: galleryUrls.length > 0 ? galleryUrls : (allUrls.length > 0 ? allUrls : (p.image ? [p.image] : [])),
-          colorImages,
-          category: p.category_slug || p.category || 'necklaces',
-          isFeatured: !!(p.is_featured || p.isFeatured || p.featured),
-          bestSeller: !!(p.is_best_seller || p.bestSeller),
-          newArrival: !!(p.is_new_arrival || p.newArrival)
-        });
-      }
-    });
-
-    // 2. Add / merge file & memory products (includes newly created Bangles, Charms, etc.)
-    fileProducts.forEach(p => {
-      const k = p.id || p.sku || p.slug;
-      if (k) {
-        if (prodMap.has(String(k))) {
-          prodMap.set(String(k), { ...prodMap.get(String(k)), ...p });
-        } else {
-          prodMap.set(String(k), p);
-        }
-      }
-    });
-
-    let result = Array.from(prodMap.values()).filter(p => !isPurgedProduct(p));
+    let result = await fetchAllProductsFromDB();
 
     if (category) {
       result = result.filter(p => {
@@ -386,10 +367,8 @@ async function upsertProductToDB(p) {
 const syncProducts = async (req, res, next) => {
   try {
     const { products, product, deleteId, wipeAll } = req.body;
-    let currentList = getStoredProducts() || [];
 
     if (wipeAll) {
-      currentList = [];
       saveStoredProducts([]);
       try {
         await db.query('DELETE FROM product_images');
@@ -402,18 +381,15 @@ const syncProducts = async (req, res, next) => {
     }
 
     if (deleteId) {
-      currentList = currentList.filter(p => p.id !== deleteId && p.sku !== deleteId && !isPurgedProduct(p));
+      let currentList = (getStoredProducts() || []).filter(p => p.id !== deleteId && p.sku !== deleteId && !isPurgedProduct(p));
       saveStoredProducts(currentList);
       try {
         await db.query('DELETE FROM products WHERE id = ? OR uuid = ? OR slug = ? OR sku = ?', [deleteId, deleteId, deleteId, deleteId]);
       } catch (dbErr) {
         console.warn('⚠️ DB product delete note:', dbErr.message);
       }
-      return res.status(200).json({ success: true, message: 'Product deleted from database & server.', products: currentList });
-    }
-
-    if (Array.isArray(products)) {
-      currentList = products.filter(p => !isPurgedProduct(p)).map(sanitizeServerProduct);
+      const updatedList = await fetchAllProductsFromDB();
+      return res.status(200).json({ success: true, message: 'Product deleted from database & server.', products: updatedList });
     }
 
     if (product) {
@@ -421,6 +397,18 @@ const syncProducts = async (req, res, next) => {
         return res.status(400).json({ success: false, message: 'This mock product has been permanently removed.' });
       }
       const cleanProd = sanitizeServerProduct(product);
+
+      let dbSynced = true;
+      let dbError = null;
+      try {
+        await upsertProductToDB(cleanProd);
+      } catch (err) {
+        dbSynced = false;
+        dbError = err.message;
+        console.warn('⚠️ DB product upsert failed:', err.message);
+      }
+
+      let currentList = getStoredProducts() || [];
       const key = cleanProd.id || cleanProd.sku || `p_${Date.now()}`;
       const idx = currentList.findIndex(p => p.id === key || (cleanProd.id && p.id === cleanProd.id) || (cleanProd.sku && p.sku && p.sku.toLowerCase() === cleanProd.sku.toLowerCase()));
       if (idx !== -1) {
@@ -428,38 +416,32 @@ const syncProducts = async (req, res, next) => {
       } else {
         currentList.unshift({ ...cleanProd, id: key });
       }
+      saveStoredProducts(currentList);
+
+      const allProds = await fetchAllProductsFromDB();
+      return res.status(200).json({
+        success: true,
+        message: dbSynced ? 'Product saved to MySQL database.' : `Saved locally; MySQL error: ${dbError}`,
+        dbSynced,
+        dbError,
+        products: allProds
+      });
     }
 
-    saveStoredProducts(currentList);
-
-    const toUpsert = product && !isPurgedProduct(product)
-      ? [sanitizeServerProduct(product)]
-      : (Array.isArray(products) ? currentList : []);
-
-    let dbSynced = true;
-    let dbError = null;
-    let dbCount = 0;
-    for (const p of toUpsert) {
-      try {
-        await upsertProductToDB(p);
-        dbCount += 1;
-      } catch (err) {
-        dbSynced = false;
-        dbError = err.message;
-        console.warn('⚠️ DB product upsert failed:', err.message);
+    if (Array.isArray(products)) {
+      const cleanList = products.filter(p => !isPurgedProduct(p)).map(sanitizeServerProduct);
+      saveStoredProducts(cleanList);
+      for (const p of cleanList) {
+        try {
+          await upsertProductToDB(p);
+        } catch (err) {}
       }
+      const allProds = await fetchAllProductsFromDB();
+      return res.status(200).json({ success: true, message: 'Products synchronized successfully to database.', products: allProds });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: dbSynced
-        ? (toUpsert.length ? 'Product saved to MySQL.' : 'Products list stored.')
-        : `Saved locally; MySQL error: ${dbError}`,
-      dbSynced: toUpsert.length === 0 ? true : dbSynced,
-      dbError,
-      dbCount,
-      products: currentList
-    });
+    const allProds = await fetchAllProductsFromDB();
+    res.status(200).json({ success: true, products: allProds });
   } catch (error) {
     next(error);
   }
