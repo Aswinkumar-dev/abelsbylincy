@@ -1626,6 +1626,14 @@
       }
 
       localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+      localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+      try {
+        fetch('/api/products/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: window.abl.state.products })
+        }).catch(() => {});
+      } catch {}
 
       // 2. Sync to Cloudy & DB Backend (Fetch Request)
       try {
@@ -1703,6 +1711,14 @@
       if (confirm('Are you sure you want to delete this product from the storefront?')) {
         window.abl.state.products = window.abl.state.products.filter(p => p.id !== id);
         localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+        try {
+          fetch('/api/products/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ products: window.abl.state.products, deleteId: id })
+          }).catch(() => {});
+        } catch {}
         window.abl.showToast('Product deleted from storefront');
         renderAdminApp();
       }
@@ -1713,6 +1729,7 @@
       if (p) {
         p.stockQty = Math.max(0, p.stockQty + delta);
         localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
         window.abl.showToast(`Stock updated: ${p.name} (${p.stockQty} units)`);
         renderAdminApp();
       }
@@ -1725,6 +1742,7 @@
         const nextIdx = (statuses.indexOf(o.status) + 1) % statuses.length;
         o.status = statuses[nextIdx];
         localStorage.setItem('abl_orders', JSON.stringify(window.abl.state.orders));
+        localStorage.setItem('abl_orders_v8', JSON.stringify(window.abl.state.orders));
         window.abl.showToast(`Order ${o.id} marked as ${o.status}`);
         renderAdminApp();
       }
@@ -1734,6 +1752,14 @@
       if (confirm('Archive/Delete this order?')) {
         window.abl.state.orders = window.abl.state.orders.filter(o => o.id !== id);
         localStorage.setItem('abl_orders', JSON.stringify(window.abl.state.orders));
+        localStorage.setItem('abl_orders_v8', JSON.stringify(window.abl.state.orders));
+        try {
+          fetch('/api/orders/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orders: window.abl.state.orders, deleteId: id })
+          }).catch(() => {});
+        } catch {}
         window.abl.showToast('Order deleted');
         renderAdminApp();
       }
