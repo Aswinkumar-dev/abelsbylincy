@@ -79,31 +79,5 @@
       "necklace",
       "corals"
     ]
-  },
-  {
-    "id": "p_nk_cross",
-    "sku": "N03",
-    "name": "Cross Necklace",
-    "category": "necklaces",
-    "price": 35,
-    "salePrice": 0,
-    "material": "18K Gold Plated",
-    "gemstone": "None",
-    "inStock": true,
-    "stockQty": 10,
-    "sizes": [],
-    "colors": [],
-    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp",
-    "images": [
-      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp"
-    ],
-    "description": "Classic cross pendant on a dainty 18K gold-plated link chain.",
-    "featured": false,
-    "bestSeller": false,
-    "newArrival": false,
-    "tags": [
-      "necklaces",
-      "cross"
-    ]
   }
 ]
