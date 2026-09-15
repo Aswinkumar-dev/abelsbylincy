@@ -16,11 +16,16 @@ import FaqPage from './pages/FaqPage';
 import PolicyPage from './pages/PolicyPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AdminPage from './pages/AdminPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <Layout><HomePage /></Layout>,
+  },
+  {
+    path: '/reset-password',
+    element: <Layout><ResetPasswordPage /></Layout>,
   },
   {
     path: '/shop',

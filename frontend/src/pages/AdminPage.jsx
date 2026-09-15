@@ -2617,7 +2617,7 @@ export default function AdminPage() {
                     Base Product Images
                   </h4>
                   <span style={{ fontSize: 11, fontWeight: 700, background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', padding: '4px 10px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                    📸 Upload images in 1200 × 1200 ratio
+                    Upload images in 1200 × 1200 ratio
                   </span>
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--slate)', margin: '0 0 14px 0', lineHeight: 1.5 }}>
@@ -2877,7 +2877,7 @@ export default function AdminPage() {
                     Color Variants
                   </h4>
                   <span style={{ fontSize: 11, fontWeight: 700, background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', padding: '3px 8px', borderRadius: 6 }}>
-                    📸 1200 × 1200 ratio
+                    1200 × 1200 ratio
                   </span>
                 </div>
 

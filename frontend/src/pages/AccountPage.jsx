@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { User, ShoppingBag, Heart, Award, Eye, EyeOff, LogOut } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { User, ShoppingBag, Heart, Award, Eye, EyeOff, LogOut, KeyRound, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export default function AccountPage() {
-  const { currentUser, loginWithEmail, registerUser, loginWithGoogle, logoutUser, orders, wishlist } = useStore();
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
+  const { currentUser, loginWithEmail, registerUser, loginWithGoogle, logoutUser, requestPasswordReset, orders, wishlist } = useStore();
+  const [searchParams] = useSearchParams();
+  const [authMode, setAuthMode] = useState(() => searchParams.get('mode') === 'register' ? 'register' : 'login'); // 'login', 'register', or 'forgot'
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
@@ -18,11 +19,19 @@ export default function AccountPage() {
   }, [currentUser, navigate]);
 
   // Form states
-  const [loginEmail, setLoginEmail] = useState('');
+  const [loginEmail, setLoginEmail] = useState(() => searchParams.get('email') || '');
   const [loginPassword, setLoginPassword] = useState('');
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [forgotEmail, setForgotEmail] = useState(() => searchParams.get('email') || '');
+
+  // Forgot password state
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotSuccessMsg, setForgotSuccessMsg] = useState('');
+  const [forgotErrorMsg, setForgotErrorMsg] = useState('');
+  const [resetSuccessBanner, setResetSuccessBanner] = useState(() => searchParams.get('resetSuccess') === 'true');
 
   // Inline Validation Error states
   const [emailError, setEmailError] = useState('');
@@ -44,6 +53,11 @@ export default function AccountPage() {
     setEmailError('');
     setPasswordError('');
     setNameError('');
+    setForgotErrorMsg('');
+    setForgotSuccess(false);
+    if (mode === 'forgot' && loginEmail) {
+      setForgotEmail(loginEmail);
+    }
   };
 
   // Validation Helpers
@@ -92,6 +106,36 @@ export default function AccountPage() {
       triggerShake();
     } else {
       navigate('/');
+    }
+  };
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setEmailError('');
+    setForgotErrorMsg('');
+    setForgotSuccess(false);
+
+    if (!validateEmail(forgotEmail)) {
+      setEmailError('Please enter a valid email address.');
+      triggerShake();
+      return;
+    }
+
+    setIsForgotLoading(true);
+    try {
+      const res = await requestPasswordReset(forgotEmail.trim());
+      if (res.success) {
+        setForgotSuccess(true);
+        setForgotSuccessMsg(res.message || 'Password reset link sent! Check your inbox.');
+      } else {
+        setForgotErrorMsg(res.message || 'Failed to send password reset email.');
+        triggerShake();
+      }
+    } catch (err) {
+      setForgotErrorMsg('An unexpected error occurred. Please try again.');
+      triggerShake();
+    } finally {
+      setIsForgotLoading(false);
     }
   };
 
@@ -176,7 +220,7 @@ export default function AccountPage() {
             position: 'relative'
           }}>
             {/* Brand Logo Header */}
-            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
               <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 700, letterSpacing: '0.15em', color: 'var(--onyx)', margin: '0 0 4px 0' }}>
                 ABEL'S
               </h1>
@@ -185,50 +229,72 @@ export default function AccountPage() {
               </p>
             </div>
 
-            {/* Mode Switcher Tabs */}
-            <div style={{ display: 'flex', background: 'rgba(212, 175, 55, 0.12)', borderRadius: 10, padding: 4, marginBottom: 28 }}>
-              <button
-                type="button"
-                onClick={() => switchMode('login')}
-                style={{
-                  flex: 1,
-                  padding: '10px 0',
-                  border: 'none',
-                  borderRadius: 8,
-                  background: authMode === 'login' ? '#D4AF37' : 'transparent',
-                  color: authMode === 'login' ? '#FFFFFF' : 'var(--onyx)',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  letterSpacing: '0.05em',
-                  cursor: 'pointer',
-                  transition: 'all 0.25s ease'
-                }}
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                onClick={() => switchMode('register')}
-                style={{
-                  flex: 1,
-                  padding: '10px 0',
-                  border: 'none',
-                  borderRadius: 8,
-                  background: authMode === 'register' ? '#D4AF37' : 'transparent',
-                  color: authMode === 'register' ? '#FFFFFF' : 'var(--onyx)',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  letterSpacing: '0.05em',
-                  cursor: 'pointer',
-                  transition: 'all 0.25s ease'
-                }}
-              >
-                Create Account
-              </button>
-            </div>
+            {/* Post-Password Reset Success Banner */}
+            {resetSuccessBanner && authMode === 'login' && (
+              <div style={{
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                borderRadius: 8,
+                padding: '12px 14px',
+                marginBottom: 20,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 10
+              }}>
+                <CheckCircle style={{ width: 18, height: 18, color: '#059669', flexShrink: 0, marginTop: 1 }} />
+                <div style={{ fontSize: 12, color: '#065F46', lineHeight: 1.4 }}>
+                  <strong>Password Updated Successfully!</strong><br />
+                  Please sign in with your email and new password below.
+                </div>
+              </div>
+            )}
 
-            {/* Sign In Form */}
-            {authMode === 'login' ? (
+            {/* Mode Switcher Tabs (Only shown when not in forgot password mode) */}
+            {authMode !== 'forgot' ? (
+              <div style={{ display: 'flex', background: 'rgba(212, 175, 55, 0.12)', borderRadius: 10, padding: 4, marginBottom: 24 }}>
+                <button
+                  type="button"
+                  onClick={() => switchMode('login')}
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    border: 'none',
+                    borderRadius: 8,
+                    background: authMode === 'login' ? '#D4AF37' : 'transparent',
+                    color: authMode === 'login' ? '#FFFFFF' : 'var(--onyx)',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    letterSpacing: '0.05em',
+                    cursor: 'pointer',
+                    transition: 'all 0.25s ease'
+                  }}
+                >
+                  Login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode('register')}
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    border: 'none',
+                    borderRadius: 8,
+                    background: authMode === 'register' ? '#D4AF37' : 'transparent',
+                    color: authMode === 'register' ? '#FFFFFF' : 'var(--onyx)',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    letterSpacing: '0.05em',
+                    cursor: 'pointer',
+                    transition: 'all 0.25s ease'
+                  }}
+                >
+                  Create Account
+                </button>
+              </div>
+            ) : null}
+
+            {/* View 1: Sign In Form */}
+            {authMode === 'login' && (
               <form noValidate onSubmit={handleLoginSubmit}>
                 <div style={{ marginBottom: 18 }}>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
@@ -259,9 +325,27 @@ export default function AccountPage() {
                 </div>
 
                 <div style={{ marginBottom: 22 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
-                    PASSWORD
-                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--onyx)', margin: 0 }}>
+                      PASSWORD
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => switchMode('forgot')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: 'var(--gold-dark)',
+                        cursor: 'pointer',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
                   <div style={{ position: 'relative' }}>
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -358,8 +442,143 @@ export default function AccountPage() {
                   Continue with Google
                 </button>
               </form>
-            ) : (
-              /* Register Form */
+            )}
+
+            {/* View 2: Forgot Password Form */}
+            {authMode === 'forgot' && (
+              <div>
+                <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                  <div style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    background: 'rgba(212, 175, 55, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 12px auto'
+                  }}>
+                    <KeyRound style={{ width: 22, height: 22, color: 'var(--gold-dark)' }} />
+                  </div>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--onyx)', margin: '0 0 6px 0' }}>
+                    Reset Password
+                  </h3>
+                  <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0, lineHeight: 1.5 }}>
+                    Enter your email to receive a secure link to reset your password. (Max 3 reset requests per day).
+                  </p>
+                </div>
+
+                {forgotSuccess ? (
+                  <div style={{
+                    background: '#ECFDF5',
+                    border: '1px solid #A7F3D0',
+                    borderRadius: 10,
+                    padding: '16px',
+                    textAlign: 'center',
+                    marginBottom: 20
+                  }}>
+                    <CheckCircle style={{ width: 28, height: 28, color: '#059669', margin: '0 auto 8px auto' }} />
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#065F46', margin: '0 0 4px 0' }}>
+                      Reset Email Sent!
+                    </p>
+                    <p style={{ fontSize: 12, color: '#047857', margin: 0, lineHeight: 1.4 }}>
+                      {forgotSuccessMsg}
+                    </p>
+                  </div>
+                ) : (
+                  <form noValidate onSubmit={handleForgotSubmit}>
+                    <div style={{ marginBottom: 18 }}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>
+                        EMAIL ADDRESS
+                      </label>
+                      <input
+                        type="email"
+                        value={forgotEmail}
+                        placeholder="Enter your registered email"
+                        onChange={e => { setForgotEmail(e.target.value); setEmailError(''); setForgotErrorMsg(''); }}
+                        style={{
+                          width: '100%',
+                          height: 48,
+                          padding: '0 16px',
+                          borderRadius: 8,
+                          border: (emailError || forgotErrorMsg) ? '1.5px solid #D9534F' : '1px solid rgba(212, 175, 55, 0.4)',
+                          background: '#FFFFFF',
+                          fontSize: 14,
+                          color: 'var(--onyx)',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      {emailError && (
+                        <p style={{ color: '#D9534F', fontSize: 12, marginTop: 6, fontWeight: 600, margin: '6px 0 0 0' }}>
+                          {emailError}
+                        </p>
+                      )}
+                      {forgotErrorMsg && (
+                        <p style={{ color: '#D9534F', fontSize: 12, marginTop: 6, fontWeight: 600, margin: '6px 0 0 0', lineHeight: 1.4 }}>
+                          {forgotErrorMsg}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isForgotLoading}
+                      style={{
+                        width: '100%',
+                        height: 50,
+                        background: isForgotLoading ? '#999' : 'var(--onyx)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        letterSpacing: '0.15em',
+                        textTransform: 'uppercase',
+                        cursor: isForgotLoading ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                      }}
+                    >
+                      {isForgotLoading ? (
+                        <>
+                          <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
+                          Sending...
+                        </>
+                      ) : (
+                        'SEND RESET LINK'
+                      )}
+                    </button>
+                  </form>
+                )}
+
+                <div style={{ marginTop: 20, textAlign: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: 'var(--onyx)',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                  >
+                    <ArrowLeft style={{ width: 14, height: 14 }} /> Back to Sign In
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* View 3: Register Form */}
+            {authMode === 'register' && (
               <form noValidate onSubmit={handleRegisterSubmit}>
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--onyx)', marginBottom: 6 }}>

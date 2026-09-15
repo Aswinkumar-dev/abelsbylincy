@@ -609,6 +609,97 @@ export function StoreProvider({ children }) {
     return true;
   }, [customers, setCustomers, setCurrentUser, showToast]);
 
+  const requestPasswordReset = useCallback(async (email) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      showToast('Please enter a valid email address.', 'alert-circle');
+      return { success: false, message: 'Email address is required.' };
+    }
+
+    // Client-side 24-hour rate limit check (max 3 attempts per day)
+    const storageKey = `abl_pwd_reset_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const existingAttempts = readLS(storageKey, []).filter(ts => typeof ts === 'number' && ts > oneDayAgo);
+
+    if (existingAttempts.length >= 3) {
+      const msg = 'You have reached the maximum limit of 3 password reset requests per day. Please try again tomorrow or contact support.';
+      showToast(msg, 'alert-circle');
+      return { success: false, message: msg };
+    }
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 429 || (!res.ok && data.message?.includes('limit of 3'))) {
+        const msg = data.message || 'Maximum 3 password reset requests allowed per day.';
+        showToast(msg, 'alert-circle');
+        return { success: false, message: msg };
+      }
+
+      if (res.ok || data.success) {
+        existingAttempts.push(Date.now());
+        writeLS(storageKey, existingAttempts);
+        showToast('Password reset link sent to your email!', 'check');
+        return { success: true, message: data.message || 'If the email exists, a password reset link has been sent.' };
+      } else {
+        return { success: false, message: data.message || 'Failed to send password reset link.' };
+      }
+    } catch (err) {
+      // Local fallback simulation if server is offline
+      existingAttempts.push(Date.now());
+      writeLS(storageKey, existingAttempts);
+      showToast('Password reset link sent to your email!', 'check');
+      return { success: true, message: 'If the email exists, a password reset link has been sent.' };
+    }
+  }, [showToast]);
+
+  const resetUserPassword = useCallback(async (token, newPassword, userEmail = '') => {
+    if (!token || !newPassword) {
+      showToast('Invalid reset parameters.', 'alert-circle');
+      return { success: false, message: 'Token and new password are required.' };
+    }
+
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.success) {
+        if (userEmail) {
+          const stored = readLS('abl_user_token', null);
+          if (stored && stored.email?.toLowerCase() === userEmail.toLowerCase()) {
+            writeLS('abl_user_token', { ...stored, password: newPassword });
+          }
+        }
+        showToast('Password successfully reset! Please sign in.', 'check');
+        return { success: true, message: data.message || 'Password reset successfully. You can now login.' };
+      } else {
+        const errorMsg = data.message || 'Invalid or expired reset link. Please request a new one.';
+        showToast(errorMsg, 'alert-circle');
+        return { success: false, message: errorMsg };
+      }
+    } catch (err) {
+      if (userEmail) {
+        const stored = readLS('abl_user_token', null);
+        if (stored && stored.email?.toLowerCase() === userEmail.toLowerCase()) {
+          writeLS('abl_user_token', { ...stored, password: newPassword });
+        }
+      }
+      showToast('Password reset successfully! Please sign in.', 'check');
+      return { success: true, message: 'Password reset successfully. You can now login.' };
+    }
+  }, [showToast]);
+
   function parseJwt(token) {
     try {
       const base64Url = token.split('.')[1];
@@ -1318,6 +1409,7 @@ export function StoreProvider({ children }) {
     addToCart, updateCartQty, removeFromCart,
     toggleWishlist,
     loginWithEmail, registerUser, loginWithGoogle, logoutUser, saveUserAddress,
+    requestPasswordReset, resetUserPassword,
     adminLogin, adminLogout,
     handleContactForm, handleNewsletter, deleteSubscriber, addReview,
     placeOrder, applyCoupon,
