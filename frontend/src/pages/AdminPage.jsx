@@ -477,6 +477,8 @@ export default function AdminPage() {
   const [messageSubTab, setMessageSubTab] = useState('contact');
   const [prodSearchQuery, setProdSearchQuery] = useState('');
   const [prodPage, setProdPage] = useState(1);
+  const [inventorySearchQuery, setInventorySearchQuery] = useState('');
+  const [inventoryPage, setInventoryPage] = useState(1);
 
   const handleHeroFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -1327,90 +1329,221 @@ export default function AdminPage() {
           )}
 
           {/* 4. INVENTORY & STOCK MOVEMENT HISTORY */}
-          {activeTab === 'inventory' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
-                <div>
-                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Home Inventory Control</h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Track physical stock in Sydney with automated stock movement history.</p>
-                </div>
-                <button onClick={() => restockAllLowStock(10)} className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 13, whiteSpace: 'nowrap' }}>
-                  <RefreshCw style={{ width: 14, height: 14 }} /> Restock All Low Items (+10)
-                </button>
-              </div>
+          {activeTab === 'inventory' && (() => {
+            const filteredInventory = (products || []).filter(p => {
+              if (!inventorySearchQuery.trim()) return true;
+              const q = inventorySearchQuery.toLowerCase().trim();
+              return (
+                p.name?.toLowerCase().includes(q) ||
+                p.sku?.toLowerCase().includes(q) ||
+                p.category?.toLowerCase().includes(q)
+              );
+            });
 
-              <div className="admin-table-card" style={{ width: '100%', overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
-                <div className="admin-table-scroll-wrapper">
-                  <table className="admin-table" style={{ width: '100%', minWidth: '760px' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ width: '28%' }}>Product</th>
-                        <th style={{ width: '14%' }}>Product Code</th>
-                        <th style={{ width: '10%' }}>Stock Qty</th>
-                        <th style={{ width: '16%' }}>Stock Status</th>
-                        <th style={{ width: '18%' }}>Stock Management</th>
-                        <th style={{ width: '14%' }}>Movement History</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {products.map(p => {
-                        const qty = p.stockQty || 0;
-                        const isLow = qty > 0 && qty < 3;
-                        const isOut = qty === 0;
-                        return (
-                          <tr key={p.id}>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <img src={p.image} alt={p.name} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid var(--border)' }} />
-                                <strong style={{ fontSize: 13, color: 'var(--onyx)' }}>{p.name}</strong>
-                              </div>
-                            </td>
-                            <td><code style={{ fontSize: 12, background: 'var(--cream)', padding: '3px 6px', borderRadius: 4, color: 'var(--gold-dark)', fontWeight: 600 }}>{p.sku || 'ABL-JEW'}</code></td>
-                            <td style={{ fontSize: 15, fontWeight: 700 }}>{qty}</td>
-                            <td>
-                              {isOut ? (
-                                <span style={{ background: '#FED7D7', color: '#9B2C2C', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>🔴 Out of Stock</span>
-                              ) : isLow ? (
-                                <span style={{ background: '#FEEBC8', color: '#C05621', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>⚠️ Low Stock</span>
-                              ) : (
-                                <span style={{ background: '#C6F6D5', color: '#22543D', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>In Stock</span>
-                              )}
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={() => handleRecordStockChange(p, -1, 'Stock reduction (-1)')} className="btn-secondary" style={{ padding: '4px 8px', fontWeight: 700, fontSize: 12 }}>-1</button>
-                                <button onClick={() => handleRecordStockChange(p, +1, 'Stock intake (+1)')} className="btn-secondary" style={{ padding: '4px 8px', fontWeight: 700, fontSize: 12 }}>+1</button>
-                                <button
-                                  onClick={() => {
-                                    setSelectedStockProduct(p);
-                                    setStockAdjustQty(5);
-                                    setStockAdjustReason('Restock shipment received');
-                                  }}
-                                  className="btn-secondary"
-                                  style={{ padding: '4px 8px', fontSize: 11 }}
-                                >
-                                  Adjust...
-                                </button>
-                              </div>
-                            </td>
-                            <td>
-                              <button
-                                onClick={() => setSelectedStockProduct(p)}
-                                className="btn-secondary"
-                                style={{ padding: '4px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                              >
-                                <Layers style={{ width: 14, height: 14 }} /> History
-                              </button>
+            const itemsPerPage = 10;
+            const totalInventoryPages = Math.ceil(filteredInventory.length / itemsPerPage) || 1;
+            const currentInventoryPage = Math.min(Math.max(1, inventoryPage), totalInventoryPages);
+            const startIndex = (currentInventoryPage - 1) * itemsPerPage;
+            const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
+
+            return (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
+                  <div>
+                    <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>
+                      Inventory Control ({filteredInventory.length})
+                    </h2>
+                    <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>
+                      Track physical stock with automated stock movement history.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%', maxWidth: 520, justifyContent: 'flex-end' }}>
+                    {/* Search Input */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FFFFFF', padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', flex: 1, minWidth: 200 }}>
+                      <Search style={{ width: 16, height: 16, color: 'var(--slate)', flexShrink: 0 }} />
+                      <input
+                        type="text"
+                        placeholder="Search stock by product, SKU, category..."
+                        value={inventorySearchQuery}
+                        onChange={e => { setInventorySearchQuery(e.target.value); setInventoryPage(1); }}
+                        style={{ border: 'none', outline: 'none', width: '100%', fontSize: 13, background: 'transparent' }}
+                      />
+                      {inventorySearchQuery && (
+                        <button type="button" onClick={() => { setInventorySearchQuery(''); setInventoryPage(1); }} style={{ padding: 2, color: 'var(--slate)' }}>
+                          <X style={{ width: 14, height: 14 }} />
+                        </button>
+                      )}
+                    </div>
+
+                    <button onClick={() => restockAllLowStock(10)} className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 13, whiteSpace: 'nowrap' }}>
+                      <RefreshCw style={{ width: 14, height: 14 }} /> Restock All Low Items (+10)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="admin-table-card" style={{ width: '100%', overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+                  <div className="admin-table-scroll-wrapper">
+                    <table className="admin-table" style={{ width: '100%', minWidth: '760px' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '28%' }}>Product</th>
+                          <th style={{ width: '14%' }}>Product Code</th>
+                          <th style={{ width: '10%' }}>Stock Qty</th>
+                          <th style={{ width: '16%' }}>Stock Status</th>
+                          <th style={{ width: '18%' }}>Stock Management</th>
+                          <th style={{ width: '14%' }}>Movement History</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedInventory.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--slate)' }}>
+                              No inventory items found matching "{inventorySearchQuery}".
                             </td>
                           </tr>
+                        ) : (
+                          paginatedInventory.map(p => {
+                            const qty = p.stockQty || 0;
+                            const isLow = qty > 0 && qty < 3;
+                            const isOut = qty === 0;
+                            return (
+                              <tr key={p.id}>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <img src={p.image} alt={p.name} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid var(--border)' }} />
+                                    <strong style={{ fontSize: 13, color: 'var(--onyx)' }}>{p.name}</strong>
+                                  </div>
+                                </td>
+                                <td><code style={{ fontSize: 12, background: 'var(--cream)', padding: '3px 6px', borderRadius: 4, color: 'var(--gold-dark)', fontWeight: 600 }}>{p.sku || 'ABL-JEW'}</code></td>
+                                <td style={{ fontSize: 15, fontWeight: 700 }}>{qty}</td>
+                                <td>
+                                  {isOut ? (
+                                    <span style={{ background: '#FED7D7', color: '#9B2C2C', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>🔴 Out of Stock</span>
+                                  ) : isLow ? (
+                                    <span style={{ background: '#FEEBC8', color: '#C05621', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>⚠️ Low Stock</span>
+                                  ) : (
+                                    <span style={{ background: '#C6F6D5', color: '#22543D', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-block' }}>In Stock</span>
+                                  )}
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', gap: 6 }}>
+                                    <button onClick={() => handleRecordStockChange(p, -1, 'Stock reduction (-1)')} className="btn-secondary" style={{ padding: '4px 8px', fontWeight: 700, fontSize: 12 }}>-1</button>
+                                    <button onClick={() => handleRecordStockChange(p, +1, 'Stock intake (+1)')} className="btn-secondary" style={{ padding: '4px 8px', fontWeight: 700, fontSize: 12 }}>+1</button>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedStockProduct(p);
+                                        setStockAdjustQty(5);
+                                        setStockAdjustReason('Restock shipment received');
+                                      }}
+                                      className="btn-secondary"
+                                      style={{ padding: '4px 8px', fontSize: 11 }}
+                                    >
+                                      Adjust...
+                                    </button>
+                                  </div>
+                                </td>
+                                <td>
+                                  <button
+                                    onClick={() => setSelectedStockProduct(p)}
+                                    className="btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                  >
+                                    <Layers style={{ width: 14, height: 14 }} /> History
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination Footer */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#FFFFFF', borderTop: '1px solid var(--border)', flexWrap: 'wrap', gap: 12 }}>
+                    <div style={{ fontSize: 13, color: 'var(--slate)' }}>
+                      Showing {filteredInventory.length === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} products
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {/* Prev Arrow */}
+                      <button
+                        type="button"
+                        onClick={() => setInventoryPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentInventoryPage === 1}
+                        className="btn-secondary"
+                        style={{
+                          width: 34,
+                          height: 34,
+                          padding: 0,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 8,
+                          opacity: currentInventoryPage === 1 ? 0.4 : 1,
+                          cursor: currentInventoryPage === 1 ? 'not-allowed' : 'pointer'
+                        }}
+                        title="Previous Page"
+                      >
+                        <ChevronLeft style={{ width: 16, height: 16 }} />
+                      </button>
+
+                      {/* Numbered Page Buttons: 1, 2, 3, 4 ... */}
+                      {Array.from({ length: totalInventoryPages }, (_, idx) => idx + 1).map(pageNum => {
+                        const isActive = pageNum === currentInventoryPage;
+                        return (
+                          <button
+                            key={pageNum}
+                            type="button"
+                            onClick={() => setInventoryPage(pageNum)}
+                            style={{
+                              minWidth: 34,
+                              height: 34,
+                              padding: '0 8px',
+                              borderRadius: 8,
+                              fontSize: 13,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              background: isActive ? 'var(--onyx)' : '#FFFFFF',
+                              color: isActive ? '#FFFFFF' : 'var(--onyx)',
+                              border: isActive ? '1px solid var(--onyx)' : '1px solid var(--border)',
+                              boxShadow: isActive ? 'var(--shadow-sm)' : 'none'
+                            }}
+                          >
+                            {pageNum}
+                          </button>
                         );
                       })}
-                    </tbody>
-                  </table>
+
+                      {/* Next Arrow */}
+                      <button
+                        type="button"
+                        onClick={() => setInventoryPage(prev => Math.min(totalInventoryPages, prev + 1))}
+                        disabled={currentInventoryPage === totalInventoryPages}
+                        className="btn-secondary"
+                        style={{
+                          width: 34,
+                          height: 34,
+                          padding: 0,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 8,
+                          opacity: currentInventoryPage === totalInventoryPages ? 0.4 : 1,
+                          cursor: currentInventoryPage === totalInventoryPages ? 'not-allowed' : 'pointer'
+                        }}
+                        title="Next Page"
+                      >
+                        <ChevronRight style={{ width: 16, height: 16 }} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* 5. ORDERS */}
           {activeTab === 'orders' && (
