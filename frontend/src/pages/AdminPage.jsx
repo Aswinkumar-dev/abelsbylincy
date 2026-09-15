@@ -2172,20 +2172,24 @@ export default function AdminPage() {
               e.preventDefault();
               const errors = {};
 
+              const catSlug = (prodForm.category || 'necklaces').trim().toLowerCase();
+              const catFallbacks = {
+                necklaces: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp',
+                bangles: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796721/abels_by_lincy/Bangle_Category.webp',
+                bracelets: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796728/abels_by_lincy/Bracelet_-_category.webp',
+                earrings: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796735/abels_by_lincy/Earrings_Category.webp',
+                rings: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796753/abels_by_lincy/Ring_Category.png',
+                charms: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp',
+                'silver-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp',
+                'seasonal-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png'
+              };
+              const defaultCatImg = catFallbacks[catSlug] || catFallbacks.necklaces;
+
               if (!prodForm.name.trim()) errors.name = 'Product name is mandatory.';
-              if (!prodForm.sku.trim()) errors.sku = 'Product code is mandatory.';
               if (!prodForm.price || Number(prodForm.price) <= 0) errors.price = 'Price must be greater than $0.';
               if (prodForm.stockQty === '' || Number(prodForm.stockQty) < 0) errors.stockQty = 'Valid stock quantity is mandatory.';
-              if (!prodForm.desc.trim()) errors.desc = 'Description is mandatory.';
-              if (!prodForm.baseImage1.trim()) errors.baseImage1 = 'Base Image 1 is mandatory.';
 
               const colorsList = prodForm.colorsText.split(',').map(c => c.trim()).filter(Boolean);
-              colorsList.forEach(color => {
-                const cImgs = prodForm.colorImages[color] || ['', '', ''];
-                if (!cImgs[0]?.trim()) {
-                  errors[`color_${color}_0`] = `Image 1 for ${color} variant is mandatory.`;
-                }
-              });
 
               if (Object.keys(errors).length > 0) {
                 setProdFormErrors(errors);
@@ -2195,19 +2199,22 @@ export default function AdminPage() {
               setProdFormErrors({});
 
               const baseImgs = [prodForm.baseImage1, prodForm.baseImage2, prodForm.baseImage3].map(s => s.trim()).filter(Boolean);
-              const mainImg = baseImgs[0] || 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796753/abels_by_lincy/Ring_Category.png';
+              const mainImg = baseImgs[0] || defaultCatImg;
+              const finalImgs = baseImgs.length > 0 ? baseImgs : [mainImg];
+              const skuCode = prodForm.sku.trim() || `ABL-${catSlug.slice(0,2).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+              const finalDesc = prodForm.desc.trim() || `${prodForm.name.trim()} - Premium anti-tarnish jewellery handcrafted in 18K gold plating.`;
 
               const savedProduct = {
                 id: prodForm.id || `p_${Date.now()}`,
                 name: prodForm.name.trim(),
-                sku: prodForm.sku.trim(),
-                desc: prodForm.desc.trim(),
-                description: prodForm.desc.trim(),
+                sku: skuCode,
+                desc: finalDesc,
+                description: finalDesc,
                 price: Number(prodForm.price) || 0,
                 salePrice: Number(prodForm.salePrice || 0),
                 image: mainImg,
-                images: baseImgs,
-                category: (prodForm.category || 'necklaces').trim().toLowerCase(),
+                images: finalImgs,
+                category: catSlug,
                 collection: prodForm.collection || 'Soleil',
                 material: editingProduct?.material || '18K Gold Plated',
                 gemstone: editingProduct?.gemstone || 'None',
@@ -2216,7 +2223,7 @@ export default function AdminPage() {
                 isFeatured: !!prodForm.isFeatured,
                 bestSeller: !!prodForm.bestSeller,
                 newArrival: !!prodForm.newArrival,
-                tags: Array.isArray(prodForm.tags) ? prodForm.tags : typeof prodForm.tags === 'string' ? prodForm.tags.split(',').map(t => t.trim()).filter(Boolean) : [(prodForm.category || '').trim().toLowerCase()].filter(Boolean),
+                tags: Array.isArray(prodForm.tags) ? prodForm.tags : typeof prodForm.tags === 'string' ? prodForm.tags.split(',').map(t => t.trim()).filter(Boolean) : [catSlug],
                 colors: colorsList,
                 colorImages: prodForm.colorImages,
                 inStock: Number(prodForm.stockQty) > 0

@@ -865,9 +865,24 @@ export function StoreProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.products)) {
-          const filtered = data.products.filter(p => !newDeleted.includes(p.id) && !newDeleted.includes(p.sku));
-          setProductsRaw(filtered);
-          writeLS('abl_products_v11', filtered);
+          setProductsRaw(prev => {
+            const map = new Map();
+            data.products.forEach(p => {
+              const k = p.id || p.sku;
+              if (k && (!p.id || !newDeleted.includes(p.id)) && (!p.sku || !newDeleted.includes(p.sku))) {
+                map.set(String(k), p);
+              }
+            });
+            prev.forEach(p => {
+              const k = p.id || p.sku;
+              if (k && (!p.id || !newDeleted.includes(p.id)) && (!p.sku || !newDeleted.includes(p.sku))) {
+                map.set(String(k), { ...(map.get(String(k)) || {}), ...p });
+              }
+            });
+            const merged = Array.from(map.values());
+            writeLS('abl_products_v11', merged);
+            return merged;
+          });
         }
       }
     } catch (err) {
@@ -901,9 +916,24 @@ export function StoreProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.products)) {
-          const filtered = data.products.filter(p => !updatedDeleted.includes(p.id) && !updatedDeleted.includes(p.sku));
-          setProductsRaw(filtered);
-          writeLS('abl_products_v11', filtered);
+          setProductsRaw(prev => {
+            const map = new Map();
+            data.products.forEach(p => {
+              const k = p.id || p.sku;
+              if (k && (!p.id || !updatedDeleted.includes(p.id)) && (!p.sku || !updatedDeleted.includes(p.sku))) {
+                map.set(String(k), p);
+              }
+            });
+            prev.forEach(p => {
+              const k = p.id || p.sku;
+              if (k && (!p.id || !updatedDeleted.includes(p.id)) && (!p.sku || !updatedDeleted.includes(p.sku))) {
+                map.set(String(k), { ...(map.get(String(k)) || {}), ...p });
+              }
+            });
+            const filtered = Array.from(map.values()).filter(p => p.id !== id && p.sku !== id);
+            writeLS('abl_products_v11', filtered);
+            return filtered;
+          });
         }
       }
     } catch (err) {
