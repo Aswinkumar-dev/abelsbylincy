@@ -186,9 +186,9 @@ export function StoreProvider({ children }) {
     const deleted = readLS('abl_deleted_product_ids', []).filter(Boolean);
     const saved = readLS('abl_products_v11', null);
     if (saved !== null && Array.isArray(saved)) {
-      return saved.filter(p => (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku)));
+      return saved.filter(p => !p.id || !deleted.includes(p.id));
     }
-    return DEFAULT_PRODUCTS.filter(p => (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku)));
+    return DEFAULT_PRODUCTS.filter(p => !p.id || !deleted.includes(p.id));
   });
 
   const [orders, setOrdersRaw] = useState(() => {
@@ -252,7 +252,7 @@ export function StoreProvider({ children }) {
             // Start with backend server products (excluding deleted)
             data.products.forEach(p => {
               const k = p.id || p.sku;
-              if (k && (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku))) {
+              if (k && (!p.id || !deleted.includes(p.id))) {
                 prodMap.set(String(k), p);
               }
             });
@@ -260,7 +260,7 @@ export function StoreProvider({ children }) {
             const localSaved = readLS('abl_products_v11', prev) || prev;
             (Array.isArray(localSaved) ? localSaved : prev).forEach(p => {
               const k = p.id || p.sku;
-              if (k && (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku))) {
+              if (k && (!p.id || !deleted.includes(p.id))) {
                 prodMap.set(String(k), { ...(prodMap.get(String(k)) || {}), ...p });
               }
             });
@@ -823,7 +823,8 @@ export function StoreProvider({ children }) {
   // Admin CRUD helpers
   // ============================================================
   const saveProduct = useCallback(async (productData) => {
-    const id = productData.id || `p_${Date.now()}`;
+    const isEditing = Boolean(productData.id);
+    const id = productData.id || `p_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const productToSave = {
       ...productData,
       id,
@@ -838,14 +839,14 @@ export function StoreProvider({ children }) {
 
     // Remove from deleted blacklist if saved/re-added
     const currentDeleted = readLS('abl_deleted_product_ids', []);
-    const newDeleted = currentDeleted.filter(d => d !== id && d !== productData.sku);
+    const newDeleted = currentDeleted.filter(d => d !== id && d !== productData.id && d !== productData.sku);
     writeLS('abl_deleted_product_ids', newDeleted);
     setDeletedProductIds(newDeleted);
 
     // Optimistically update React state and storage immediately
     let updatedList = [];
     setProductsRaw(prev => {
-      const idx = prev.findIndex(p => p.id === id || (productData.id && p.id === productData.id) || (productData.sku && p.sku && p.sku.toLowerCase() === productData.sku.toLowerCase()));
+      const idx = isEditing ? prev.findIndex(p => p.id === id) : -1;
       if (idx !== -1) {
         updatedList = prev.map((p, i) => i === idx ? { ...p, ...productToSave } : p);
       } else {

@@ -49,26 +49,59 @@ const getProducts = async (req, res, next) => {
       // DB offline fallback
     }
 
-    const fileProducts = getStoredProducts();
-    if (dbProducts.length > 0) {
-      return res.status(200).json({ success: true, products: dbProducts });
+    const fileProducts = getStoredProducts() || [];
+    const prodMap = new Map();
+
+    // 1. Add MySQL products (if active DB)
+    dbProducts.forEach(p => {
+      const k = p.id || p.sku || p.slug;
+      if (k) {
+        prodMap.set(String(k), {
+          ...p,
+          price: p.variants?.[0]?.price || p.price,
+          salePrice: p.variants?.[0]?.compare_at_price ? p.variants?.[0]?.price : 0,
+          stockQty: p.variants?.[0]?.stock_quantity ?? p.stock_quantity ?? 10,
+          inStock: (p.variants?.[0]?.stock_quantity ?? p.stock_quantity ?? 10) > 0,
+          image: p.images?.[0]?.secure_url || p.image || '',
+          images: p.images?.map(img => img.secure_url) || (p.image ? [p.image] : []),
+          category: p.category_slug || p.category || 'necklaces'
+        });
+      }
+    });
+
+    // 2. Add / merge file & memory products (includes newly created Bangles, Charms, etc.)
+    fileProducts.forEach(p => {
+      const k = p.id || p.sku || p.slug;
+      if (k) {
+        if (prodMap.has(String(k))) {
+          prodMap.set(String(k), { ...prodMap.get(String(k)), ...p });
+        } else {
+          prodMap.set(String(k), p);
+        }
+      }
+    });
+
+    let result = Array.from(prodMap.values());
+
+    if (category) {
+      result = result.filter(p => {
+        const pCat = (p.category || p.category_slug || '').toLowerCase();
+        const target = category.toLowerCase();
+        return pCat === target || (target === 'bangles' && pCat.includes('bangle')) || (target === 'charms' && pCat.includes('charm'));
+      });
+    }
+    if (featured === 'true') {
+      result = result.filter(p => p.featured || p.isFeatured || p.is_featured);
+    }
+    if (newArrival === 'true') {
+      result = result.filter(p => p.newArrival || p.is_new_arrival);
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      result = result.filter(p => (p.name && p.name.toLowerCase().includes(s)) || (p.sku && p.sku.toLowerCase().includes(s)));
     }
 
-    if (fileProducts && fileProducts.length > 0) {
-      let result = [...fileProducts];
-      if (category) {
-        result = result.filter(p => (p.category || '').toLowerCase() === category.toLowerCase());
-      }
-      if (featured === 'true') {
-        result = result.filter(p => p.featured || p.isFeatured);
-      }
-      if (newArrival === 'true') {
-        result = result.filter(p => p.newArrival);
-      }
-      return res.status(200).json({ success: true, products: result });
-    }
-
-    res.status(200).json({ success: true, products: [] });
+    res.status(200).json({ success: true, products: result });
   } catch (error) {
     next(error);
   }
@@ -87,6 +120,11 @@ const syncProducts = async (req, res, next) => {
     if (deleteId) {
       currentList = currentList.filter(p => p.id !== deleteId && p.sku !== deleteId);
       saveStoredProducts(currentList);
+      try {
+        await db.query('DELETE FROM products WHERE id = ? OR uuid = ? OR slug = ?', [deleteId, deleteId, deleteId]);
+      } catch (dbErr) {
+        // Fallback for DB offline
+      }
       return res.status(200).json({ success: true, message: 'Product deleted from server.', products: currentList });
     }
 
