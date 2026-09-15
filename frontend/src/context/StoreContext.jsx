@@ -178,17 +178,17 @@ export function StoreProvider({ children }) {
 
   // Persistent blacklist for deleted products (ensures deleted items NEVER reappear on refresh)
   const [deletedProductIds, setDeletedProductIds] = useState(() => {
-    return readLS('abl_deleted_product_ids', []);
+    return readLS('abl_deleted_product_ids', []).filter(Boolean);
   });
 
   // Products and Orders initialized from persistent storage or filtered DEFAULT_PRODUCTS
   const [products, setProductsRaw] = useState(() => {
-    const deleted = readLS('abl_deleted_product_ids', []);
+    const deleted = readLS('abl_deleted_product_ids', []).filter(Boolean);
     const saved = readLS('abl_products_v11', null);
     if (saved !== null && Array.isArray(saved)) {
-      return saved.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
+      return saved.filter(p => (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku)));
     }
-    return DEFAULT_PRODUCTS.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
+    return DEFAULT_PRODUCTS.filter(p => (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku)));
   });
 
   const [orders, setOrdersRaw] = useState(() => {
@@ -213,7 +213,7 @@ export function StoreProvider({ children }) {
 
   // Authoritative sync with backend API (Orders & Products directly from Server/DB)
   const syncBackendData = useCallback(async () => {
-    const deleted = readLS('abl_deleted_product_ids', []);
+    const deleted = readLS('abl_deleted_product_ids', []).filter(Boolean);
 
     try {
       // 1. Fetch Orders from Server / Database
@@ -246,20 +246,21 @@ export function StoreProvider({ children }) {
       const prodRes = await fetch('/api/products');
       if (prodRes.ok) {
         const data = await prodRes.json();
-        if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+        if (data.success && Array.isArray(data.products)) {
           setProductsRaw(prev => {
             const prodMap = new Map();
             // Start with backend server products (excluding deleted)
             data.products.forEach(p => {
               const k = p.id || p.sku;
-              if (k && !deleted.includes(p.id) && !deleted.includes(p.sku)) {
+              if (k && (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku))) {
                 prodMap.set(String(k), p);
               }
             });
-            // Merge all locally added or modified products so user-added products (e.g. Bangles, Charms) are NEVER lost!
-            prev.forEach(p => {
+            // Merge all locally added or modified products from localStorage and memory
+            const localSaved = readLS('abl_products_v11', prev) || prev;
+            (Array.isArray(localSaved) ? localSaved : prev).forEach(p => {
               const k = p.id || p.sku;
-              if (k && !deleted.includes(p.id) && !deleted.includes(p.sku)) {
+              if (k && (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku))) {
                 prodMap.set(String(k), { ...(prodMap.get(String(k)) || {}), ...p });
               }
             });
