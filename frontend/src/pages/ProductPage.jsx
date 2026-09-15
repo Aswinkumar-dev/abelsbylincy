@@ -87,8 +87,8 @@ export default function ProductPage() {
   };
 
   const accordionTabs = [
-    { id: 'craftsmanship', label: 'Craftsmanship', content: `Each Abel's piece is individually hand-crafted by our Sydney artisans using traditional goldsmithing techniques. Our ${product.material} finish is applied in multiple layers for lasting brilliance and durability. All pieces pass our rigorous 12-point quality inspection before dispatch.` },
-    { id: 'shipping', label: 'Shipping & Delivery', content: `Complimentary express shipping on all Australian orders. Orders are dispatched within 1-2 business days in our signature velvet presentation box. Track your parcel with our Australia Post tracking link sent via email.` },
+    { id: 'craftsmanship', label: 'Craftsmanship', content: 'Each piece in our collection is thoughtfully chosen for its beauty and everyday durability. Finished with multiple layers of 18K gold plating for a lasting shine, every item passes a strict quality inspection before it reaches you.' },
+    { id: 'shipping', label: 'Shipping & Delivery', content: 'Complimentary standard shipping on Australian orders over $60. Orders are dispatched within 1-2 business days in our signature velvet presentation box. Track your parcel with our Australia Post tracking link sent via email.' },
     { id: 'care', label: 'Jewellery Care', content: `To maintain the lustre of your ${product.name}: Store in provided velvet pouch, avoid contact with water and perfumes, remove before exercising, clean gently with a soft dry cloth. With proper care, your gold plating will last 1-3+ years.` },
   ];
 
@@ -167,15 +167,12 @@ export default function ProductPage() {
             <p className="pdp-description">{product.description}</p>
 
             {/* Quality Badges */}
-            <div style={{ display: 'flex', gap: 16, marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--onyx)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Shield style={{ width: 15, color: 'var(--gold)' }} /> {product.material}
+                <Truck style={{ width: 15, color: 'var(--gold)' }} /> Free Standard Shipping Over $60
               </span>
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--onyx)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Truck style={{ width: 15, color: 'var(--gold)' }} /> Free Express Shipping
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--onyx)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <RefreshCcw style={{ width: 15, color: 'var(--gold)' }} /> 30-Day Returns
+                <RefreshCcw style={{ width: 15, color: 'var(--gold)' }} /> 7-Day Easy Returns
               </span>
             </div>
 
@@ -272,8 +269,8 @@ export default function ProductPage() {
                     {openTab === tab.id ? <ChevronUp style={{ width: 16 }} /> : <ChevronDown style={{ width: 16 }} />}
                   </button>
                   {openTab === tab.id && (
-                    <div style={{ paddingBottom: 16, fontSize: 13, lineHeight: 1.6, color: 'var(--slate)' }}>
-                      <p>{tab.content}</p>
+                    <div style={{ paddingBottom: 16, fontSize: 13, lineHeight: 1.6, color: 'var(--slate)', textAlign: 'justify' }}>
+                      <p style={{ margin: 0, textAlign: 'justify' }}>{tab.content}</p>
                     </div>
                   )}
                 </div>

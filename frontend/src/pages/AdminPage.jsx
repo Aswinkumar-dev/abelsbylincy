@@ -4413,12 +4413,14 @@ export default function AdminPage() {
 
               {/* Message */}
               <p style={{
-                fontSize: 13,
-                color: 'var(--slate, #5A6065)',
+                fontSize: 15,
+                fontWeight: 500,
+                color: 'var(--onyx, #1A1A1A)',
+                textAlign: 'center',
                 lineHeight: 1.5,
                 margin: '0 0 24px 0'
               }}>
-                Are you sure you want to sign out of the Admin Suite? You will need your credentials to log back in.
+                Are you sure you want to sign out ?
               </p>
 
               {/* Action Buttons */}
@@ -4480,7 +4482,7 @@ export default function AdminPage() {
                   }}
                 >
                   <LogOut style={{ width: 14, height: 14 }} />
-                  <span>OK, Sign Out</span>
+                  <span>Yes</span>
                 </button>
               </div>
             </div>
