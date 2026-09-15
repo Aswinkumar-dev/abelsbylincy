@@ -1041,7 +1041,7 @@ export function StoreProvider({ children }) {
       return sanitized;
     });
 
-    // Authoritative Server & Database sync
+    // Authoritative Server & Database sync — wait until MySQL write finishes
     try {
       const cleanList = sanitizeProducts(updatedList);
       const res = await apiFetch('/api/products/sync', {
@@ -1049,34 +1049,40 @@ export function StoreProvider({ children }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product: productToSave, products: cleanList })
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.products)) {
-          setProductsRaw(prev => {
-            const map = new Map();
-            data.products.forEach(p => {
-              const k = p.id || p.sku;
-              if (k && (!p.id || !newDeleted.includes(p.id)) && (!p.sku || !newDeleted.includes(p.sku))) {
-                map.set(String(k), sanitizeProduct(p));
-              }
-            });
-            prev.forEach(p => {
-              const k = p.id || p.sku;
-              if (k && (!p.id || !newDeleted.includes(p.id)) && (!p.sku || !newDeleted.includes(p.sku))) {
-                map.set(String(k), { ...(map.get(String(k)) || {}), ...sanitizeProduct(p) });
-              }
-            });
-            const merged = sanitizeProducts(Array.from(map.values()));
-            writeLS('abl_products_v11', merged);
-            return merged;
-          });
-        }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        showToast(data.message || 'Product saved locally, but the server did not accept it.', 'alert-circle');
+        return;
       }
+      if (data.dbSynced === false) {
+        showToast(data.dbError ? `Saved locally; MySQL error: ${data.dbError}` : 'Product saved locally, but MySQL did not store it.', 'alert-circle');
+        return;
+      }
+      if (Array.isArray(data.products)) {
+        setProductsRaw(prev => {
+          const map = new Map();
+          data.products.forEach(p => {
+            const k = p.id || p.sku;
+            if (k && (!p.id || !newDeleted.includes(p.id)) && (!p.sku || !newDeleted.includes(p.sku))) {
+              map.set(String(k), sanitizeProduct(p));
+            }
+          });
+          prev.forEach(p => {
+            const k = p.id || p.sku;
+            if (k && (!p.id || !newDeleted.includes(p.id)) && (!p.sku || !newDeleted.includes(p.sku))) {
+              map.set(String(k), { ...(map.get(String(k)) || {}), ...sanitizeProduct(p) });
+            }
+          });
+          const merged = sanitizeProducts(Array.from(map.values()));
+          writeLS('abl_products_v11', merged);
+          return merged;
+        });
+      }
+      showToast('Product saved to the store and database.', 'check');
     } catch (err) {
       console.warn('Sync server offline, updated local state only:', err);
+      showToast('Product saved locally. Could not reach the server to store it in MySQL.', 'alert-circle');
     }
-
-    showToast('Product saved successfully!', 'check');
   }, [showToast]);
 
   const deleteProduct = useCallback(async (id) => {

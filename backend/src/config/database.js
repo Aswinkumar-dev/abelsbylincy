@@ -30,6 +30,25 @@ async function runMigrations(connection) {
       await connection.query('ALTER TABLE products ADD COLUMN colors VARCHAR(255) NULL AFTER specifications');
       console.log('Migrated: Added colors column to products table.');
     }
+    if (!colNames.includes('sku')) {
+      await connection.query('ALTER TABLE products ADD COLUMN sku VARCHAR(120) NULL AFTER slug');
+      try {
+        await connection.query('ALTER TABLE products ADD UNIQUE KEY uq_products_sku (sku)');
+      } catch {}
+      console.log('Migrated: Added sku column to products table.');
+    }
+    if (!colNames.includes('price')) {
+      await connection.query('ALTER TABLE products ADD COLUMN price DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER description');
+      console.log('Migrated: Added price column to products table.');
+    }
+    if (!colNames.includes('is_best_seller')) {
+      await connection.query('ALTER TABLE products ADD COLUMN is_best_seller TINYINT(1) NOT NULL DEFAULT 0 AFTER is_new_arrival');
+      console.log('Migrated: Added is_best_seller column to products table.');
+    }
+    if (!colNames.includes('is_active')) {
+      await connection.query('ALTER TABLE products ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+      console.log('Migrated: Added is_active column to products table.');
+    }
 
     // 2. Check product_images columns
     const [imgCols] = await connection.query('SHOW COLUMNS FROM product_images');

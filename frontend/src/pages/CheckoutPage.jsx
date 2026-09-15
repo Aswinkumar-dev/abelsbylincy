@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ShoppingBag, Check, Truck, Lock, ShieldCheck, CreditCard, Smartphone, ArrowRight, Ticket, ChevronUp, ChevronDown, Copy } from 'lucide-react';
 import { useStore, apiFetch } from '../context/StoreContext';
 
 const STEPS = ['Shipping', 'Payment', 'Review & Place'];

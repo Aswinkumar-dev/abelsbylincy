@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { useStore, apiFetch } from '../context/StoreContext';
 
 export default function Footer() {

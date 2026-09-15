@@ -20,8 +20,9 @@ const getProducts = async (req, res, next) => {
 
     let dbProducts = [];
     try {
-      // Clean out any purged mock SKUs from database
-      await db.query('DELETE FROM products WHERE sku IN (?) OR id IN (?)', [PURGED_MOCK_SKUS, PURGED_MOCK_SKUS]);
+      try {
+        await db.query('DELETE FROM products WHERE sku IN (?) OR uuid IN (?)', [PURGED_MOCK_SKUS, PURGED_MOCK_SKUS]);
+      } catch {}
 
       let query = `
         SELECT p.*, c.name as category_name, c.slug as category_slug
@@ -72,15 +73,34 @@ const getProducts = async (req, res, next) => {
     dbProducts.forEach(p => {
       const k = p.id || p.sku || p.slug;
       if (k) {
-        prodMap.set(String(k), {
+        const imageRows = Array.isArray(p.images) ? p.images : [];
+        const galleryUrls = imageRows.filter(img => !img.color).map(img => img.secure_url).filter(Boolean);
+        const allUrls = imageRows.map(img => img.secure_url).filter(Boolean);
+        const colorImages = {};
+        imageRows.forEach(img => {
+          if (img.color && img.secure_url) {
+            if (!colorImages[img.color]) colorImages[img.color] = [];
+            colorImages[img.color].push(img.secure_url);
+          }
+        });
+        const uuid = p.uuid ? String(p.uuid) : '';
+        const stableId = uuid.startsWith('p_') ? uuid : (p.sku || uuid || String(p.id));
+        prodMap.set(String(stableId), {
           ...p,
+          id: stableId,
+          dbId: p.id,
+          sku: p.sku || p.variants?.[0]?.sku || '',
           price: p.variants?.[0]?.price || p.price,
           salePrice: p.variants?.[0]?.compare_at_price ? p.variants?.[0]?.price : 0,
           stockQty: p.variants?.[0]?.stock_quantity ?? p.stock_quantity ?? 10,
           inStock: (p.variants?.[0]?.stock_quantity ?? p.stock_quantity ?? 10) > 0,
-          image: p.images?.[0]?.secure_url || p.image || '',
-          images: p.images?.map(img => img.secure_url) || (p.image ? [p.image] : []),
-          category: p.category_slug || p.category || 'necklaces'
+          image: galleryUrls[0] || allUrls[0] || p.image || '',
+          images: galleryUrls.length > 0 ? galleryUrls : (allUrls.length > 0 ? allUrls : (p.image ? [p.image] : [])),
+          colorImages,
+          category: p.category_slug || p.category || 'necklaces',
+          isFeatured: !!(p.is_featured || p.isFeatured || p.featured),
+          bestSeller: !!(p.is_best_seller || p.bestSeller),
+          newArrival: !!(p.is_new_arrival || p.newArrival)
         });
       }
     });
@@ -135,90 +155,232 @@ const sanitizeServerProduct = (p) => {
   return { ...p, image: img, images: images.length > 0 ? images : (img ? [img] : []) };
 };
 
-async function upsertProductToDB(p) {
-  try {
-    const slug = p.slug || (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `prod-${Date.now()}`;
-    const name = p.name || 'Fine Jewellery Piece';
-    const sku = p.sku || `SKU-${Date.now()}`;
-    const categorySlug = (p.category || p.category_slug || 'necklaces').toLowerCase();
-    const price = parseFloat(p.price) || 0;
-    const compareAtPrice = parseFloat(p.salePrice) || 0;
-    const stockQty = parseInt(p.stockQty, 10) || 10;
-    const desc = p.description || p.desc || '';
-    const featured = p.featured || p.isFeatured ? 1 : 0;
-    const bestSeller = p.bestSeller ? 1 : 0;
-    const newArrival = p.newArrival ? 1 : 0;
-    const colors = Array.isArray(p.colors) ? p.colors.join(', ') : (p.colorsText || p.colors || '');
+const tableColsCache = {};
 
-    // 1. Get or create category_id
-    let categoryId = 1;
-    try {
-      const [cats] = await db.query('SELECT id FROM categories WHERE slug = ? OR name = ? LIMIT 1', [categorySlug, categorySlug]);
-      if (cats.length > 0) {
-        categoryId = cats[0].id;
-      } else {
-        const [newCat] = await db.query('INSERT INTO categories (name, slug, is_active) VALUES (?, ?, TRUE)', [categorySlug, categorySlug]);
-        categoryId = newCat.insertId;
-      }
-    } catch {}
+async function getTableColumns(table) {
+  const allowed = { products: true, product_images: true, product_variants: true };
+  if (!allowed[table]) throw new Error(`Unsupported table ${table}`);
+  if (tableColsCache[table]) return tableColsCache[table];
+  const [cols] = await db.query(`SHOW COLUMNS FROM ${table}`);
+  tableColsCache[table] = new Set(cols.map((c) => c.Field));
+  return tableColsCache[table];
+}
 
-    // 2. Check if product exists by SKU or slug
-    let productId = null;
-    try {
-      const [existing] = await db.query('SELECT id FROM products WHERE sku = ? OR slug = ? LIMIT 1', [sku, slug]);
-      if (existing.length > 0) {
-        productId = existing[0].id;
-        await db.query(
-          `UPDATE products SET name = ?, slug = ?, category_id = ?, price = ?, description = ?, is_featured = ?, is_new_arrival = ?, is_best_seller = ?, is_active = TRUE, colors = ? WHERE id = ?`,
-          [name, slug, categoryId, price, desc, featured, newArrival, bestSeller, colors, productId]
-        );
-      } else {
-        const uuid = `uuid_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-        const [insertRes] = await db.query(
-          `INSERT INTO products (uuid, category_id, name, slug, sku, description, price, is_featured, is_new_arrival, is_best_seller, is_active, colors)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)`,
-          [uuid, categoryId, name, slug, sku, desc, price, featured, newArrival, bestSeller, colors]
-        );
-        productId = insertRes.insertId;
-      }
+function pickExistingColumns(row, cols) {
+  const out = {};
+  Object.entries(row).forEach(([key, value]) => {
+    if (cols.has(key) && value !== undefined) out[key] = value;
+  });
+  return out;
+}
 
-      // 3. Update or create default variant
-      if (productId) {
-        const [existingVariants] = await db.query('SELECT id FROM product_variants WHERE product_id = ? LIMIT 1', [productId]);
-        if (existingVariants.length > 0) {
-          await db.query(
-            `UPDATE product_variants SET sku = ?, price = ?, compare_at_price = ?, stock_quantity = ?, is_active = TRUE WHERE id = ?`,
-            [sku, price, compareAtPrice > 0 ? compareAtPrice : null, stockQty, existingVariants[0].id]
-          );
-        } else {
-          await db.query(
-            `INSERT INTO product_variants (product_id, sku, price, compare_at_price, stock_quantity, is_active)
-             VALUES (?, ?, ?, ?, ?, TRUE)`,
-            [productId, sku, price, compareAtPrice > 0 ? compareAtPrice : null, stockQty]
-          );
-        }
+async function insertFiltered(table, row, cols) {
+  const data = pickExistingColumns(row, cols);
+  const keys = Object.keys(data);
+  if (!keys.length) return null;
+  const [res] = await db.query(
+    `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`,
+    keys.map((k) => data[k])
+  );
+  return res.insertId;
+}
 
-        // 4. Update images
-        const imagesList = Array.isArray(p.images) && p.images.length > 0 ? p.images : (p.image ? [p.image] : []);
-        if (imagesList.length > 0) {
-          await db.query('DELETE FROM product_images WHERE product_id = ?', [productId]);
-          for (let i = 0; i < imagesList.length; i++) {
-            const imgUrl = imagesList[i];
-            if (imgUrl && typeof imgUrl === 'string' && imgUrl.trim()) {
-              await db.query(
-                `INSERT INTO product_images (product_id, secure_url, sort_order, is_primary) VALUES (?, ?, ?, ?)`,
-                [productId, imgUrl, i, i === 0]
-              );
-            }
-          }
-        }
-      }
-    } catch (dbErr) {
-      console.warn('⚠️ DB product upsert note:', dbErr.message);
-    }
-  } catch (err) {
-    console.warn('⚠️ upsertProductToDB error:', err.message);
+async function updateFiltered(table, row, cols, id) {
+  const data = pickExistingColumns(row, cols);
+  delete data.id;
+  const keys = Object.keys(data);
+  if (!keys.length) return;
+  await db.query(
+    `UPDATE ${table} SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`,
+    [...keys.map((k) => data[k]), id]
+  );
+}
+
+function extractCloudinaryPublicId(url) {
+  if (!url || typeof url !== 'string') return null;
+  const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-zA-Z0-9]+)?$/);
+  return match ? match[1] : null;
+}
+
+function collectProductImages(p) {
+  const out = [];
+  const seen = new Set();
+  const add = (url, color = null) => {
+    if (!url || typeof url !== 'string') return;
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    const key = `${color || ''}::${trimmed}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ url: trimmed, color });
+  };
+
+  if (Array.isArray(p.images)) p.images.forEach((u) => add(u, null));
+  else if (p.image) add(p.image, null);
+
+  const colorImages = p.colorImages;
+  if (colorImages && typeof colorImages === 'object') {
+    Object.entries(colorImages).forEach(([color, urls]) => {
+      (Array.isArray(urls) ? urls : [urls]).forEach((u) => add(u, color));
+    });
   }
+  return out;
+}
+
+async function persistImageForStorage(img) {
+  if (img.url.startsWith('data:image')) {
+    try {
+      const { uploadFromBuffer } = require('../services/cloudinary.service');
+      const base64 = img.url.split(',')[1];
+      if (base64) {
+        const result = await uploadFromBuffer(Buffer.from(base64, 'base64'), 'products');
+        return {
+          url: result.secure_url,
+          publicId: result.public_id,
+          width: result.width,
+          height: result.height,
+          format: result.format,
+          color: img.color
+        };
+      }
+    } catch (err) {
+      console.warn('⚠️ Inline image Cloudinary upload failed:', err.message);
+    }
+  }
+  return {
+    url: img.url,
+    publicId: extractCloudinaryPublicId(img.url),
+    width: null,
+    height: null,
+    format: null,
+    color: img.color
+  };
+}
+
+async function upsertProductToDB(p) {
+  const slug = p.slug || (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `prod-${Date.now()}`;
+  const name = p.name || 'Fine Jewellery Piece';
+  const sku = p.sku || `SKU-${Date.now()}`;
+  const categorySlug = (p.category || p.category_slug || 'necklaces').toLowerCase();
+  const price = parseFloat(p.price) || 0;
+  const compareAtPrice = parseFloat(p.salePrice) || 0;
+  const stockQty = parseInt(p.stockQty, 10);
+  const safeStock = Number.isFinite(stockQty) ? stockQty : 10;
+  const desc = p.description || p.desc || '';
+  const featured = p.featured || p.isFeatured ? 1 : 0;
+  const bestSeller = p.bestSeller ? 1 : 0;
+  const newArrival = p.newArrival ? 1 : 0;
+  const colors = Array.isArray(p.colors) ? p.colors.join(', ') : (p.colorsText || p.colors || '');
+  const uuid = String(p.uuid || p.id || `uuid_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
+  const isActive = p.status && String(p.status).toLowerCase() === 'inactive' ? 0 : 1;
+
+  const prodCols = await getTableColumns('products');
+  const variantCols = await getTableColumns('product_variants');
+  const imageCols = await getTableColumns('product_images');
+
+  let categoryId = 1;
+  try {
+    const [cats] = await db.query('SELECT id FROM categories WHERE slug = ? OR name = ? LIMIT 1', [categorySlug, categorySlug]);
+    if (cats.length > 0) {
+      categoryId = cats[0].id;
+    } else {
+      const [newCat] = await db.query('INSERT INTO categories (name, slug, is_active) VALUES (?, ?, TRUE)', [categorySlug, categorySlug]);
+      categoryId = newCat.insertId;
+    }
+  } catch (catErr) {
+    console.warn('⚠️ Category resolve note:', catErr.message);
+  }
+
+  const findClauses = [];
+  const findParams = [];
+  if (prodCols.has('slug') && slug) {
+    findClauses.push('slug = ?');
+    findParams.push(slug);
+  }
+  if (prodCols.has('sku') && sku) {
+    findClauses.push('sku = ?');
+    findParams.push(sku);
+  }
+  if (prodCols.has('uuid') && uuid) {
+    findClauses.push('uuid = ?');
+    findParams.push(uuid);
+  }
+  if (/^\d+$/.test(String(p.dbId || p.id || ''))) {
+    findClauses.push('id = ?');
+    findParams.push(Number(p.dbId || p.id));
+  }
+
+  let productId = null;
+  if (findClauses.length) {
+    const [existing] = await db.query(`SELECT id FROM products WHERE ${findClauses.join(' OR ')} LIMIT 1`, findParams);
+    if (existing.length > 0) productId = existing[0].id;
+  }
+
+  const productRow = {
+    uuid,
+    category_id: categoryId,
+    name,
+    slug,
+    sku,
+    short_description: p.shortDescription || desc.slice(0, 255) || null,
+    description: desc || null,
+    material: p.material || null,
+    jewellery_type: p.jewelleryType || p.category || null,
+    colors,
+    price,
+    is_featured: featured,
+    is_new_arrival: newArrival,
+    is_best_seller: bestSeller,
+    is_active: isActive
+  };
+
+  if (productId) {
+    await updateFiltered('products', productRow, prodCols, productId);
+  } else {
+    productId = await insertFiltered('products', productRow, prodCols);
+  }
+
+  if (!productId) {
+    throw new Error('Could not insert product into MySQL.');
+  }
+
+  const [existingVariants] = await db.query('SELECT id FROM product_variants WHERE product_id = ? LIMIT 1', [productId]);
+  const variantRow = {
+    product_id: productId,
+    sku,
+    variant_name: 'Default',
+    price,
+    compare_at_price: compareAtPrice > 0 ? compareAtPrice : null,
+    stock_quantity: safeStock,
+    is_default: 1,
+    is_active: 1
+  };
+  if (existingVariants.length > 0) {
+    await updateFiltered('product_variants', variantRow, variantCols, existingVariants[0].id);
+  } else {
+    await insertFiltered('product_variants', variantRow, variantCols);
+  }
+
+  const imagesList = collectProductImages(p);
+  if (imagesList.length > 0) {
+    await db.query('DELETE FROM product_images WHERE product_id = ?', [productId]);
+    for (let i = 0; i < imagesList.length; i++) {
+      const stored = await persistImageForStorage(imagesList[i]);
+      await insertFiltered('product_images', {
+        product_id: productId,
+        cloudinary_public_id: stored.publicId || `product_${productId}_${i}`,
+        secure_url: stored.url,
+        width: stored.width,
+        height: stored.height,
+        format: stored.format,
+        sort_order: i,
+        is_primary: i === 0 ? 1 : 0,
+        color: stored.color
+      }, imageCols);
+    }
+  }
+
+  return productId;
 }
 
 const syncProducts = async (req, res, next) => {
@@ -226,24 +388,19 @@ const syncProducts = async (req, res, next) => {
     const { products, product, deleteId } = req.body;
     let currentList = getStoredProducts() || [];
 
-    if (Array.isArray(products)) {
-      const cleanList = products.filter(p => !isPurgedProduct(p)).map(sanitizeServerProduct);
-      saveStoredProducts(cleanList);
-      for (const p of cleanList) {
-        upsertProductToDB(p);
-      }
-      return res.status(200).json({ success: true, message: 'Products synchronized successfully to database.', products: cleanList });
-    }
-
     if (deleteId) {
       currentList = currentList.filter(p => p.id !== deleteId && p.sku !== deleteId && !isPurgedProduct(p));
       saveStoredProducts(currentList);
       try {
         await db.query('DELETE FROM products WHERE id = ? OR uuid = ? OR slug = ? OR sku = ?', [deleteId, deleteId, deleteId, deleteId]);
       } catch (dbErr) {
-        // Fallback for DB offline
+        console.warn('⚠️ DB product delete note:', dbErr.message);
       }
       return res.status(200).json({ success: true, message: 'Product deleted from database & server.', products: currentList });
+    }
+
+    if (Array.isArray(products)) {
+      currentList = products.filter(p => !isPurgedProduct(p)).map(sanitizeServerProduct);
     }
 
     if (product) {
@@ -258,12 +415,38 @@ const syncProducts = async (req, res, next) => {
       } else {
         currentList.unshift({ ...cleanProd, id: key });
       }
-      saveStoredProducts(currentList);
-      upsertProductToDB(cleanProd);
-      return res.status(200).json({ success: true, message: 'Product saved to database.', products: currentList });
     }
 
-    res.status(200).json({ success: true, products: currentList });
+    saveStoredProducts(currentList);
+
+    const toUpsert = product && !isPurgedProduct(product)
+      ? [sanitizeServerProduct(product)]
+      : (Array.isArray(products) ? currentList : []);
+
+    let dbSynced = true;
+    let dbError = null;
+    let dbCount = 0;
+    for (const p of toUpsert) {
+      try {
+        await upsertProductToDB(p);
+        dbCount += 1;
+      } catch (err) {
+        dbSynced = false;
+        dbError = err.message;
+        console.warn('⚠️ DB product upsert failed:', err.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: dbSynced
+        ? (toUpsert.length ? 'Product saved to MySQL.' : 'Products list stored.')
+        : `Saved locally; MySQL error: ${dbError}`,
+      dbSynced: toUpsert.length === 0 ? true : dbSynced,
+      dbError,
+      dbCount,
+      products: currentList
+    });
   } catch (error) {
     next(error);
   }

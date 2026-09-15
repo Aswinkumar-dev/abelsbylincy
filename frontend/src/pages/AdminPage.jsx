@@ -2391,7 +2391,7 @@ export default function AdminPage() {
                 {prodForm.id ? 'Edit Product' : 'Add New Product'}
               </h3>
 
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const errors = {};
 
@@ -2433,6 +2433,7 @@ export default function AdminPage() {
                 id: prodForm.id || '',
                 name: prodForm.name.trim(),
                 sku: skuCode,
+                slug: prodForm.slug || prodForm.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
                 desc: finalDesc,
                 description: finalDesc,
                 price: Number(prodForm.price) || 0,
@@ -2454,7 +2455,7 @@ export default function AdminPage() {
                 inStock: Number(prodForm.stockQty) > 0
               };
 
-              saveProduct(savedProduct);
+              await saveProduct(savedProduct);
               setEditingProduct(null);
             }} noValidate>
 
