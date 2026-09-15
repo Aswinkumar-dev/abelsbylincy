@@ -160,21 +160,18 @@ export function sanitizeProduct(p) {
   const fallback = CAT_FALLBACK_IMAGES[cat] || CAT_FALLBACK_IMAGES.necklaces;
 
   let img = p.image || '';
-  if (typeof img === 'string' && img.startsWith('data:image') && img.length > 200) {
-    img = fallback;
+  if (!img || img.trim() === '') {
+    img = (Array.isArray(p.images) && p.images[0]) || fallback;
   }
-  let images = Array.isArray(p.images) && p.images.length > 0 ? p.images : (img ? [img] : [fallback]);
-  images = images.map(item => {
-    if (typeof item === 'string' && item.startsWith('data:image') && item.length > 200) {
-      return fallback;
-    }
-    return item;
-  });
+  let images = Array.isArray(p.images) && p.images.length > 0 ? p.images.filter(Boolean) : [img];
+  if (images.length === 0) {
+    images = [img];
+  }
 
   return {
     ...p,
-    image: img || fallback,
-    images: images.length > 0 ? images : [img || fallback]
+    image: img,
+    images: Array.from(new Set(images))
   };
 }
 
@@ -216,7 +213,7 @@ function writeLS(key, val) {
 const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
-  // Purge any stale legacy localStorage keys and cleanse bloated base64 images
+  // Purge any stale legacy localStorage keys
   useEffect(() => {
     try {
       localStorage.removeItem('abl_products_v10');
@@ -227,19 +224,6 @@ export function StoreProvider({ children }) {
       localStorage.removeItem('abl_orders_v8');
       localStorage.removeItem('abl_orders_v7');
       localStorage.removeItem('abl_orders');
-    } catch {}
-
-    // Check existing stored products for base64 bloat and strip them immediately
-    try {
-      const saved = readLS('abl_products_v11', null);
-      if (Array.isArray(saved) && saved.length > 0) {
-        const hasBloat = saved.some(p => (typeof p.image === 'string' && p.image.startsWith('data:image') && p.image.length > 200) || (Array.isArray(p.images) && p.images.some(i => typeof i === 'string' && i.startsWith('data:image') && i.length > 200)));
-        if (hasBloat) {
-          const cleaned = sanitizeProducts(saved);
-          writeLS('abl_products_v11', cleaned);
-          setProductsRaw(cleaned);
-        }
-      }
     } catch {}
   }, []);
 

@@ -59,7 +59,8 @@ export default function ProductPage() {
 
   // Determine active images gallery (color-specific images if available, else base images)
   const availableColorImgs = (selectedColor && product.colorImages?.[selectedColor]?.filter(Boolean)) || [];
-  const images = availableColorImgs.length > 0 ? availableColorImgs : (product.images?.length > 0 ? product.images : [product.image]);
+  const rawImages = availableColorImgs.length > 0 ? availableColorImgs : (product.images?.length > 0 ? product.images : [product.image]);
+  const images = Array.from(new Set(rawImages.filter(Boolean)));
 
   const handleAddToCart = () => {
     if (product.sizes?.length > 0 && !selectedSize) {

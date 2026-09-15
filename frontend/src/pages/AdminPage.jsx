@@ -104,7 +104,7 @@ export default function AdminPage() {
     seoTitle: '', seoDesc: '', slug: ''
   });
 
-  const compressImageToBlob = (file, maxDimension = 1200, quality = 0.82) => {
+  const compressImage = (file, maxDimension = 600, quality = 0.70) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -126,14 +126,15 @@ export default function AdminPage() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
           canvas.toBlob((blob) => {
-            resolve(blob || file);
+            resolve({ dataUrl, blob: blob || file });
           }, 'image/jpeg', quality);
         };
-        img.onerror = () => resolve(file);
+        img.onerror = () => resolve({ dataUrl: e.target?.result || '', blob: file });
         img.src = e.target?.result;
       };
-      reader.onerror = () => resolve(file);
+      reader.onerror = () => resolve({ dataUrl: '', blob: file });
       reader.readAsDataURL(file);
     });
   };
@@ -147,10 +148,10 @@ export default function AdminPage() {
       if (!file) return;
 
       setUploadingFieldKey(fieldKey);
-      showToast('Uploading image to Cloudinary CDN...', 'info');
+      showToast('Processing & uploading image...', 'info');
 
       try {
-        const blob = await compressImageToBlob(file);
+        const { dataUrl, blob } = await compressImage(file, 600, 0.70);
         const uploadFile = new File([blob], file.name ? file.name.replace(/\.[^.]+$/, '.jpg') : 'product.jpg', { type: 'image/jpeg' });
 
         let cdnUrl = '';
@@ -194,16 +195,17 @@ export default function AdminPage() {
 
         if (cdnUrl) {
           onComplete(cdnUrl);
-          showToast('Image uploaded successfully to Cloudinary CDN!', 'check');
+          showToast('Image uploaded to Cloudinary CDN!', 'check');
+        } else if (dataUrl) {
+          // If CDN server upload is unreachable, use user's compressed (~20KB) image directly!
+          // Guarantees each product has its own UNIQUE photo and is never overwritten with duplicate category image.
+          onComplete(dataUrl);
+          showToast('Image processed and saved successfully!', 'check');
         } else {
-          // Safe fallback to avoid browser storage quota crash
-          const currentCat = (prodForm.category || 'necklaces').toLowerCase();
-          const fallbackUrl = (CAT_FALLBACK_IMAGES && CAT_FALLBACK_IMAGES[currentCat]) || 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp';
-          onComplete(fallbackUrl);
-          showToast('Server upload unreachable. Assigned category CDN image to protect browser storage.', 'alert');
+          showToast('Failed to process image file.', 'x');
         }
       } catch (err) {
-        showToast('Image upload failed: ' + err.message, 'x');
+        showToast('Image upload error: ' + err.message, 'x');
       } finally {
         setUploadingFieldKey(null);
       }
@@ -467,7 +469,7 @@ export default function AdminPage() {
     setHeroUploadSuccess(false);
 
     try {
-      const blob = await compressImageToBlob(file);
+      const { dataUrl, blob } = await compressImage(file, 1200, 0.80);
       const uploadFile = new File([blob], 'hero.jpg', { type: 'image/jpeg' });
       const formData = new FormData();
       formData.append('image', uploadFile);
@@ -505,6 +507,10 @@ export default function AdminPage() {
         setHeroForm(prev => ({ ...prev, image: cdnUrl }));
         setHeroUploadSuccess(true);
         showToast('Hero image uploaded to Cloudinary CDN!', 'check');
+      } else if (dataUrl) {
+        setHeroForm(prev => ({ ...prev, image: dataUrl }));
+        setHeroUploadSuccess(true);
+        showToast('Hero image updated successfully!', 'check');
       } else {
         showToast('Hero image upload failed. Please try again.', 'x');
       }
