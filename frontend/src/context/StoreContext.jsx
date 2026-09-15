@@ -164,22 +164,43 @@ const StoreContext = createContext(null);
 export function StoreProvider({ children }) {
   // State mirrors app.js `state` object
   const [products, setProductsRaw] = useState(() => {
+    // 1. Authoritative v10 list (preserves empty list [] when items are deleted)
     const raw10 = readLS('abl_products_v10', null);
-    if (raw10 && Array.isArray(raw10) && raw10.length > 0) return raw10;
+    if (raw10 !== null && Array.isArray(raw10)) {
+      // Purge obsolete legacy localStorage keys
+      try {
+        localStorage.removeItem('abl_products_v9');
+        localStorage.removeItem('abl_products_v8');
+        localStorage.removeItem('abl_products_v7');
+        localStorage.removeItem('abl_products');
+      } catch {}
+      return raw10;
+    }
 
+    // 2. Fresh installation: discard any stale mock products (p1..p16 / ABL-R001..ABL-B002)
     const raw9 = readLS('abl_products_v9', null);
     const raw8 = readLS('abl_products_v8', null);
     const raw7 = readLS('abl_products_v7', null);
     const legacy = readLS('abl_products', null);
 
-    const baseList = raw9 || raw8 || raw7 || legacy || DEFAULT_PRODUCTS;
+    const candidate = raw9 || raw8 || raw7 || legacy || DEFAULT_PRODUCTS;
+    const isOldMock = Array.isArray(candidate) && candidate.some(p => p.id === 'p1' || p.sku === 'ABL-R001' || p.name === 'Eternal Rose Gold Solitaire Ring');
+    const baseList = isOldMock ? DEFAULT_PRODUCTS : candidate;
+
     const cleaned = (baseList || DEFAULT_PRODUCTS).map(p => ({
       ...p,
       category: (p.category || 'necklaces').trim().toLowerCase(),
       inStock: p.inStock !== undefined ? Boolean(p.inStock) : ((p.stockQty || 0) > 0),
       colors: Array.isArray(p.colors) && (p.colors.length === 0 || (p.colors.length === 1 && p.colors[0]?.toLowerCase() === 'gold' && (!p.colorImages || Object.keys(p.colorImages).length === 0))) ? [] : (p.colors || [])
     }));
+
     writeLS('abl_products_v10', cleaned);
+    try {
+      localStorage.removeItem('abl_products_v9');
+      localStorage.removeItem('abl_products_v8');
+      localStorage.removeItem('abl_products_v7');
+      localStorage.removeItem('abl_products');
+    } catch {}
     return cleaned;
   });
   const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
@@ -280,6 +301,12 @@ export function StoreProvider({ children }) {
     setProductsRaw(prev => {
       const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
       writeLS('abl_products_v10', next);
+      try {
+        localStorage.removeItem('abl_products_v9');
+        localStorage.removeItem('abl_products_v8');
+        localStorage.removeItem('abl_products_v7');
+        localStorage.removeItem('abl_products');
+      } catch {}
       return next;
     });
   }, []);
