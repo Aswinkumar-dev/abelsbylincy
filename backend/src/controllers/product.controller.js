@@ -9,8 +9,8 @@ const PURGED_MOCK_SKUS = [
 
 const isPurgedProduct = (p) => {
   if (!p || typeof p !== 'object') return true;
-  const sku = (p.sku || '').trim().toUpperCase();
-  const id = (p.id || '').trim();
+  const sku = String(p.sku || '').trim().toUpperCase();
+  const id = String(p.id || '').trim();
   return PURGED_MOCK_SKUS.includes(sku) || PURGED_MOCK_SKUS.includes(id);
 };
 

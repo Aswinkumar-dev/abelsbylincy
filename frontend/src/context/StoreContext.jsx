@@ -21,8 +21,8 @@ export const REMOVED_MOCK_SKUS = [
 
 export function isAllowedProduct(p) {
   if (!p || typeof p !== 'object') return false;
-  const sku = (p.sku || '').trim().toUpperCase();
-  const id = (p.id || '').trim();
+  const sku = String(p.sku || '').trim().toUpperCase();
+  const id = String(p.id || '').trim();
   return !REMOVED_MOCK_SKUS.includes(sku) && !REMOVED_MOCK_SKUS.includes(id);
 }
 
