@@ -391,7 +391,13 @@
       const totalRating = localReviews.reduce((sum, r) => sum + r.rating, 0) + (currentProduct.rating * (currentProduct.reviews || 1));
       currentProduct.rating = parseFloat((totalRating / (reviewsCount || 1)).toFixed(1));
       currentProduct.reviews = reviewsCount;
-      localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+      if (window.abl && window.abl.saveProducts) {
+        window.abl.saveProducts(window.abl.state.products);
+      } else {
+        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        localStorage.setItem('abl_products_v11', JSON.stringify(window.abl.state.products));
+        localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+      }
 
       window.abl.showToast('🎉 Review submitted successfully!');
 

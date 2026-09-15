@@ -157,20 +157,63 @@
 
 
   function loadProducts() {
-    const deleted = loadLocal('abl_deleted_product_ids', []);
+    const deleted = loadLocal('abl_deleted_product_ids', []).filter(Boolean);
     const raw11 = loadLocal('abl_products_v11', null);
     if (raw11 !== null && Array.isArray(raw11)) {
-      return raw11.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
+      return raw11.filter(p => (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku)));
     }
     const raw10 = loadLocal('abl_products_v10', null);
     if (raw10 !== null && Array.isArray(raw10)) {
-      return raw10.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
+      return raw10.filter(p => (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku)));
     }
     const local = loadLocal('abl_products', null);
     if (local !== null && Array.isArray(local)) {
-      return local.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
+      return local.filter(p => (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku)));
     }
-    return DEFAULT_PRODUCTS.filter(p => !deleted.includes(p.id) && !deleted.includes(p.sku));
+    return DEFAULT_PRODUCTS.filter(p => (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku)));
+  }
+
+  function saveProducts(products) {
+    if (!Array.isArray(products)) return;
+    saveLocal('abl_products', products);
+    saveLocal('abl_products_v11', products);
+    saveLocal('abl_products_v10', products);
+    try {
+      fetch('/api/products/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products })
+      }).catch(() => {});
+    } catch {}
+  }
+
+  async function syncBackendProducts() {
+    const deleted = loadLocal('abl_deleted_product_ids', []).filter(Boolean);
+    try {
+      const res = await fetch('/api/products');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+          const prodMap = new Map();
+          data.products.forEach(p => {
+            const k = p.id || p.sku;
+            if (k && (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku))) {
+              prodMap.set(String(k), p);
+            }
+          });
+          const localList = loadProducts();
+          localList.forEach(p => {
+            const k = p.id || p.sku;
+            if (k && (!p.id || !deleted.includes(p.id)) && (!p.sku || !deleted.includes(p.sku))) {
+              prodMap.set(String(k), { ...(prodMap.get(String(k)) || {}), ...p });
+            }
+          });
+          const merged = Array.from(prodMap.values());
+          saveProducts(merged);
+          state.products = merged;
+        }
+      }
+    } catch {}
   }
 
 
@@ -970,6 +1013,9 @@
       }
     },
 
+    saveProducts: (products) => saveProducts(products),
+    syncBackendProducts: () => syncBackendProducts(),
+
     adminLogout: () => {
       state.adminLoggedIn = false;
       state.adminUser = null;
@@ -982,6 +1028,7 @@
 
   // Render shared header/footer if elements exist on the page
   document.addEventListener('DOMContentLoaded', () => {
+    syncBackendProducts();
     const user = state.currentUser;
     const path = window.location.pathname.toLowerCase();
     const isRestrictedPage = path.includes('cart.html') || path.includes('wishlist.html') || path.includes('checkout.html');

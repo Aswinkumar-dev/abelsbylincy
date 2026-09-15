@@ -1625,15 +1625,20 @@
         window.abl.showToast(`🎉 ${newP.name} created successfully!`);
       }
 
-      localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
-      localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
-      try {
-        fetch('/api/products/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ products: window.abl.state.products })
-        }).catch(() => {});
-      } catch {}
+      if (window.abl && window.abl.saveProducts) {
+        window.abl.saveProducts(window.abl.state.products);
+      } else {
+        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        localStorage.setItem('abl_products_v11', JSON.stringify(window.abl.state.products));
+        localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+        try {
+          fetch('/api/products/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ products: window.abl.state.products })
+          }).catch(() => {});
+        } catch {}
+      }
 
       // 2. Sync to Cloudy & DB Backend (Fetch Request)
       try {
@@ -1678,7 +1683,7 @@
         });
 
         const token = localStorage.getItem('abl_admin_token') || '';
-        const url = id ? `http://localhost:5000/api/admin/products/${id}` : 'http://localhost:5000/api/admin/products';
+        const url = id ? `/api/admin/products/${id}` : '/api/admin/products';
         const method = id ? 'PUT' : 'POST';
 
         // Perform the API call asynchronously in background
@@ -1715,9 +1720,13 @@
         localStorage.setItem('abl_deleted_product_ids', JSON.stringify(deleted));
 
         window.abl.state.products = window.abl.state.products.filter(p => p.id !== id && p.sku !== id);
-        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
-        localStorage.setItem('abl_products_v11', JSON.stringify(window.abl.state.products));
-        localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+        if (window.abl && window.abl.saveProducts) {
+          window.abl.saveProducts(window.abl.state.products);
+        } else {
+          localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+          localStorage.setItem('abl_products_v11', JSON.stringify(window.abl.state.products));
+          localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+        }
         try {
           fetch('/api/products/sync', {
             method: 'POST',
@@ -1734,10 +1743,17 @@
       const p = window.abl.state.products.find(item => item.id === id);
       if (p) {
         p.stockQty = Math.max(0, p.stockQty + delta);
-        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
-        localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+        if (window.abl && window.abl.saveProducts) {
+          window.abl.saveProducts(window.abl.state.products);
+        } else {
+          localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+          localStorage.setItem('abl_products_v11', JSON.stringify(window.abl.state.products));
+          localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+        }
         window.abl.showToast(`Stock updated: ${p.name} (${p.stockQty} units)`);
         renderAdminApp();
+      }
+    }
       }
     }
 
@@ -2046,7 +2062,13 @@
         p.reorderThreshold = parseInt(form.reorderThreshold.value, 10);
         p.inStock = p.stockQty > 0;
 
-        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        if (window.abl && window.abl.saveProducts) {
+          window.abl.saveProducts(window.abl.state.products);
+        } else {
+          localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+          localStorage.setItem('abl_products_v11', JSON.stringify(window.abl.state.products));
+          localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+        }
         document.getElementById('admin-modal-root').innerHTML = '';
         window.abl.showToast(`✨ Inventory updated for ${p.name} (${p.stockQty} units in stock)`);
         renderAdminApp();
@@ -2063,7 +2085,13 @@
         }
       });
       if (count > 0) {
-        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        if (window.abl && window.abl.saveProducts) {
+          window.abl.saveProducts(window.abl.state.products);
+        } else {
+          localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+          localStorage.setItem('abl_products_v11', JSON.stringify(window.abl.state.products));
+          localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+        }
         window.abl.showToast(`📦 Restocked ${count} low stock items by +${qty} units!`);
         renderAdminApp();
       } else {

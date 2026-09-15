@@ -172,7 +172,14 @@
               ? window.abl.state.products.filter(p => p.badge === 'new').length 
               : cat === 'best-sellers'
                 ? window.abl.state.products.filter(p => p.badge === 'bestseller').length
-                : window.abl.state.products.filter(p => p.category.toLowerCase() === cat).length;
+                : window.abl.state.products.filter(p => {
+                    const pCat = (p.category || '').toLowerCase().trim();
+                    if (cat === 'bangles' || cat === 'bangle') return pCat === 'bangles' || pCat === 'bangle' || (p.name && p.name.toLowerCase().includes('bangle'));
+                    if (cat === 'charms' || cat === 'charm') return pCat === 'charms' || pCat === 'charm' || (p.name && p.name.toLowerCase().includes('charm'));
+                    if (cat === 'silver-collections' || cat === 'silver') return pCat === 'silver-collections' || pCat === 'silver' || (p.material && p.material.toLowerCase().includes('silver'));
+                    if (cat === 'seasonal-collections' || cat === 'seasonal') return pCat === 'seasonal-collections' || pCat === 'seasonal';
+                    return pCat === cat;
+                  }).length;
           return `
             <li class="filter-option ${activeCategory === cat ? 'active' : ''}" onclick="setCategory('${cat}')">
               <span>${catItem.label}</span>
@@ -392,10 +399,22 @@
           if (p.badge !== 'new') return false;
         } else if (activeCategory === 'best-sellers' || activeCategory === 'bestseller' || activeCategory === 'bestsellers') {
           if (p.badge !== 'bestseller') return false;
-        } else if (activeCategory !== 'all' && p.category.toLowerCase() !== activeCategory) {
-          return false;
+        } else if (activeCategory !== 'all') {
+          const pCat = (p.category || '').toLowerCase().trim();
+          const active = activeCategory.toLowerCase().trim();
+          if (active === 'bangles' || active === 'bangle') {
+            if (pCat !== 'bangles' && pCat !== 'bangle' && !(p.name && p.name.toLowerCase().includes('bangle'))) return false;
+          } else if (active === 'charms' || active === 'charm') {
+            if (pCat !== 'charms' && pCat !== 'charm' && !(p.name && p.name.toLowerCase().includes('charm'))) return false;
+          } else if (active === 'silver-collections' || active === 'silver') {
+            if (pCat !== 'silver-collections' && pCat !== 'silver' && !(p.material && p.material.toLowerCase().includes('silver'))) return false;
+          } else if (active === 'seasonal-collections' || active === 'seasonal') {
+            if (pCat !== 'seasonal-collections' && pCat !== 'seasonal') return false;
+          } else if (pCat !== active) {
+            return false;
+          }
         }
-        if (selectedMaterials.length > 0 && !selectedMaterials.some(m => p.material.toLowerCase().includes(m.toLowerCase()))) return false;
+        if (selectedMaterials.length > 0 && !selectedMaterials.some(m => (p.material || '').toLowerCase().includes(m.toLowerCase()))) return false;
         if (selectedGemstones.length > 0 && !selectedGemstones.includes(p.gemstone)) return false;
         if (p.price > maxPrice) return false;
         return true;

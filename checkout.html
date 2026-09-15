@@ -525,7 +525,13 @@
           if (prod.stockQty === 0) prod.inStock = false;
         }
       });
-      localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+      if (window.abl && window.abl.saveProducts) {
+        window.abl.saveProducts(window.abl.state.products);
+      } else {
+        localStorage.setItem('abl_products', JSON.stringify(window.abl.state.products));
+        localStorage.setItem('abl_products_v11', JSON.stringify(window.abl.state.products));
+        localStorage.setItem('abl_products_v10', JSON.stringify(window.abl.state.products));
+      }
 
       // 2. Add new order to orders database
       const newOrder = {
