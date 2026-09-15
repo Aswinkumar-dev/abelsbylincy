@@ -107,7 +107,7 @@ export default function AdminPage() {
     seoTitle: '', seoDesc: '', slug: ''
   });
 
-  const compressImage = (file, maxDimension = 600, quality = 0.70) => {
+  const compressImage = (file, maxDimension = 1200, quality = 0.85) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -154,7 +154,7 @@ export default function AdminPage() {
       showToast('Processing & uploading image...', 'info');
 
       try {
-        const { dataUrl, blob } = await compressImage(file, 600, 0.70);
+        const { dataUrl, blob } = await compressImage(file, 1200, 0.85);
         const uploadFile = new File([blob], file.name ? file.name.replace(/\.[^.]+$/, '.jpg') : 'product.jpg', { type: 'image/jpeg' });
 
         let cdnUrl = '';
@@ -2612,9 +2612,17 @@ export default function AdminPage() {
 
               {/* Base Product Images Section */}
               <div style={{ background: 'var(--cream)', padding: 18, borderRadius: 12, marginBottom: 20, border: '1px solid var(--border)' }}>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)', marginBottom: 12 }}>
-                  Base Product Images
-                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)', margin: 0 }}>
+                    Base Product Images
+                  </h4>
+                  <span style={{ fontSize: 11, fontWeight: 700, background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', padding: '4px 10px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    📸 Upload images in 1200 × 1200 ratio
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--slate)', margin: '0 0 14px 0', lineHeight: 1.5 }}>
+                  Recommended: Upload square images in <strong>1200 × 1200 ratio</strong> (1:1 aspect ratio) for best display quality across desktop and mobile.
+                </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {/* Base Image 1 */}
@@ -2864,9 +2872,14 @@ export default function AdminPage() {
 
               {/* Color Variants */}
               <div style={{ background: '#FFFFFF', padding: 18, borderRadius: 12, marginBottom: 20, border: '1px solid var(--gold)' }}>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)', marginBottom: 12 }}>
-                  Color Variants
-                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)', margin: 0 }}>
+                    Color Variants
+                  </h4>
+                  <span style={{ fontSize: 11, fontWeight: 700, background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', padding: '3px 8px', borderRadius: 6 }}>
+                    📸 1200 × 1200 ratio
+                  </span>
+                </div>
 
                 <div style={{ marginBottom: 16 }}>
                   <label className="form-label" style={{ fontWeight: 700 }}>AVAILABLE COLORS</label>
