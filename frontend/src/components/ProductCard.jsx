@@ -4,9 +4,11 @@ import { Heart, ShoppingBag, Star } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export default function ProductCard({ product }) {
-  const { addToCart, toggleWishlist, wishlist, formatMoney } = useStore();
+  const { addToCart, toggleWishlist, wishlist, formatMoney, reviews } = useStore();
   const navigate = useNavigate();
   const isWishlisted = wishlist.includes(product.id);
+  const prodReviews = (reviews || []).filter(r => String(r.productId) === String(product.id) && r.status !== 'hidden');
+  const avgRating = prodReviews.length > 0 ? (prodReviews.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) / prodReviews.length) : 5;
 
   const handleCardClick = () => {
     navigate(`/product?id=${product.id}`);
@@ -45,9 +47,9 @@ export default function ProductCard({ product }) {
 
         <div className="product-rating-row" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
           <div className="stars" style={{ display: 'flex', color: 'var(--gold)' }}>
-            {[1,2,3,4,5].map(i => <Star key={i} style={{ width: 12, height: 12, fill: 'var(--gold)', color: 'var(--gold)' }} />)}
+            {[1,2,3,4,5].map(i => <Star key={i} style={{ width: 12, height: 12, fill: i <= Math.round(avgRating) ? 'var(--gold)' : 'none', color: 'var(--gold)' }} />)}
           </div>
-          <span className="review-count" style={{ fontSize: 11, color: 'var(--slate-light)' }}>(0)</span>
+          <span className="review-count" style={{ fontSize: 11, color: 'var(--slate-light)' }}>({prodReviews.length})</span>
         </div>
 
         <div className="bs-product-price" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

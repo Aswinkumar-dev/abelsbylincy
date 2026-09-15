@@ -99,7 +99,95 @@ const DEFAULT_COUPONS = [
   { id: 'cp1', code: 'WELCOME10', label: 'Welcome 10% Off', discountType: 'percentage', value: 10, minOrder: 50, maxDiscount: 20, expiry: '2026-12-31', active: true, usageLimit: 100, perCustomerLimit: 1 },
   { id: 'cp2', code: 'FIRSTORDER', label: 'First Order Special', discountType: 'percentage', value: 15, minOrder: 80, maxDiscount: 30, expiry: '2026-12-31', active: true, usageLimit: 50, perCustomerLimit: 1 },
 ];
-const DEFAULT_REVIEWS = [];
+const DEFAULT_REVIEWS = [
+  // ── 1. Red Heart Shaped Necklace (p_na1) — 20 Reviews ──
+  { id: 'rev_na1_01', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Charlotte Davies', rating: 5, title: 'Absolutely stunning necklace!', text: 'The 18K gold plating is brilliant and the red heart gemstone catches the light beautifully. Received so many compliments.', date: '12 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_02', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Sophie Taylor', rating: 5, title: 'Perfect anniversary gift', text: 'My partner loved it! The chain is delicate yet sturdy and the red pendant has a rich ruby hue.', date: '10 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_03', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Emily Watson', rating: 5, title: 'High quality and anti-tarnish', text: 'I have been wearing this daily for two weeks, even in humid weather, and zero tarnishing. Beautiful shine.', date: '08 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_04', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Jessica Miller', rating: 4, title: 'Charming and elegant', text: 'A very lovely piece. The presentation box with the velvet pouch made unboxing feel luxurious.', date: '06 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_05', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Olivia Brown', rating: 5, title: 'My new everyday favourite', text: 'Dainty, romantic, and goes with everything from casual white tees to evening dresses.', date: '04 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_06', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Chloe Wilson', rating: 5, title: 'Fast dispatch & exquisite finish', text: 'Arrived in Melbourne in just 2 days. The craftsmanship on the bezel setting is flawless.', date: '02 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_07', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Grace Anderson', rating: 5, title: 'Vibrant ruby-red colour', text: 'The gemstone is so vibrant in person. The gold chain has a lovely warm tone.', date: '30 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_08', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Mia Thomas', rating: 4, title: 'Super pretty pendant', text: 'Great quality for the price. Chain length is just right for layering with shorter chokers.', date: '28 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_09', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Isabella White', rating: 5, title: 'Exceeded expectations', text: 'Looks even more premium in real life than online. Will definitely purchase more pieces from Abel’s.', date: '25 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_10', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Amelia Harris', rating: 5, title: 'Zero allergic reactions', text: 'My sensitive skin usually reacts to plated jewellery, but this 18K plating is truly hypoallergenic.', date: '22 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_11', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Ella Martin', rating: 5, title: 'Stunning craftsmanship', text: 'The heart is perfectly proportioned and the clasp is smooth and secure.', date: '20 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_12', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Harper Thompson', rating: 4, title: 'Beautiful piece', text: 'Packaging was gorgeous and the necklace itself is dainty and cute. Very pleased!', date: '18 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_13', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Ava Garcia', rating: 5, title: 'Great for layering', text: 'Looks incredible paired with a simple gold herringbone chain. Highly recommend.', date: '15 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_14', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Ruby Martinez', rating: 5, title: 'Lustre lasts wonderfully', text: 'Worn it to multiple dinners and outings; still looks brand new after cleaning with the soft cloth.', date: '12 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_15', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Scarlett Robinson', rating: 5, title: 'Romantic and timeless', text: 'Such a timeless design. The red stone gives it an eye-catching pop of color.', date: '10 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_16', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Sienna Clark', rating: 4, title: 'Lovely birthday present', text: 'Bought this for my sister’s birthday and she hasn’t taken it off since.', date: '08 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_17', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Matilda Rodriguez', rating: 5, title: 'Outstanding quality', text: 'The gold finish feels heavy and authentic. Does not look or feel cheap at all.', date: '05 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_18', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Lily Lewis', rating: 5, title: 'Pure perfection', text: 'Everything from the delivery speed to the necklace itself was 10/10.', date: '03 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_19', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Zoe Lee', rating: 5, title: 'Eye-catching shimmer', text: 'The facets on the heart stone sparkle in sunlight. Truly delighted with this piece.', date: '01 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na1_20', productId: 'p_na1', productName: 'Red Heart Shaped Necklace', author: 'Evie Walker', rating: 5, title: 'Signature piece', text: 'It’s become my signature everyday necklace. Thank you Abel’s By Lincy!', date: '28 Jul 2026', status: 'approved', verified: true },
+
+  // ── 2. Butterfly Bracelet (p_na2) — 20 Reviews ──
+  { id: 'rev_na2_01', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Hannah Scott', rating: 5, title: 'Delicate butterfly motif', text: 'The butterfly charms are intricately detailed with tiny sparkling CZ stones. So delicate on the wrist.', date: '13 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_02', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Georgia Hall', rating: 5, title: 'Obsessed with this bracelet', text: 'It has the perfect amount of sparkle without being overwhelming. Perfect for brunch or work.', date: '11 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_03', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Zara Allen', rating: 4, title: 'Very pretty and adjustable', text: 'Fits my petite wrist nicely because of the extender links. Clasp is easy to fasten.', date: '09 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_04', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Maya Young', rating: 5, title: 'Doesn’t catch on knits', text: 'Smooth edges on the butterflies so it doesn’t snag on sweaters or silk blouses.', date: '07 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_05', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Layla King', rating: 5, title: 'Subtle sparkle', text: 'The cubic zirconia stones shimmer just like real diamonds. Great everyday staple.', date: '05 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_06', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Jasmine Wright', rating: 5, title: 'Amazing quality gold plating', text: 'Have worn this almost daily for 3 weeks and the gold finish is just as bright as day one.', date: '03 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_07', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Freya Lopez', rating: 4, title: 'Cute layering piece', text: 'Looks so chic stacked next to my watch and a plain gold bangle.', date: '01 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_08', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Ivy Hill', rating: 5, title: 'Got compliments all day', text: 'Wore it to a wedding reception and received so many compliments. Beautiful design.', date: '29 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_09', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Willow Green', rating: 5, title: 'Luxurious feel', text: 'Feels sturdy yet lightweight. The velvet pouch is a nice touch for travel.', date: '26 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_10', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Poppy Adams', rating: 5, title: 'Gift for my daughter', text: 'My teenage daughter loved this delicate butterfly piece. Very well made.', date: '24 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_11', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Florence Baker', rating: 5, title: 'Flawless finish', text: 'The gold plating has a rich 18K yellow lustre. Zero fading or discolouration.', date: '21 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_12', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Alice Gonzalez', rating: 4, title: 'Dainty & sweet', text: 'A really sweet design. Butterfly wings have lovely texture.', date: '19 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_13', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Audrey Nelson', rating: 5, title: 'Great value for luxury look', text: 'Looks like a fine jewellery piece that costs 4 times more. Very happy with my purchase.', date: '16 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_14', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Eleanor Carter', rating: 5, title: 'Secure clasp', text: 'The lobster clasp feels very secure, which is important for fine bracelets.', date: '14 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_15', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Stella Mitchell', rating: 5, title: 'Five stars all the way', text: 'Second item bought from Abel’s and once again top notch quality and fast dispatch.', date: '11 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_16', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Violet Perez', rating: 4, title: 'Love the sparkle', text: 'Butterflies catch the light beautifully when moving your wrist.', date: '09 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_17', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Claire Roberts', rating: 5, title: 'Perfect summer accessory', text: 'Looks lovely with summer dresses. Very comfortable to wear all day.', date: '06 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_18', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Penelope Turner', rating: 5, title: 'Impressed by packaging', text: 'The unboxing experience was delightful. The bracelet itself is flawless.', date: '04 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_19', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Hazel Phillips', rating: 5, title: 'Lightweight & sturdy', text: 'You barely feel you’re wearing it, yet the chain is strong.', date: '01 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_na2_20', productId: 'p_na2', productName: 'Butterfly Bracelet', author: 'Lucy Campbell', rating: 5, title: 'Cannot recommend enough', text: 'Everyone asks where I bought this from. Truly an exquisite piece!', date: '29 Jul 2026', status: 'approved', verified: true },
+
+  // ── 3. Bug Shaped Multi Gems Necklace (p_bs1) — 20 Reviews ──
+  { id: 'rev_bs1_01', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Victoria Parker', rating: 5, title: 'Showstopping statement necklace', text: 'The multi-colored gemstone beetle pendant is a true work of art! The jewel tones are mesmerizing.', date: '14 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_02', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Natalie Evans', rating: 5, title: 'Unique conversation starter', text: 'Everyone at my dinner party asked about this necklace. It’s so unique and vintage-inspired.', date: '12 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_03', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Samantha Edwards', rating: 5, title: 'Vibrant gem colors', text: 'The emerald green, sapphire blue, and amethyst purple accents are stunningly set.', date: '10 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_04', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Brooke Collins', rating: 4, title: 'Stunning detailing', text: 'The craftsmanship on the wings and body is extraordinary. A bold statement piece.', date: '08 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_05', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Paige Stewart', rating: 5, title: 'High-end designer feel', text: 'Feels like an antique heirloom piece from an upscale boutique in Paris.', date: '06 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_06', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Chelsea Sanchez', rating: 5, title: 'Solid weight and feel', text: 'Has a satisfying weight to it without being heavy on the neck. Chain is top quality.', date: '04 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_07', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Hayley Morris', rating: 5, title: 'Jewel-toned perfection', text: 'The stones are prong-set cleanly and sparkle brilliantly under indoor lighting.', date: '02 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_08', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Piper Rogers', rating: 4, title: 'Eye-catching pendant', text: 'Bought this as a treat for myself and it instantly elevates any plain black top or blazer.', date: '31 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_09', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Summer Reed', rating: 5, title: 'True craftsmanship', text: 'You can tell real care went into crafting this piece. The gold plating is rich and deep.', date: '28 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_10', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Daisy Cook', rating: 5, title: 'Unique and stylish', text: 'I love collecting unusual jewellery motifs and this beetle piece is definitely my favorite.', date: '25 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_11', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Amber Morgan', rating: 5, title: 'Beautiful colors', text: 'The gem combination is tasteful and artistic. Looks sensational in photos.', date: '23 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_12', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Katelyn Bell', rating: 5, title: 'Gift that wowed', text: 'Given to my mother for her 50th birthday; she was completely blown away by the beauty.', date: '20 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_13', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Laura Murphy', rating: 4, title: 'Gorgeous sparkle', text: 'The colors pop so nicely against the 18K gold setting. Very well packaged.', date: '17 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_14', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Madison Bailey', rating: 5, title: 'Artisanal quality', text: 'Top tier quality! The chain length sits right at the collarbone.', date: '15 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_15', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Alyssa Rivera', rating: 5, title: 'Luxurious finish', text: 'No fading, no tarnishing, and the clasp works smoothly.', date: '12 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_16', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Taylor Cooper', rating: 5, title: 'Stunning in real life', text: 'The photos online look great, but in person the multi gems are 10 times more dazzling.', date: '09 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_17', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Kayla Richardson', rating: 4, title: 'Bold yet elegant', text: 'A bold motif that still manages to look classy and sophisticated.', date: '07 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_18', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Brianna Cox', rating: 5, title: 'Unmatched quality', text: 'Abel’s By Lincy never disappoints. The beetle details are crisp and clear.', date: '04 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_19', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Lauren Howard', rating: 5, title: 'Everyday luxury', text: 'Worn it to several gallery openings and events. Instant compliment magnet.', date: '02 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs1_20', productId: 'p_bs1', productName: 'Bug Shaped Multi Gems Necklace', author: 'Megan Ward', rating: 5, title: 'Exquisite piece of jewellery', text: 'One of the best purchases I’ve made this year. Will be back for matching pieces.', date: '30 Jul 2026', status: 'approved', verified: true },
+
+  // ── 4. Emerald Gem Ring (p_bs4) — 20 Reviews ──
+  { id: 'rev_bs4_01', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Sarah Jenkins', rating: 5, title: 'Royal emerald green hue', text: 'The central emerald CZ stone is mesmerizing. The deep green shade against the 18K gold band is pure royalty.', date: '14 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_02', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Rachel Foster', rating: 5, title: 'Accurate sizing', text: 'Ordered Size 7 and it fits my ring finger like a glove. The band is smooth and comfortable inside.', date: '12 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_03', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Hannah Simmons', rating: 5, title: 'Looks like genuine emerald', text: 'People genuinely think this is a real Colombian emerald and solid gold ring. Incredible quality.', date: '10 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_04', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Rebecca Bryant', rating: 4, title: 'Elegant cocktail ring', text: 'Subtle enough for daily office wear, yet striking enough for evening drinks.', date: '08 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_05', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Courtney Alexander', rating: 5, title: 'No green finger at all', text: 'Worn this ring through hand sanitizing and daily activities with zero skin discoloration.', date: '06 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_06', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Kimberly Russell', rating: 5, title: 'High clarity gemstone', text: 'The cut on the emerald CZ provides deep facet reflections. Beautifully prong set.', date: '04 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_07', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Danielle Griffin', rating: 5, title: 'Vintage glamour', text: 'Gives off major vintage art-deco vibes. Love wearing it on my index finger.', date: '02 Sep 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_08', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Stephanie Diaz', rating: 4, title: 'Comfortable band', text: 'The rounded band edges mean it doesn’t pinch or feel tight throughout the day.', date: '31 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_09', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Melissa Hayes', rating: 5, title: 'Exquisite packaging', text: 'Came in the signature velvet box ready for gifting. Top quality experience.', date: '28 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_10', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Ashley Myers', rating: 5, title: 'Great everyday ring', text: 'Low profile setting so it doesn’t snag on clothes or pockets. Very practical luxury.', date: '26 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_11', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Nicole Ford', rating: 5, title: 'Deep vibrant green', text: 'The green is not pale at all — it is a deep, rich forest emerald green.', date: '23 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_12', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Brittany Hamilton', rating: 4, title: 'Beautiful shine', text: 'The 18K gold band has a bright mirror polish that looks very high-end.', date: '21 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_13', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Amanda Graham', rating: 5, title: 'Perfect engagement alternative', text: 'Bought this as a travel ring alternative and ended up wearing it every day!', date: '18 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_14', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Jennifer Sullivan', rating: 5, title: 'Sturdy prong setting', text: 'Prongs are tightly securing the stone with zero wobbling.', date: '16 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_15', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Megan Wallace', rating: 5, title: 'Five stars!', text: 'Love everything about this piece. The color combination is so flattering on warm skin tones.', date: '13 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_16', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Christina Woods', rating: 5, title: 'Impeccable craft', text: 'Smooth finish all around. Sits comfortably alongside my wedding band.', date: '11 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_17', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Heather Cole', rating: 4, title: 'Classy and chic', text: 'Understated elegance. Perfect gift for green gemstone lovers.', date: '08 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_18', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Katherine West', rating: 5, title: 'Outstanding piece', text: 'Extremely pleased with the fast shipping and the beauty of this ring.', date: '05 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_19', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Elizabeth Jordan', rating: 5, title: 'Mesmerizing emerald shine', text: 'Catches the light from all angles. A true showstopper on the hand.', date: '03 Aug 2026', status: 'approved', verified: true },
+  { id: 'rev_bs4_20', productId: 'p_bs4', productName: 'Emerald Gem Ring', author: 'Victoria Owens', rating: 5, title: 'Will buy more colors!', text: 'So happy with the quality that I am now planning to get the ruby and sapphire variants as well.', date: '31 Jul 2026', status: 'approved', verified: true }
+];
 const DEFAULT_STOCK_HISTORY = [];
 
 const DEFAULT_ROLES = [
@@ -251,7 +339,11 @@ export function StoreProvider({ children }) {
   const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
   const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v7', DEFAULT_CUSTOMERS));
   const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons_v6', DEFAULT_COUPONS));
-  const [reviews, setReviewsRaw] = useState(() => readLS('abl_reviews_v6', DEFAULT_REVIEWS));
+  const [reviews, setReviewsRaw] = useState(() => {
+    const saved = readLS('abl_reviews_v6', null);
+    if (Array.isArray(saved) && saved.length > 0) return saved;
+    return DEFAULT_REVIEWS;
+  });
   const [stockHistory, setStockHistoryRaw] = useState(() => readLS('abl_stock_history_v6', DEFAULT_STOCK_HISTORY));
   const [roles, setRolesRaw] = useState(() => readLS('abl_roles', DEFAULT_ROLES));
   const [settings, setSettingsRaw] = useState(() => readLS('abl_settings', DEFAULT_SETTINGS));
@@ -467,9 +559,9 @@ export function StoreProvider({ children }) {
       const savedUserCart = readLS(`abl_cart_${currentUser.email.toLowerCase()}`, null);
       if (Array.isArray(savedUserCart) && savedUserCart.length > 0) {
         setCartRaw(currentLocalCart => {
-          const merged = [...currentLocalCart];
+          const merged = [...(currentLocalCart || [])];
           savedUserCart.forEach(savedItem => {
-            const exists = merged.find(m => m.id === savedItem.id && m.size === savedItem.size);
+            const exists = merged.find(m => m.id === savedItem.id && (m.size || '') === (savedItem.size || '') && (m.color || '') === (savedItem.color || ''));
             if (!exists) {
               merged.push(savedItem);
             }
@@ -478,7 +570,7 @@ export function StoreProvider({ children }) {
           writeLS(`abl_cart_${currentUser.email.toLowerCase()}`, merged);
           return merged;
         });
-      } else if (cart.length > 0) {
+      } else if (cart && cart.length > 0) {
         writeLS(`abl_cart_${currentUser.email.toLowerCase()}`, cart);
       }
     }
@@ -625,13 +717,14 @@ export function StoreProvider({ children }) {
     }
 
     const { name, email, picture, sub } = profile;
-    const existing = customers.find(c => c.email?.toLowerCase() === email.toLowerCase());
+    const lowerEmail = email.trim().toLowerCase();
+    const existing = customers.find(c => c.email?.toLowerCase() === lowerEmail);
 
     const userObj = {
       id: existing ? existing.id : `c_google_${sub || Date.now()}`,
-      name: name || email.split('@')[0],
-      email: email,
-      avatar: picture || '',
+      name: name || existing?.name || email.split('@')[0],
+      email: lowerEmail,
+      avatar: picture || existing?.avatar || '',
       provider: 'google',
       joined: existing ? existing.joined : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       spent: existing ? existing.spent : '$0',
@@ -639,19 +732,24 @@ export function StoreProvider({ children }) {
     };
 
     if (!existing) {
-      setCustomers([userObj, ...customers]);
+      setCustomers(prev => [userObj, ...(prev || [])]);
+    } else {
+      setCustomers(prev => (prev || []).map(c => c.email?.toLowerCase() === lowerEmail ? { ...c, avatar: userObj.avatar || c.avatar } : c));
     }
 
     setCurrentUser(userObj);
     writeLS('abl_current_user', userObj);
-    writeLS('abl_user_token', { email, name: userObj.name, provider: 'google' });
-    showToast(`Welcome to Abel's By Lincy, ${userObj.name}!`, 'check');
+    writeLS('abl_user_token', { email: lowerEmail, name: userObj.name, provider: 'google' });
+    showToast(`Welcome back, ${userObj.name}!`, 'check');
     return true;
   }, [customers, setCustomers, setCurrentUser, showToast]);
 
   const loginWithGoogle = useCallback((credentialOrEvent) => {
     if (typeof credentialOrEvent === 'string') {
-      return loginWithGoogleCredential(credentialOrEvent);
+      const profile = parseJwt(credentialOrEvent);
+      if (profile) return loginWithGoogleProfile(profile);
+      showToast('Invalid Google credential token', 'alert-circle');
+      return false;
     }
 
     const clientId = import.meta.env.GOOGLE_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID || '546867018049-fafgf8onc7m37144516t5n6fodqkjg78.apps.googleusercontent.com';
@@ -726,6 +824,7 @@ export function StoreProvider({ children }) {
 
   const logoutUser = useCallback(() => {
     setCurrentUser(null);
+    writeLS('abl_current_user', null);
     showToast('Signed out successfully', 'check');
   }, [setCurrentUser, showToast]);
 

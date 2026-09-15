@@ -213,9 +213,14 @@ export default function ProductPage() {
 
             <div className="pdp-rating-row">
               <div className="stars" style={{ display: 'flex', color: 'var(--gold)' }}>
-                {[1,2,3,4,5].map(i => <Star key={i} style={{ width: 14, height: 14, fill: 'var(--gold)', color: 'var(--gold)' }} />)}
+                {[1,2,3,4,5].map(i => {
+                  const avg = productReviews.length > 0 ? (productReviews.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) / productReviews.length) : 5;
+                  return <Star key={i} style={{ width: 14, height: 14, fill: i <= Math.round(avg) ? 'var(--gold)' : 'none', color: 'var(--gold)' }} />;
+                })}
               </div>
-              <span className="review-count" style={{ fontSize: 13, color: 'var(--slate)' }}>({productReviews.length} reviews)</span>
+              <span className="review-count" style={{ fontSize: 13, color: 'var(--slate)' }}>
+                {productReviews.length > 0 ? `${(productReviews.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) / productReviews.length).toFixed(1)} (${productReviews.length} reviews)` : '(0 reviews)'}
+              </span>
             </div>
 
             <div className="pdp-price-row" style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
@@ -413,20 +418,28 @@ export default function ProductPage() {
           ) : (
             <div className="bs-grid">
               {productReviews.map(r => (
-                <div key={r.id} style={{ background: 'var(--cloud-white)', padding: 20, borderRadius: 8, border: '1px solid var(--border)' }}>
+                <div key={r.id} style={{ background: 'var(--cloud-white)', padding: 20, borderRadius: 8, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--gold)', color: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--gold)', color: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0 }}>
                       {r.author?.charAt(0)}
                     </div>
-                    <div>
-                      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--onyx)' }}>{r.author}</p>
-                      <p style={{ fontSize: 11, color: 'var(--slate)' }}>{r.date}</p>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--onyx)', margin: 0 }}>{r.author}</p>
+                        {r.verified && (
+                          <span style={{ fontSize: 10, background: '#e6f4ea', color: '#137333', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
+                            Verified Buyer
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--slate)', margin: 0, marginTop: 2 }}>{r.date}</p>
                     </div>
                   </div>
                   <div style={{ display: 'flex', color: 'var(--gold)', marginBottom: 8 }}>
-                    {[...Array(r.rating)].map((_, i) => <Star key={i} style={{ width: 13, height: 13, fill: 'var(--gold)', color: 'var(--gold)' }} />)}
+                    {[...Array(r.rating || 5)].map((_, i) => <Star key={i} style={{ width: 13, height: 13, fill: 'var(--gold)', color: 'var(--gold)' }} />)}
                   </div>
-                  {r.text && <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--slate)' }}>{r.text}</p>}
+                  {r.title && <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', marginBottom: 6 }}>{r.title}</p>}
+                  {r.text && <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--slate)', margin: 0 }}>{r.text}</p>}
                 </div>
               ))}
             </div>
