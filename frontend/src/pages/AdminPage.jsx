@@ -1063,7 +1063,7 @@ export default function AdminPage() {
                               </td>
                               <td><code style={{ fontSize: 12, background: 'var(--cream)', padding: '3px 6px', borderRadius: 4, color: 'var(--gold-dark)', fontWeight: 600 }}>{p.sku || 'ABL-JEW'}</code></td>
                               <td style={{ textTransform: 'capitalize', fontSize: 13, fontWeight: 500 }}>{p.category}</td>
-                              <td style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)' }}>${p.price}</td>
+                              <td style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)' }}>${(p.salePrice && Number(p.salePrice) > 0) ? p.salePrice : p.price}</td>
                               <td>
                                 <span style={{
                                   color: (p.stockQty || 0) === 0 ? '#C53030' : (p.stockQty || 0) < 3 ? '#DD6B20' : '#2F855A',

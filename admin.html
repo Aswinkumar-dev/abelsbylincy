@@ -464,7 +464,7 @@
                         </div>
                       </td>
                       <td style="text-transform: capitalize;">${p.category}</td>
-                      <td style="font-weight: 600;">${window.abl.formatMoney(p.price)}</td>
+                      <td style="font-weight: 600;">${window.abl.formatMoney(p.salePrice && Number(p.salePrice) > 0 ? p.salePrice : p.price)}</td>
                       <td>
                         <span style="font-size: 12px; font-weight: 600; color: ${p.stockQty > 5 ? 'var(--success)' : 'var(--danger)'};">
                           ${p.stockQty} units
