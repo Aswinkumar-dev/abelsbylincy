@@ -213,7 +213,21 @@ export default function AdminPage() {
     input.click();
   };
 
+  const handleRemoveImage = (imageUrl, onCleared) => {
+    if (onCleared) onCleared();
+    if (imageUrl && typeof imageUrl === 'string' && imageUrl.includes('cloudinary.com')) {
+      setTimeout(() => {
+        fetch('/api/products/delete-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: imageUrl })
+        }).catch(() => {});
+      }, 1500);
+    }
+  };
+
   // Category Modal state
+
   const [editingCategory, setEditingCategory] = useState(null);
   const [catForm, setCatForm] = useState({ id: '', name: '', slug: '', image: '', desc: '' });
 
@@ -2263,7 +2277,8 @@ export default function AdminPage() {
               const defaultCatImg = catFallbacks[catSlug] || catFallbacks.necklaces;
 
               if (!prodForm.name.trim()) errors.name = 'Product name is mandatory.';
-              if (!prodForm.price || Number(prodForm.price) <= 0) errors.price = 'Price must be greater than $0.';
+              if (!prodForm.price || Number(prodForm.price) <= 0) errors.price = 'Base price must be greater than $0.';
+              if (!prodForm.salePrice || Number(prodForm.salePrice) <= 0) errors.salePrice = 'Sale price is mandatory and must be greater than $0.';
               if (prodForm.stockQty === '' || Number(prodForm.stockQty) < 0) errors.stockQty = 'Valid stock quantity is mandatory.';
 
               const colorsList = prodForm.colorsText.split(',').map(c => c.trim()).filter(Boolean);
@@ -2357,7 +2372,7 @@ export default function AdminPage() {
                     type="text"
                     inputMode="decimal"
                     className="form-control"
-                    placeholder="e.g. 55"
+                    placeholder=""
                     style={{ borderColor: prodFormErrors.price ? '#e53e3e' : undefined }}
                     value={prodForm.price === '' ? '' : prodForm.price}
                     onChange={e => {
@@ -2374,18 +2389,25 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontWeight: 700 }}>SALE PRICE ($)</label>
+                  <label className="form-label" style={{ fontWeight: 700 }}>SALE PRICE ($) *</label>
                   <input
                     type="text"
                     inputMode="decimal"
                     className="form-control"
-                    placeholder="Optional"
+                    placeholder=""
+                    style={{ borderColor: prodFormErrors.salePrice ? '#e53e3e' : undefined }}
                     value={prodForm.salePrice === '' || prodForm.salePrice === 0 ? '' : prodForm.salePrice}
                     onChange={e => {
                       const cleanVal = e.target.value.replace(/[^0-9.]/g, '');
                       setProdForm({ ...prodForm, salePrice: cleanVal });
+                      if (prodFormErrors.salePrice) setProdFormErrors(err => ({ ...err, salePrice: '' }));
                     }}
                   />
+                  {prodFormErrors.salePrice && (
+                    <span style={{ color: '#e53e3e', fontSize: 12, marginTop: 4, display: 'block', fontWeight: 500 }}>
+                      {prodFormErrors.salePrice}
+                    </span>
+                  )}
                 </div>
 
                 <div>
@@ -2420,22 +2442,28 @@ export default function AdminPage() {
                   onChange={e => setProdForm({ ...prodForm, category: e.target.value })}
                 >
                   <option value="necklaces">Necklaces</option>
+                  <option value="bangles">Bangles</option>
+                  <option value="bracelets">Bracelets</option>
                   <option value="earrings">Earrings</option>
                   <option value="rings">Rings</option>
-                  <option value="bracelets">Bracelets</option>
-                  <option value="bangles">Bangles</option>
                   <option value="charms">Charms</option>
                   <option value="silver-collections">Silver Collections</option>
                   <option value="seasonal-collections">Seasonal Collections</option>
+                  {categories.map(c => (
+                    !['necklaces', 'bangles', 'bracelets', 'earrings', 'rings', 'charms', 'silver-collections', 'seasonal-collections'].includes(c.id) && (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    )
+                  ))}
                 </select>
               </div>
 
-              {/* Mandatory Description Box */}
-              <div style={{ marginBottom: 20 }}>
+              {/* Description */}
+              <div style={{ marginBottom: 16 }}>
                 <label className="form-label" style={{ fontWeight: 700 }}>DESCRIPTION *</label>
                 <textarea
                   className="form-control"
                   rows={3}
+                  placeholder="Detailed product overview, craftsmanship, materials..."
                   style={{ borderColor: prodFormErrors.desc ? '#e53e3e' : undefined }}
                   value={prodForm.desc}
                   onChange={e => {
@@ -2506,6 +2534,36 @@ export default function AdminPage() {
                           'Upload'
                         )}
                       </button>
+                      {prodForm.baseImage1?.trim() && (
+                        <button
+                          type="button"
+                          style={{
+                            padding: '8px 12px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            background: '#FFF5F5',
+                            color: '#E53E3E',
+                            border: '1px solid #FEB2B2',
+                            borderRadius: 6,
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            handleRemoveImage(prodForm.baseImage1, () => {
+                              setProdForm(prev => ({ ...prev, baseImage1: '' }));
+                              showToast('Base Image 1 removed.', 'info');
+                            });
+                          }}
+                          title="Remove image"
+                        >
+                          <Trash2 style={{ width: 13, height: 13 }} />
+                          <span>Remove</span>
+                        </button>
+                      )}
                     </div>
                     {prodFormErrors.baseImage1 && (
                       <span style={{ color: '#e53e3e', fontSize: 12, marginTop: 4, display: 'block', fontWeight: 500 }}>
@@ -2559,6 +2617,36 @@ export default function AdminPage() {
                           'Upload'
                         )}
                       </button>
+                      {prodForm.baseImage2?.trim() && (
+                        <button
+                          type="button"
+                          style={{
+                            padding: '8px 12px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            background: '#FFF5F5',
+                            color: '#E53E3E',
+                            border: '1px solid #FEB2B2',
+                            borderRadius: 6,
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            handleRemoveImage(prodForm.baseImage2, () => {
+                              setProdForm(prev => ({ ...prev, baseImage2: '' }));
+                              showToast('Base Image 2 removed.', 'info');
+                            });
+                          }}
+                          title="Remove image"
+                        >
+                          <Trash2 style={{ width: 13, height: 13 }} />
+                          <span>Remove</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -2607,6 +2695,36 @@ export default function AdminPage() {
                           'Upload'
                         )}
                       </button>
+                      {prodForm.baseImage3?.trim() && (
+                        <button
+                          type="button"
+                          style={{
+                            padding: '8px 12px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            background: '#FFF5F5',
+                            color: '#E53E3E',
+                            border: '1px solid #FEB2B2',
+                            borderRadius: 6,
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            handleRemoveImage(prodForm.baseImage3, () => {
+                              setProdForm(prev => ({ ...prev, baseImage3: '' }));
+                              showToast('Base Image 3 removed.', 'info');
+                            });
+                          }}
+                          title="Remove image"
+                        >
+                          <Trash2 style={{ width: 13, height: 13 }} />
+                          <span>Remove</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2623,7 +2741,7 @@ export default function AdminPage() {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="e.g. Gold, Silver, Rose Gold"
+                    placeholder="e.g. Blue, Green, Black"
                     value={prodForm.colorsText}
                     onChange={e => setProdForm({ ...prodForm, colorsText: e.target.value })}
                   />
@@ -2710,6 +2828,44 @@ export default function AdminPage() {
                                     'Upload'
                                   )}
                                 </button>
+                                {imgVal?.trim() && (
+                                  <button
+                                    type="button"
+                                    style={{
+                                      padding: '8px 12px',
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      whiteSpace: 'nowrap',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      gap: 4,
+                                      background: '#FFF5F5',
+                                      color: '#E53E3E',
+                                      border: '1px solid #FEB2B2',
+                                      borderRadius: 6,
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => {
+                                      handleRemoveImage(imgVal, () => {
+                                        setProdForm(prev => {
+                                          const curImgs = prev.colorImages[color] || ['', '', ''];
+                                          const updated = [...curImgs];
+                                          updated[imgIdx] = '';
+                                          return {
+                                            ...prev,
+                                            colorImages: { ...prev.colorImages, [color]: updated }
+                                          };
+                                        });
+                                        showToast(`${color} Image ${imgIdx + 1} removed.`, 'info');
+                                      });
+                                    }}
+                                    title="Remove image"
+                                  >
+                                    <Trash2 style={{ width: 13, height: 13 }} />
+                                    <span>Remove</span>
+                                  </button>
+                                )}
                               </div>
                               {hasError && (
                                 <span style={{ color: '#e53e3e', fontSize: 12, marginTop: 4, display: 'block', fontWeight: 500 }}>

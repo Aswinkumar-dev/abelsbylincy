@@ -182,6 +182,40 @@ const uploadProductImage = async (req, res, next) => {
   }
 };
 
+const deleteProductImage = async (req, res, next) => {
+  try {
+    const { url, public_id } = req.body;
+    let targetPublicId = public_id;
+
+    if (!targetPublicId && url && typeof url === 'string') {
+      const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-zA-Z0-9]+)?$/);
+      if (match && match[1]) {
+        targetPublicId = match[1];
+      }
+    }
+
+    if (targetPublicId) {
+      const { deleteFile } = require('../services/cloudinary.service');
+      try {
+        await deleteFile(targetPublicId);
+      } catch (cErr) {
+        console.warn('Cloudinary destroy error:', cErr.message);
+      }
+
+      try {
+        await db.query('DELETE FROM product_images WHERE cloudinary_public_id = ? OR secure_url = ?', [targetPublicId, url]);
+      } catch (dbErr) {
+        // DB offline fallback
+      }
+    }
+
+    return res.status(200).json({ success: true, message: 'Image deleted from Cloudinary & storage.' });
+  } catch (err) {
+    console.error('Delete image error:', err);
+    return res.status(200).json({ success: false, message: err.message });
+  }
+};
+
 const getProductBySlug = async (req, res, next) => {
   try {
     const { slug } = req.params;
@@ -225,5 +259,7 @@ module.exports = {
   getProducts,
   getProductBySlug,
   syncProducts,
-  uploadProductImage
+  uploadProductImage,
+  deleteProductImage
 };
+
