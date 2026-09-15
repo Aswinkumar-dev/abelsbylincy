@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LayoutDashboard, Package, Tag, Layers, ShoppingCart, ShoppingBag, Users, Ticket, Globe, Inbox,
@@ -42,12 +42,22 @@ export default function AdminPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [customerSubTab, setCustomerSubTab] = useState('registered');
 
-  // Login form state
+  // Login form state - always initialized empty
   const [loginId, setLoginId] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isShaking, setIsShaking] = useState(false);
+
+  // Clear credentials whenever logged out or when loading login screen
+  useEffect(() => {
+    if (!adminLoggedIn) {
+      setLoginId('');
+      setLoginPass('');
+      setLoginError('');
+      setShowPassword(false);
+    }
+  }, [adminLoggedIn]);
 
   const triggerShake = () => {
     setIsShaking(true);
@@ -61,6 +71,10 @@ export default function AdminPage() {
     if (!success) {
       setLoginError('Invalid admin credentials. Please check your username and password.');
       triggerShake();
+    } else {
+      setLoginId('');
+      setLoginPass('');
+      setShowPassword(false);
     }
   };
 
@@ -81,13 +95,64 @@ export default function AdminPage() {
   const [editingProduct, setEditingProduct] = useState(null); // null = closed, {} = open
   const [prodFormErrors, setProdFormErrors] = useState({});
   const [uploadedImagesMap, setUploadedImagesMap] = useState({});
+  const [uploadingFieldKey, setUploadingFieldKey] = useState(null);
   const [prodForm, setProdForm] = useState({
     id: '', name: '', sku: '', desc: '', price: 0, salePrice: 0,
     baseImage1: '', baseImage2: '', baseImage3: '',
     category: 'necklaces', stockQty: 10, status: 'Active',
-    isFeatured: false, tags: '', colorsText: '', colorImages: {},
+    isFeatured: false, bestSeller: false, newArrival: false, tags: '', colorsText: '', colorImages: {},
     seoTitle: '', seoDesc: '', slug: ''
   });
+
+  const triggerImageUpload = (fieldKey, onComplete) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setUploadingFieldKey(fieldKey);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', 'abels_preset');
+        formData.append('cloud_name', 'gylnyxru');
+
+        const res = await fetch('https://api.cloudinary.com/v1_1/gylnyxru/image/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.secure_url) {
+            onComplete(data.secure_url);
+            return;
+          }
+        }
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          if (evt.target?.result) {
+            onComplete(evt.target.result);
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          if (evt.target?.result) {
+            onComplete(evt.target.result);
+          }
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setUploadingFieldKey(null);
+      }
+    };
+    input.click();
+  };
 
   // Category Modal state
   const [editingCategory, setEditingCategory] = useState(null);
@@ -441,11 +506,13 @@ export default function AdminPage() {
               Please sign in with your admin username and password.
             </p>
 
-            <form onSubmit={handleAdminSubmit}>
+            <form onSubmit={handleAdminSubmit} autoComplete="off">
               <div className="form-group" style={{ textAlign: 'left', marginBottom: 18 }}>
                 <label className="form-label" style={{ color: 'var(--onyx)', fontWeight: 700 }}>Admin username</label>
                 <input
                   type="text"
+                  name="admin_login_username"
+                  autoComplete="off"
                   className="form-control"
                   style={{ width: '100%', boxSizing: 'border-box', background: '#FFFFFF', borderColor: loginError ? '#e53e3e' : 'var(--gold)' }}
                   value={loginId}
@@ -462,6 +529,8 @@ export default function AdminPage() {
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    name="admin_login_password"
+                    autoComplete="new-password"
                     className="form-control"
                     style={{
                       width: '100%',
@@ -649,7 +718,16 @@ export default function AdminPage() {
                 <span style={{ fontSize: 10, color: 'var(--gold-dark)', fontWeight: 600 }}>{currentAdmin.role}</span>
               </div>
             </div>
-            <button onClick={adminLogout} className="btn-secondary" style={{ padding: '6px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>
+            <button
+              onClick={() => {
+                setLoginId('');
+                setLoginPass('');
+                setLoginError('');
+                adminLogout();
+              }}
+              className="btn-secondary"
+              style={{ padding: '6px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, whiteSpace: 'nowrap' }}
+            >
               Sign Out
             </button>
           </div>
@@ -673,8 +751,6 @@ export default function AdminPage() {
                 </button>
               </div>
 
-
-
               <nav className="admin-mobile-drawer-nav">
                 {screens.map(s => {
                   const Icon = s.icon;
@@ -694,6 +770,22 @@ export default function AdminPage() {
                   );
                 })}
               </nav>
+
+              <div style={{ marginTop: 'auto', padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                <button
+                  onClick={() => {
+                    setLoginId('');
+                    setLoginPass('');
+                    setLoginError('');
+                    setMobileMenuOpen(false);
+                    adminLogout();
+                  }}
+                  className="btn-secondary"
+                  style={{ width: '100%', padding: '10px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                >
+                  Sign Out ({currentAdmin.user})
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -701,12 +793,34 @@ export default function AdminPage() {
         {/* Content Tabs */}
         <main className="admin-body">
 
-          {/* 1. DASHBOARD ("How is my business doing today?") */}
+          {/* 1. DASHBOARD ("How is my business performing?") */}
           {activeTab === 'overview' && (() => {
+            const parseDate = (dStr) => {
+              if (!dStr) return new Date();
+              if (String(dStr).toLowerCase().includes('today')) return new Date();
+              const parsed = new Date(dStr);
+              if (!isNaN(parsed.getTime())) return parsed;
+              const parts = String(dStr).replace(/,/g, '').trim().split(/\s+/);
+              if (parts.length >= 3) {
+                const months = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+                return new Date(parseInt(parts[2], 10) || 2026, months[parts[1]?.toLowerCase().slice(0, 3)] ?? 7, parseInt(parts[0], 10) || 1);
+              }
+              return new Date();
+            };
+
+            const now = new Date();
             const filteredDashOrders = (orders || []).filter(o => {
               if (dashTimePeriod === 'today') {
-                const todayDateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                const todayDateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
                 return (o.date || '').includes('Today') || (o.date || '').includes(todayDateStr);
+              }
+              if (dashTimePeriod === 'week') {
+                const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                return parseDate(o.date) >= oneWeekAgo;
+              }
+              if (dashTimePeriod === 'month') {
+                const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                return parseDate(o.date) >= oneMonthAgo;
               }
               return true;
             });
@@ -734,7 +848,7 @@ export default function AdminPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
                   <div>
                     <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Dashboard</h1>
-                    <p style={{ fontSize: 14, color: 'var(--gold-dark)', fontWeight: 600, marginTop: 4 }}>"How is my business doing today?"</p>
+                    <p style={{ fontSize: 14, color: 'var(--gold-dark)', fontWeight: 600, marginTop: 4 }}>"How is my business performing?"</p>
                   </div>
 
                   {/* Period Filter Buttons */}
@@ -871,7 +985,7 @@ export default function AdminPage() {
                       Product Catalogue ({filteredProducts.length})
                     </h2>
                     <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>
-                      Manage anti-tarnish gold-plated jewellery items, pricing, SKUs, and tags.
+                      Manage anti-tarnish gold-plated jewellery items, pricing, product codes, and tags.
                     </p>
                   </div>
 
@@ -881,7 +995,7 @@ export default function AdminPage() {
                       <Search style={{ width: 16, height: 16, color: 'var(--slate)', flexShrink: 0 }} />
                       <input
                         type="text"
-                        placeholder="Search product name, SKU, category..."
+                        placeholder="Search product name, product code, category..."
                         value={prodSearchQuery}
                         onChange={e => { setProdSearchQuery(e.target.value); setProdPage(1); }}
                         style={{ border: 'none', outline: 'none', width: '100%', fontSize: 13, background: 'transparent' }}
@@ -895,21 +1009,19 @@ export default function AdminPage() {
 
                     <button
                       onClick={() => {
-                        const randomSKU = generateRandomSKU('necklaces');
                         setProdForm({
-                          id: '', name: '', sku: randomSKU, desc: '', price: 120, salePrice: 100,
+                          id: '', name: '', sku: '', desc: '', price: '', salePrice: '',
                           baseImage1: '', baseImage2: '', baseImage3: '',
                           category: 'necklaces', stockQty: 10, status: 'Active',
-                          isFeatured: true, tags: 'gold, anti-tarnish',
+                          isFeatured: false, bestSeller: false, newArrival: false, tags: '',
                           colorsText: '', colorImages: {},
                           seoTitle: '', seoDesc: '', slug: ''
                         });
                         setProdFormErrors({});
-                        setUploadedImagesMap({});
                         setEditingProduct({});
                       }}
                       className="btn-primary"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', fontSize: 13, whiteSpace: 'nowrap' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', fontSize: 13, whiteSpace: 'nowrap' }}
                     >
                       <Plus style={{ width: 16, height: 16 }} /> Add Product
                     </button>
@@ -923,7 +1035,7 @@ export default function AdminPage() {
                       <thead>
                         <tr>
                           <th style={{ width: '32%' }}>Product</th>
-                          <th style={{ width: '15%' }}>SKU</th>
+                          <th style={{ width: '15%' }}>Product Code</th>
                           <th style={{ width: '15%' }}>Category</th>
                           <th style={{ width: '12%' }}>Price</th>
                           <th style={{ width: '14%' }}>Stock</th>
@@ -966,11 +1078,16 @@ export default function AdminPage() {
                                   <button
                                     onClick={() => {
                                       const baseImgs = p.images?.length > 0 ? p.images : [p.image || ''];
-                                      const colorsListStr = (p.colors || []).join(', ');
+                                      const validColors = (p.colors || []).filter(c => {
+                                        if (!c || !c.trim()) return false;
+                                        if (c.trim().toLowerCase() === 'gold' && (!p.colorImages || !p.colorImages['Gold'] || !p.colorImages['Gold'][0])) return false;
+                                        return true;
+                                      });
+                                      const colorsListStr = validColors.join(', ');
                                       setProdForm({
                                         id: p.id,
                                         name: p.name || '',
-                                        sku: p.sku || generateRandomSKU(p.category),
+                                        sku: p.sku || '',
                                         desc: p.desc || p.description || '',
                                         price: p.price || 0,
                                         salePrice: p.salePrice || 0,
@@ -982,6 +1099,8 @@ export default function AdminPage() {
                                         stockQty: p.stockQty ?? 10,
                                         status: p.status || 'Active',
                                         isFeatured: !!p.isFeatured,
+                                        bestSeller: !!p.bestSeller,
+                                        newArrival: !!p.newArrival,
                                         tags: p.tags || '',
                                         colorsText: colorsListStr,
                                         colorImages: p.colorImages || {},
@@ -1136,7 +1255,7 @@ export default function AdminPage() {
                     <thead>
                       <tr>
                         <th style={{ width: '28%' }}>Product</th>
-                        <th style={{ width: '14%' }}>SKU</th>
+                        <th style={{ width: '14%' }}>Product Code</th>
                         <th style={{ width: '10%' }}>Stock Qty</th>
                         <th style={{ width: '16%' }}>Stock Status</th>
                         <th style={{ width: '18%' }}>Stock Management</th>
@@ -2054,7 +2173,7 @@ export default function AdminPage() {
               const errors = {};
 
               if (!prodForm.name.trim()) errors.name = 'Product name is mandatory.';
-              if (!prodForm.sku.trim()) errors.sku = 'SKU code is mandatory.';
+              if (!prodForm.sku.trim()) errors.sku = 'Product code is mandatory.';
               if (!prodForm.price || Number(prodForm.price) <= 0) errors.price = 'Price must be greater than $0.';
               if (prodForm.stockQty === '' || Number(prodForm.stockQty) < 0) errors.stockQty = 'Valid stock quantity is mandatory.';
               if (!prodForm.desc.trim()) errors.desc = 'Description is mandatory.';
@@ -2084,16 +2203,20 @@ export default function AdminPage() {
                 sku: prodForm.sku.trim(),
                 desc: prodForm.desc.trim(),
                 description: prodForm.desc.trim(),
-                price: Number(prodForm.price),
+                price: Number(prodForm.price) || 0,
                 salePrice: Number(prodForm.salePrice || 0),
                 image: mainImg,
                 images: baseImgs,
-                category: prodForm.category,
+                category: (prodForm.category || 'necklaces').trim().toLowerCase(),
                 collection: prodForm.collection || 'Soleil',
-                stockQty: Number(prodForm.stockQty),
+                material: editingProduct?.material || '18K Gold Plated',
+                gemstone: editingProduct?.gemstone || 'None',
+                stockQty: Number(prodForm.stockQty) || 0,
                 status: prodForm.status || 'Active',
                 isFeatured: !!prodForm.isFeatured,
-                tags: prodForm.tags,
+                bestSeller: !!prodForm.bestSeller,
+                newArrival: !!prodForm.newArrival,
+                tags: Array.isArray(prodForm.tags) ? prodForm.tags : typeof prodForm.tags === 'string' ? prodForm.tags.split(',').map(t => t.trim()).filter(Boolean) : [(prodForm.category || '').trim().toLowerCase()].filter(Boolean),
                 colors: colorsList,
                 colorImages: prodForm.colorImages,
                 inStock: Number(prodForm.stockQty) > 0
@@ -2103,7 +2226,7 @@ export default function AdminPage() {
               setEditingProduct(null);
             }} noValidate>
 
-              {/* Product Name & Random SKU Generator */}
+              {/* Product Name & Product Code */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 16 }}>
                 <div>
                   <label className="form-label" style={{ fontWeight: 700 }}>PRODUCT NAME *</label>
@@ -2125,19 +2248,11 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>SKU *</label>
-                    <button
-                      type="button"
-                      onClick={() => setProdForm(f => ({ ...f, sku: generateRandomSKU(f.category) }))}
-                      style={{ fontSize: 11, color: 'var(--gold-dark)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer' }}
-                    >
-                      Generate New SKU
-                    </button>
-                  </div>
+                  <label className="form-label" style={{ fontWeight: 700, marginBottom: 4, display: 'block' }}>PRODUCT CODE *</label>
                   <input
                     type="text"
                     className="form-control"
+                    placeholder="e.g. ABL-NK-101"
                     style={{ borderColor: prodFormErrors.sku ? '#e53e3e' : undefined }}
                     value={prodForm.sku}
                     onChange={e => {
@@ -2158,13 +2273,18 @@ export default function AdminPage() {
                 <div>
                   <label className="form-label" style={{ fontWeight: 700 }}>BASE PRICE ($) *</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     className="form-control"
-                    style={{ borderColor: prodFormErrors.price ? '#e53e3e' : undefined }}
-                    value={prodForm.price}
+                    placeholder="e.g. 150"
+                    style={{ borderColor: prodFormErrors.price ? '#e53e3e' : undefined, WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+                    value={prodForm.price === '' ? '' : prodForm.price}
                     onChange={e => {
-                      setProdForm({ ...prodForm, price: parseFloat(e.target.value) || 0 });
-                      if (prodFormErrors.price) setProdFormErrors(err => ({ ...err, price: '' }));
+                      const val = e.target.value;
+                      if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                        setProdForm({ ...prodForm, price: val });
+                        if (prodFormErrors.price) setProdFormErrors(err => ({ ...err, price: '' }));
+                      }
                     }}
                   />
                   {prodFormErrors.price && (
@@ -2175,25 +2295,37 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontWeight: 700 }}>SALE PRICE ($) *</label>
+                  <label className="form-label" style={{ fontWeight: 700 }}>SALE PRICE ($)</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     className="form-control"
-                    value={prodForm.salePrice}
-                    onChange={e => setProdForm({ ...prodForm, salePrice: parseFloat(e.target.value) || 0 })}
+                    style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+                    value={prodForm.salePrice === '' || prodForm.salePrice === 0 ? '' : prodForm.salePrice}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                        setProdForm({ ...prodForm, salePrice: val });
+                      }
+                    }}
                   />
                 </div>
 
                 <div>
                   <label className="form-label" style={{ fontWeight: 700 }}>STOCK QUANTITY *</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     className="form-control"
-                    style={{ borderColor: prodFormErrors.stockQty ? '#e53e3e' : undefined }}
-                    value={prodForm.stockQty}
+                    placeholder="e.g. 15"
+                    style={{ borderColor: prodFormErrors.stockQty ? '#e53e3e' : undefined, WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+                    value={prodForm.stockQty === '' ? '' : prodForm.stockQty}
                     onChange={e => {
-                      setProdForm({ ...prodForm, stockQty: parseInt(e.target.value, 10) || 0 });
-                      if (prodFormErrors.stockQty) setProdFormErrors(err => ({ ...err, stockQty: '' }));
+                      const val = e.target.value;
+                      if (val === '' || /^\d*$/.test(val)) {
+                        setProdForm({ ...prodForm, stockQty: val });
+                        if (prodFormErrors.stockQty) setProdFormErrors(err => ({ ...err, stockQty: '' }));
+                      }
                     }}
                   />
                   {prodFormErrors.stockQty && (
@@ -2210,14 +2342,16 @@ export default function AdminPage() {
                 <select
                   className="form-control"
                   value={prodForm.category}
-                  onChange={e => setProdForm({ ...prodForm, category: e.target.value, sku: generateRandomSKU(e.target.value) })}
+                  onChange={e => setProdForm({ ...prodForm, category: e.target.value })}
                 >
-                  <option value="earrings">Earrings</option>
                   <option value="necklaces">Necklaces</option>
+                  <option value="earrings">Earrings</option>
                   <option value="rings">Rings</option>
                   <option value="bracelets">Bracelets</option>
                   <option value="bangles">Bangles</option>
                   <option value="charms">Charms</option>
+                  <option value="silver-collections">Silver Collections</option>
+                  <option value="seasonal-collections">Seasonal Collections</option>
                 </select>
               </div>
 
@@ -2247,15 +2381,25 @@ export default function AdminPage() {
                   Base Product Images
                 </h4>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* Base Image 1 */}
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--onyx)', marginBottom: 4, display: 'block' }}>
-                      Base Image 1 *
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--onyx)', marginBottom: 6, display: 'block' }}>
+                      Base Image 1 <span style={{ color: '#e53e3e' }}>*</span>
                     </label>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {prodForm.baseImage1 && (
+                        <img
+                          src={prodForm.baseImage1}
+                          alt="Base 1 Preview"
+                          style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', flexShrink: 0, background: '#FFFFFF' }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )}
                       <input
                         type="text"
                         className="form-control"
+                        placeholder="Image URL or click Upload from device"
                         style={{ flex: 1, background: '#FFFFFF', borderColor: prodFormErrors.baseImage1 ? '#e53e3e' : undefined }}
                         value={prodForm.baseImage1}
                         onChange={e => {
@@ -2266,14 +2410,26 @@ export default function AdminPage() {
                       <button
                         type="button"
                         className="btn-secondary"
-                        style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 90 }}
+                        disabled={uploadingFieldKey === 'baseImage1'}
+                        style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 95, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                         onClick={() => {
-                          if (prodForm.baseImage1.trim()) {
-                            setUploadedImagesMap(prev => ({ ...prev, baseImage1: true }));
-                          }
+                          triggerImageUpload('baseImage1', (url) => {
+                            setProdForm(prev => ({ ...prev, baseImage1: url }));
+                            if (prodFormErrors.baseImage1) setProdFormErrors(err => ({ ...err, baseImage1: '' }));
+                            showToast('Base Image 1 uploaded successfully!', 'check');
+                          });
                         }}
                       >
-                        {uploadedImagesMap.baseImage1 || prodForm.baseImage1?.trim() ? '✓ Uploaded' : 'Upload'}
+                        {uploadingFieldKey === 'baseImage1' ? (
+                          <>
+                            <RefreshCw style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
+                            <span>Uploading...</span>
+                          </>
+                        ) : prodForm.baseImage1?.trim() ? (
+                          'Change Image'
+                        ) : (
+                          'Upload'
+                        )}
                       </button>
                     </div>
                     {prodFormErrors.baseImage1 && (
@@ -2283,14 +2439,24 @@ export default function AdminPage() {
                     )}
                   </div>
 
+                  {/* Base Image 2 */}
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate)', marginBottom: 4, display: 'block' }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate)', marginBottom: 6, display: 'block' }}>
                       Base Image 2
                     </label>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {prodForm.baseImage2 && (
+                        <img
+                          src={prodForm.baseImage2}
+                          alt="Base 2 Preview"
+                          style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', flexShrink: 0, background: '#FFFFFF' }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )}
                       <input
                         type="text"
                         className="form-control"
+                        placeholder="Image URL or click Upload from device"
                         style={{ flex: 1, background: '#FFFFFF' }}
                         value={prodForm.baseImage2}
                         onChange={e => setProdForm({ ...prodForm, baseImage2: e.target.value })}
@@ -2298,26 +2464,47 @@ export default function AdminPage() {
                       <button
                         type="button"
                         className="btn-secondary"
-                        style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 90 }}
+                        disabled={uploadingFieldKey === 'baseImage2'}
+                        style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 95, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                         onClick={() => {
-                          if (prodForm.baseImage2.trim()) {
-                            setUploadedImagesMap(prev => ({ ...prev, baseImage2: true }));
-                          }
+                          triggerImageUpload('baseImage2', (url) => {
+                            setProdForm(prev => ({ ...prev, baseImage2: url }));
+                            showToast('Base Image 2 uploaded successfully!', 'check');
+                          });
                         }}
                       >
-                        {uploadedImagesMap.baseImage2 || prodForm.baseImage2?.trim() ? '✓ Uploaded' : 'Upload'}
+                        {uploadingFieldKey === 'baseImage2' ? (
+                          <>
+                            <RefreshCw style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
+                            <span>Uploading...</span>
+                          </>
+                        ) : prodForm.baseImage2?.trim() ? (
+                          'Change Image'
+                        ) : (
+                          'Upload'
+                        )}
                       </button>
                     </div>
                   </div>
 
+                  {/* Base Image 3 */}
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate)', marginBottom: 4, display: 'block' }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate)', marginBottom: 6, display: 'block' }}>
                       Base Image 3
                     </label>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {prodForm.baseImage3 && (
+                        <img
+                          src={prodForm.baseImage3}
+                          alt="Base 3 Preview"
+                          style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', flexShrink: 0, background: '#FFFFFF' }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )}
                       <input
                         type="text"
                         className="form-control"
+                        placeholder="Image URL or click Upload from device"
                         style={{ flex: 1, background: '#FFFFFF' }}
                         value={prodForm.baseImage3}
                         onChange={e => setProdForm({ ...prodForm, baseImage3: e.target.value })}
@@ -2325,14 +2512,25 @@ export default function AdminPage() {
                       <button
                         type="button"
                         className="btn-secondary"
-                        style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 90 }}
+                        disabled={uploadingFieldKey === 'baseImage3'}
+                        style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 95, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                         onClick={() => {
-                          if (prodForm.baseImage3.trim()) {
-                            setUploadedImagesMap(prev => ({ ...prev, baseImage3: true }));
-                          }
+                          triggerImageUpload('baseImage3', (url) => {
+                            setProdForm(prev => ({ ...prev, baseImage3: url }));
+                            showToast('Base Image 3 uploaded successfully!', 'check');
+                          });
                         }}
                       >
-                        {uploadedImagesMap.baseImage3 || prodForm.baseImage3?.trim() ? '✓ Uploaded' : 'Upload'}
+                        {uploadingFieldKey === 'baseImage3' ? (
+                          <>
+                            <RefreshCw style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
+                            <span>Uploading...</span>
+                          </>
+                        ) : prodForm.baseImage3?.trim() ? (
+                          'Change Image'
+                        ) : (
+                          'Upload'
+                        )}
                       </button>
                     </div>
                   </div>
@@ -2350,6 +2548,7 @@ export default function AdminPage() {
                   <input
                     type="text"
                     className="form-control"
+                    placeholder="e.g. Gold, Silver, Rose Gold"
                     value={prodForm.colorsText}
                     onChange={e => setProdForm({ ...prodForm, colorsText: e.target.value })}
                   />
@@ -2358,126 +2557,124 @@ export default function AdminPage() {
                 {/* Dynamically rendered color variant image boxes */}
                 {prodForm.colorsText.split(',').map(c => c.trim()).filter(Boolean).map(color => {
                   const colorImgs = prodForm.colorImages[color] || ['', '', ''];
-                  const colorErrKey = `color_${color}_0`;
                   return (
                     <div key={color} style={{ background: 'var(--cream)', padding: 14, borderRadius: 8, marginBottom: 14, border: '1px solid rgba(212, 175, 55, 0.4)' }}>
                       <h5 style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold-dark)', margin: '0 0 10px 0' }}>
                         Images for "{color}" Variant
                       </h5>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <div>
-                          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--onyx)' }}>
-                            {color} Image 1 *
-                          </label>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <input
-                              type="text"
-                              className="form-control"
-                              style={{ flex: 1, background: '#FFFFFF', borderColor: prodFormErrors[colorErrKey] ? '#e53e3e' : undefined }}
-                              value={colorImgs[0] || ''}
-                              onChange={e => {
-                                const updated = [...colorImgs];
-                                updated[0] = e.target.value;
-                                setProdForm({
-                                  ...prodForm,
-                                  colorImages: { ...prodForm.colorImages, [color]: updated }
-                                });
-                                if (prodFormErrors[colorErrKey]) {
-                                  setProdFormErrors(err => ({ ...err, [colorErrKey]: '' }));
-                                }
-                              }}
-                            />
-                            <button
-                              type="button"
-                              className="btn-secondary"
-                              style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 90 }}
-                              onClick={() => {
-                                if (colorImgs[0]?.trim()) {
-                                  setUploadedImagesMap(prev => ({ ...prev, [`${color}_0`]: true }));
-                                }
-                              }}
-                            >
-                              {uploadedImagesMap[`${color}_0`] || colorImgs[0]?.trim() ? '✓ Uploaded' : 'Upload'}
-                            </button>
-                          </div>
-                          {prodFormErrors[colorErrKey] && (
-                            <span style={{ color: '#e53e3e', fontSize: 12, marginTop: 4, display: 'block', fontWeight: 500 }}>
-                              {prodFormErrors[colorErrKey]}
-                            </span>
-                          )}
-                        </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {[0, 1, 2].map(imgIdx => {
+                          const fieldKey = `color_${color}_${imgIdx}`;
+                          const isMandatory = imgIdx === 0;
+                          const imgVal = colorImgs[imgIdx] || '';
+                          const hasError = isMandatory && prodFormErrors[fieldKey];
 
-                        <div>
-                          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--slate)' }}>
-                            {color} Image 2
-                          </label>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <input
-                              type="text"
-                              className="form-control"
-                              style={{ flex: 1, background: '#FFFFFF' }}
-                              value={colorImgs[1] || ''}
-                              onChange={e => {
-                                const updated = [...colorImgs];
-                                updated[1] = e.target.value;
-                                setProdForm({
-                                  ...prodForm,
-                                  colorImages: { ...prodForm.colorImages, [color]: updated }
-                                });
-                              }}
-                            />
-                            <button
-                              type="button"
-                              className="btn-secondary"
-                              style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 90 }}
-                              onClick={() => {
-                                if (colorImgs[1]?.trim()) {
-                                  setUploadedImagesMap(prev => ({ ...prev, [`${color}_1`]: true }));
-                                }
-                              }}
-                            >
-                              {uploadedImagesMap[`${color}_1`] || colorImgs[1]?.trim() ? '✓ Uploaded' : 'Upload'}
-                            </button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--slate)' }}>
-                            {color} Image 3
-                          </label>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <input
-                              type="text"
-                              className="form-control"
-                              style={{ flex: 1, background: '#FFFFFF' }}
-                              value={colorImgs[2] || ''}
-                              onChange={e => {
-                                const updated = [...colorImgs];
-                                updated[2] = e.target.value;
-                                setProdForm({
-                                  ...prodForm,
-                                  colorImages: { ...prodForm.colorImages, [color]: updated }
-                                });
-                              }}
-                            />
-                            <button
-                              type="button"
-                              className="btn-secondary"
-                              style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 90 }}
-                              onClick={() => {
-                                if (colorImgs[2]?.trim()) {
-                                  setUploadedImagesMap(prev => ({ ...prev, [`${color}_2`]: true }));
-                                }
-                              }}
-                            >
-                              {uploadedImagesMap[`${color}_2`] || colorImgs[2]?.trim() ? '✓ Uploaded' : 'Upload'}
-                            </button>
-                          </div>
-                        </div>
+                          return (
+                            <div key={imgIdx}>
+                              <label style={{ fontSize: 11, fontWeight: isMandatory ? 700 : 600, color: isMandatory ? 'var(--onyx)' : 'var(--slate)', marginBottom: 4, display: 'block' }}>
+                                {color} Image {imgIdx + 1} {isMandatory && <span style={{ color: '#e53e3e' }}>*</span>}
+                              </label>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                {imgVal && (
+                                  <img
+                                    src={imgVal}
+                                    alt={`${color} ${imgIdx + 1} Preview`}
+                                    style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', flexShrink: 0, background: '#FFFFFF' }}
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                  />
+                                )}
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  placeholder="Image URL or click Upload from device"
+                                  style={{ flex: 1, background: '#FFFFFF', borderColor: hasError ? '#e53e3e' : undefined }}
+                                  value={imgVal}
+                                  onChange={e => {
+                                    const updated = [...colorImgs];
+                                    updated[imgIdx] = e.target.value;
+                                    setProdForm({
+                                      ...prodForm,
+                                      colorImages: { ...prodForm.colorImages, [color]: updated }
+                                    });
+                                    if (hasError) {
+                                      setProdFormErrors(err => ({ ...err, [fieldKey]: '' }));
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  disabled={uploadingFieldKey === fieldKey}
+                                  style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 95, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                  onClick={() => {
+                                    triggerImageUpload(fieldKey, (url) => {
+                                      setProdForm(prev => {
+                                        const curImgs = prev.colorImages[color] || ['', '', ''];
+                                        const updated = [...curImgs];
+                                        updated[imgIdx] = url;
+                                        return {
+                                          ...prev,
+                                          colorImages: { ...prev.colorImages, [color]: updated }
+                                        };
+                                      });
+                                      if (hasError) {
+                                        setProdFormErrors(err => ({ ...err, [fieldKey]: '' }));
+                                      }
+                                      showToast(`${color} Image ${imgIdx + 1} uploaded successfully!`, 'check');
+                                    });
+                                  }}
+                                >
+                                  {uploadingFieldKey === fieldKey ? (
+                                    <>
+                                      <RefreshCw style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
+                                      <span>Uploading...</span>
+                                    </>
+                                  ) : imgVal?.trim() ? (
+                                    'Change Image'
+                                  ) : (
+                                    'Upload'
+                                  )}
+                                </button>
+                              </div>
+                              {hasError && (
+                                <span style={{ color: '#e53e3e', fontSize: 12, marginTop: 4, display: 'block', fontWeight: 500 }}>
+                                  {prodFormErrors[fieldKey]}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Badges & Storefront Placement */}
+              <div style={{ background: '#FFFFFF', padding: 16, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 20 }}>
+                <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px 0' }}>
+                  Storefront Badges & Visibility
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--onyx)' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!prodForm.newArrival}
+                      onChange={e => setProdForm({ ...prodForm, newArrival: e.target.checked })}
+                      style={{ cursor: 'pointer', accentColor: 'var(--gold)' }}
+                    />
+                    <span>New Arrival (Home Page)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--onyx)' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!prodForm.bestSeller}
+                      onChange={e => setProdForm({ ...prodForm, bestSeller: e.target.checked })}
+                      style={{ cursor: 'pointer', accentColor: 'var(--gold)' }}
+                    />
+                    <span>Best Seller (Home Page)</span>
+                  </label>
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
@@ -2498,7 +2695,7 @@ export default function AdminPage() {
               Stock Movement History
             </h3>
             <p style={{ fontSize: 13, color: 'var(--gold-dark)', fontWeight: 600, marginBottom: 20 }}>
-              {selectedStockProduct.name} (SKU: {selectedStockProduct.sku || 'ABL-JEW'}) — Current Stock: {selectedStockProduct.stockQty || 0}
+              {selectedStockProduct.name} (Product Code: {selectedStockProduct.sku || 'ABL-JEW'}) — Current Stock: {selectedStockProduct.stockQty || 0}
             </p>
 
             <div style={{ background: 'var(--cream)', padding: 16, borderRadius: 8, marginBottom: 20 }}>

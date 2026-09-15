@@ -4,21 +4,24 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 // Default seed data (mirrors app.js initial state)
 // ============================================================
 const DEFAULT_PRODUCTS = [
-  // New Arrivals (All hosted on Cloudinary CDN)
-  { id: 'p_na1', sku: 'ABL-NK-101', name: 'Red Heart Shaped Necklace', category: 'necklaces', price: 179, material: '18K Gold Plated', gemstone: 'Red Gem', inStock: true, stockQty: 15, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796749/abels_by_lincy/Red_heart_shaped_necklace_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796749/abels_by_lincy/Red_heart_shaped_necklace_-_new_arrival.webp'], description: 'A striking red heart-shaped pendant suspended on a fine 18K gold-plated chain.', featured: true, bestSeller: false, newArrival: true, tags: ['necklaces', 'heart', 'red'] },
-  { id: 'p_na2', sku: 'ABL-BR-102', name: 'Butterfly Bracelet', category: 'bracelets', price: 149, material: '18K Gold Plated', gemstone: 'Cubic Zirconia', inStock: true, stockQty: 20, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796731/abels_by_lincy/butterfly_bracelete_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796731/abels_by_lincy/butterfly_bracelete_-_new_arrival.webp'], description: 'Delicate butterfly motif bracelet featuring sparkling cubic zirconia accents.', featured: true, bestSeller: false, newArrival: true, tags: ['bracelets', 'butterfly'] },
-  { id: 'p_na3', sku: 'ABL-CH-103', name: 'Charm Collection', category: 'charms', price: 129, material: '18K Gold Plated', gemstone: 'None', inStock: true, stockQty: 18, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp'], description: 'Artisanal charm set designed to pair beautifully with gold bracelets and chains.', featured: true, bestSeller: false, newArrival: true, tags: ['charms', 'collection'] },
-  { id: 'p_na4', sku: 'ABL-ER-104', name: 'Cherry Drop Earrings', category: 'earrings', price: 119, material: '18K Gold Plated', gemstone: 'Enamel & CZ', inStock: true, stockQty: 12, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796735/abels_by_lincy/cherry_earring_-_new_arrival.jpg', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796735/abels_by_lincy/cherry_earring_-_new_arrival.jpg'], description: 'Playful and elegant cherry drop earrings with vibrant enamel and 18K gold plating.', featured: true, bestSeller: false, newArrival: true, tags: ['earrings', 'cherry'] },
-  { id: 'p_na5', sku: 'ABL-BR-105', name: 'Green Gem Bracelet', category: 'bracelets', price: 169, material: '18K Gold Plated', gemstone: 'Emerald CZ', inStock: true, stockQty: 10, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796741/abels_by_lincy/green_gem_bracelete_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796741/abels_by_lincy/green_gem_bracelete_-_new_arrival.webp'], description: 'Lush green emerald CZ gemstones bezel-set along an 18K gold-plated link bracelet.', featured: true, bestSeller: false, newArrival: true, tags: ['bracelets', 'emerald'] },
-  { id: 'p_na6', sku: 'ABL-BR-106', name: 'Heart Shaped Bracelet', category: 'bracelets', price: 139, material: '18K Gold Plated', gemstone: 'Cubic Zirconia', inStock: true, stockQty: 25, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796742/abels_by_lincy/heart_shaped_bracelete_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796742/abels_by_lincy/heart_shaped_bracelete_-_new_arrival.webp'], description: 'Charming heart link bracelet crafted in high-lustre 18K gold plating.', featured: true, bestSeller: false, newArrival: true, tags: ['bracelets', 'heart'] },
+  // New Arrivals & Charms (All hosted on Cloudinary CDN)
+  { id: 'p_na1', sku: 'ABL-NK-101', name: 'Red Heart Shaped Necklace', category: 'necklaces', price: 179, salePrice: 0, material: '18K Gold Plated', gemstone: 'Red Gem', inStock: true, stockQty: 15, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796749/abels_by_lincy/Red_heart_shaped_necklace_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796749/abels_by_lincy/Red_heart_shaped_necklace_-_new_arrival.webp'], description: 'A striking red heart-shaped pendant suspended on a fine 18K gold-plated chain.', featured: true, bestSeller: false, newArrival: true, tags: ['necklaces', 'heart', 'red'] },
+  { id: 'p_na2', sku: 'ABL-BR-102', name: 'Butterfly Bracelet', category: 'bracelets', price: 149, salePrice: 0, material: '18K Gold Plated', gemstone: 'Cubic Zirconia', inStock: true, stockQty: 20, sizes: [], colors: [], image: '/assets/demo img.png?v=' + Date.now(), images: ['/assets/demo img.png?v=' + Date.now()], description: 'Delicate butterfly motif bracelet featuring sparkling cubic zirconia accents.', featured: true, bestSeller: false, newArrival: true, tags: ['bracelets', 'butterfly'] },
+  { id: 'p_na3', sku: 'N49', name: 'Avacado Charm Necklace', category: 'charms', price: 45, salePrice: 35, material: '18K Gold Plated', gemstone: 'Enamel & Gold', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp'], description: 'Artisanal avocado and fruit charms necklace handcrafted in 18K gold plating.', featured: true, bestSeller: false, newArrival: true, tags: ['charms', 'necklace', 'avocado'] },
+  { id: 'p_ch_flower', sku: 'N31', name: 'Flower Charm Necklace', category: 'charms', price: 40, salePrice: 0, material: '18K Gold Plated', gemstone: 'Enamel', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp'], description: 'Delicate floral pendant charms suspended on an 18K gold-plated chain.', featured: false, bestSeller: false, newArrival: false, tags: ['charms', 'necklace', 'flower'] },
+  { id: 'p_ch_corals', sku: 'N21', name: 'Corals Necklace', category: 'charms', price: 45, salePrice: 0, material: '18K Gold Plated', gemstone: 'Gold Motifs', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796732/abels_by_lincy/charm_collection_-_new_arrival.webp'], description: 'Seaside coral and star charm necklace in 18K gold finish.', featured: false, bestSeller: false, newArrival: false, tags: ['charms', 'necklace', 'corals'] },
+  { id: 'p_nk_cross', sku: 'N03', name: 'Cross Necklace', category: 'necklaces', price: 35, salePrice: 0, material: '18K Gold Plated', gemstone: 'None', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp'], description: 'Classic cross pendant on a dainty 18K gold-plated link chain.', featured: false, bestSeller: false, newArrival: false, tags: ['necklaces', 'cross'] },
+  { id: 'p_na4', sku: 'ABL-ER-104', name: 'Cherry Drop Earrings', category: 'earrings', price: 119, salePrice: 0, material: '18K Gold Plated', gemstone: 'Enamel & CZ', inStock: true, stockQty: 12, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796735/abels_by_lincy/cherry_earring_-_new_arrival.jpg', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796735/abels_by_lincy/cherry_earring_-_new_arrival.jpg'], description: 'Playful and elegant cherry drop earrings with vibrant enamel and 18K gold plating.', featured: true, bestSeller: false, newArrival: true, tags: ['earrings', 'cherry'] },
+  { id: 'p_na5', sku: 'ABL-BR-105', name: 'Green Gem Bracelet', category: 'bracelets', price: 169, salePrice: 0, material: '18K Gold Plated', gemstone: 'Emerald CZ', inStock: true, stockQty: 10, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796741/abels_by_lincy/green_gem_bracelete_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796741/abels_by_lincy/green_gem_bracelete_-_new_arrival.webp'], description: 'Lush green emerald CZ gemstones bezel-set along an 18K gold-plated link bracelet.', featured: true, bestSeller: false, newArrival: true, tags: ['bracelets', 'emerald'] },
+  { id: 'p_na6', sku: 'ABL-BR-106', name: 'Heart Shaped Bracelet', category: 'bracelets', price: 139, salePrice: 0, material: '18K Gold Plated', gemstone: 'Cubic Zirconia', inStock: true, stockQty: 25, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796742/abels_by_lincy/heart_shaped_bracelete_-_new_arrival.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796742/abels_by_lincy/heart_shaped_bracelete_-_new_arrival.webp'], description: 'Charming heart link bracelet crafted in high-lustre 18K gold plating.', featured: true, bestSeller: false, newArrival: true, tags: ['bracelets', 'heart'] },
 
   // Best Sellers (All hosted on Cloudinary CDN)
-  { id: 'p_bs1', sku: 'ABL-NK-201', name: 'Bug Shaped Multi Gems Necklace', category: 'necklaces', price: 219, material: '18K Gold Plated', gemstone: 'Multi Gems', inStock: true, stockQty: 14, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796729/abels_by_lincy/Bug_shaped_multi_gems_neckalace_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796729/abels_by_lincy/Bug_shaped_multi_gems_neckalace_-_best_seller.webp'], description: 'Statement beetle pendant encrusted with multi-colored gemstones in 18K gold setting.', featured: true, bestSeller: true, newArrival: false, tags: ['necklaces', 'gemstones'] },
-  { id: 'p_bs2', sku: 'ABL-BR-202', name: 'Black Heart Gold Bracelet', category: 'bracelets', price: 159, material: '18K Gold Plated', gemstone: 'Black Onyx CZ', inStock: true, stockQty: 16, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796724/abels_by_lincy/black_hearted_gold_shape_bracelete_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796724/abels_by_lincy/black_hearted_gold_shape_bracelete_-_best_seller.webp'], description: 'Elegant black heart motif bracelet framed by radiant 18K gold plating.', featured: true, bestSeller: true, newArrival: false, tags: ['bracelets', 'onyx'] },
-  { id: 'p_bs3', sku: 'ABL-BR-203', name: 'Butterfly Gold Bracelet', category: 'bracelets', price: 149, material: '18K Gold Plated', gemstone: 'Cubic Zirconia', inStock: true, stockQty: 15, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796730/abels_by_lincy/butterfly_bracelete_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796730/abels_by_lincy/butterfly_bracelete_-_best_seller.webp'], description: 'Artisanal butterfly charm bracelet in 18K gold plating.', featured: true, bestSeller: true, newArrival: false, tags: ['bracelets', 'butterfly'] },
-  { id: 'p_bs4', sku: 'ABL-RG-204', name: 'Emerald Gem Ring', category: 'rings', price: 179, material: '18K Gold Plated', gemstone: 'Emerald CZ', inStock: true, stockQty: 12, sizes: ['6', '7', '8', '9'], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796740/abels_by_lincy/gem_ring_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796740/abels_by_lincy/gem_ring_-_best_seller.webp'], description: 'Vibrant emerald CZ gemstone set on an 18K gold-plated band.', featured: true, bestSeller: true, newArrival: false, tags: ['rings', 'emerald'] },
-  { id: 'p_bs5', sku: 'ABL-NK-205', name: 'Soleil Gold Necklace', category: 'necklaces', price: 189, material: '22K Gold Plated', gemstone: 'None', inStock: true, stockQty: 22, sizes: [], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796745/abels_by_lincy/necklace_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796745/abels_by_lincy/necklace_-_best_seller.webp'], description: 'Artisanal sun-inspired medallion necklace with a rich 22K gold-plated finish.', featured: true, bestSeller: true, newArrival: false, tags: ['necklaces', 'soleil'] },
-  { id: 'p_bs6', sku: 'ABL-RG-206', name: 'Royal Solitaire Ring', category: 'rings', price: 169, material: '18K Gold Plated', gemstone: 'Diamond CZ', inStock: true, stockQty: 19, sizes: ['6', '7', '8', '9'], colors: ['Gold'], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796750/abels_by_lincy/ring_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796750/abels_by_lincy/ring_-_best_seller.webp'], description: 'Classic solitaire ring featuring a brilliant-cut CZ diamond set in 18K gold plating.', featured: true, bestSeller: true, newArrival: false, tags: ['rings', 'diamond'] },
+  { id: 'p_bs1', sku: 'ABL-NK-201', name: 'Bug Shaped Multi Gems Necklace', category: 'necklaces', price: 219, salePrice: 0, material: '18K Gold Plated', gemstone: 'Multi Gems', inStock: true, stockQty: 14, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796729/abels_by_lincy/Bug_shaped_multi_gems_neckalace_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796729/abels_by_lincy/Bug_shaped_multi_gems_neckalace_-_best_seller.webp'], description: 'Statement beetle pendant encrusted with multi-colored gemstones in 18K gold setting.', featured: true, bestSeller: true, newArrival: false, tags: ['necklaces', 'gemstones'] },
+  { id: 'p_bs2', sku: 'ABL-BR-202', name: 'Black Heart Gold Bracelet', category: 'bracelets', price: 159, salePrice: 0, material: '18K Gold Plated', gemstone: 'Black Onyx CZ', inStock: true, stockQty: 16, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796724/abels_by_lincy/black_hearted_gold_shape_bracelete_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796724/abels_by_lincy/black_hearted_gold_shape_bracelete_-_best_seller.webp'], description: 'Elegant black heart motif bracelet framed by radiant 18K gold plating.', featured: true, bestSeller: true, newArrival: false, tags: ['bracelets', 'onyx'] },
+  { id: 'p_bs3', sku: 'ABL-BR-203', name: 'Butterfly Gold Bracelet', category: 'bracelets', price: 149, salePrice: 0, material: '18K Gold Plated', gemstone: 'Cubic Zirconia', inStock: true, stockQty: 15, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796730/abels_by_lincy/butterfly_bracelete_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796730/abels_by_lincy/butterfly_bracelete_-_best_seller.webp'], description: 'Artisanal butterfly charm bracelet in 18K gold plating.', featured: true, bestSeller: true, newArrival: false, tags: ['bracelets', 'butterfly'] },
+  { id: 'p_bs4', sku: 'ABL-RG-204', name: 'Emerald Gem Ring', category: 'rings', price: 179, salePrice: 0, material: '18K Gold Plated', gemstone: 'Emerald CZ', inStock: true, stockQty: 12, sizes: ['6', '7', '8', '9'], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796740/abels_by_lincy/gem_ring_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796740/abels_by_lincy/gem_ring_-_best_seller.webp'], description: 'Vibrant emerald CZ gemstone set on an 18K gold-plated band.', featured: true, bestSeller: true, newArrival: false, tags: ['rings', 'emerald'] },
+  { id: 'p_bs5', sku: 'ABL-NK-205', name: 'Soleil Gold Necklace', category: 'necklaces', price: 189, salePrice: 0, material: '22K Gold Plated', gemstone: 'None', inStock: true, stockQty: 22, sizes: [], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796745/abels_by_lincy/necklace_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796745/abels_by_lincy/necklace_-_best_seller.webp'], description: 'Artisanal sun-inspired medallion necklace with a rich 22K gold-plated finish.', featured: true, bestSeller: true, newArrival: false, tags: ['necklaces', 'soleil'] },
+  { id: 'p_bs6', sku: 'ABL-RG-206', name: 'Royal Solitaire Ring', category: 'rings', price: 169, salePrice: 0, material: '18K Gold Plated', gemstone: 'Diamond CZ', inStock: true, stockQty: 19, sizes: ['6', '7', '8', '9'], colors: [], image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796750/abels_by_lincy/ring_-_best_seller.webp', images: ['https://res.cloudinary.com/gylnyxru/image/upload/v1787796750/abels_by_lincy/ring_-_best_seller.webp'], description: 'Classic solitaire ring featuring a brilliant-cut CZ diamond set in 18K gold plating.', featured: true, bestSeller: true, newArrival: false, tags: ['rings', 'diamond'] },
 ];
 
 const DEFAULT_CATEGORIES = [
@@ -160,9 +163,35 @@ const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
   // State mirrors app.js `state` object
-  const [products, setProductsRaw] = useState(() => readLS('abl_products_v5', DEFAULT_PRODUCTS));
+  const [products, setProductsRaw] = useState(() => {
+    const raw10 = readLS('abl_products_v10', null);
+    if (raw10 && Array.isArray(raw10) && raw10.length > 0) return raw10;
+
+    const raw9 = readLS('abl_products_v9', null);
+    const raw8 = readLS('abl_products_v8', null);
+    const raw7 = readLS('abl_products_v7', null);
+    const legacy = readLS('abl_products', null);
+
+    const baseList = raw9 || raw8 || raw7 || legacy || DEFAULT_PRODUCTS;
+    const cleaned = (baseList || DEFAULT_PRODUCTS).map(p => ({
+      ...p,
+      category: (p.category || 'necklaces').trim().toLowerCase(),
+      inStock: p.inStock !== undefined ? Boolean(p.inStock) : ((p.stockQty || 0) > 0),
+      colors: Array.isArray(p.colors) && (p.colors.length === 0 || (p.colors.length === 1 && p.colors[0]?.toLowerCase() === 'gold' && (!p.colorImages || Object.keys(p.colorImages).length === 0))) ? [] : (p.colors || [])
+    }));
+    writeLS('abl_products_v10', cleaned);
+    return cleaned;
+  });
   const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
-  const [orders, setOrdersRaw] = useState(() => readLS('abl_orders_v7', DEFAULT_ORDERS));
+  const [orders, setOrdersRaw] = useState(() => {
+    const raw8 = readLS('abl_orders_v8', null);
+    if (raw8 && Array.isArray(raw8)) return raw8;
+    const raw7 = readLS('abl_orders_v7', null);
+    const legacy = readLS('abl_orders', null);
+    const baseList = raw7 || legacy || DEFAULT_ORDERS;
+    writeLS('abl_orders_v8', baseList);
+    return baseList;
+  });
   const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v7', DEFAULT_CUSTOMERS));
   const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons_v6', DEFAULT_COUPONS));
   const [reviews, setReviewsRaw] = useState(() => readLS('abl_reviews_v6', DEFAULT_REVIEWS));
@@ -178,6 +207,71 @@ export function StoreProvider({ children }) {
   const [messages, setMessagesRaw] = useState(() => readLS('abl_messages_v2', DEFAULT_MESSAGES));
   const [subscribers, setSubscribersRaw] = useState(() => readLS('abl_subscribers_v2', DEFAULT_SUBSCRIBERS));
 
+  // Background sync with backend API (Orders & Products)
+  const syncBackendData = useCallback(async () => {
+    try {
+      // 1. Fetch Orders from Backend
+      const ordersRes = await fetch('/api/orders/all');
+      if (ordersRes.ok) {
+        const data = await ordersRes.json();
+        if (data.success && Array.isArray(data.orders)) {
+          setOrdersRaw(data.orders);
+          writeLS('abl_orders_v8', data.orders);
+        }
+      }
+    } catch {
+      // Backend offline fallback
+    }
+
+    try {
+      // 2. Fetch Products from Backend
+      const prodRes = await fetch('/api/products');
+      if (prodRes.ok) {
+        const data = await prodRes.json();
+        if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+          setProductsRaw(data.products);
+          writeLS('abl_products_v10', data.products);
+        }
+      }
+    } catch {
+      // Backend offline fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    syncBackendData();
+  }, [syncBackendData, adminLoggedIn]);
+
+  // Cross-tab real-time sync via storage event
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (!e.key || !e.newValue) return;
+      try {
+        const val = JSON.parse(e.newValue);
+        if (e.key === 'abl_products_v10' || e.key === 'abl_products_v9') setProductsRaw(val);
+        else if (e.key === 'abl_categories_v5') setCategoriesRaw(val);
+        else if (e.key === 'abl_orders_v8' || e.key === 'abl_orders_v7') setOrdersRaw(val);
+        else if (e.key === 'abl_customers_v7') setCustomersRaw(val);
+        else if (e.key === 'abl_coupons_v6') setCouponsRaw(val);
+        else if (e.key === 'abl_reviews_v6') setReviewsRaw(val);
+        else if (e.key === 'abl_stock_history_v6') setStockHistoryRaw(val);
+        else if (e.key === 'abl_cms_v5') setCMSRaw(val);
+        else if (e.key === 'abl_settings') setSettingsRaw(val);
+        else if (e.key === 'abl_messages_v2') setMessagesRaw(val);
+        else if (e.key === 'abl_subscribers_v2') setSubscribersRaw(val);
+        else if (e.key === 'abl_cart') setCartRaw(val);
+        else if (e.key === 'abl_wishlist') setWishlistRaw(val);
+        else if (e.key === 'abl_current_user') setCurrentUserRaw(val);
+        else if (e.key === 'abl_admin_auth') setAdminLoggedIn(val);
+        else if (e.key === 'abl_admin_user') setAdminUserRaw(val);
+      } catch (err) {
+        // Ignore parse error
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   // Toast state
   const [toasts, setToasts] = useState([]);
 
@@ -185,15 +279,21 @@ export function StoreProvider({ children }) {
   const setProducts = useCallback((updaterOrValue) => {
     setProductsRaw(prev => {
       const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
-      writeLS('abl_products_v5', next);
+      writeLS('abl_products_v10', next);
       return next;
     });
   }, []);
-  const setCategories = useCallback((v) => { setCategoriesRaw(v); writeLS('abl_categories_v5', v); }, []);
+  const setCategories = useCallback((updaterOrValue) => {
+    setCategoriesRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_categories_v5', next);
+      return next;
+    });
+  }, []);
   const setOrders = useCallback((updaterOrValue) => {
     setOrdersRaw(prev => {
       const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
-      writeLS('abl_orders_v7', next);
+      writeLS('abl_orders_v8', next);
       return next;
     });
   }, []);
@@ -204,7 +304,13 @@ export function StoreProvider({ children }) {
       return next;
     });
   }, []);
-  const setCoupons = useCallback((v) => { setCouponsRaw(v); writeLS('abl_coupons_v6', v); }, []);
+  const setCoupons = useCallback((updaterOrValue) => {
+    setCouponsRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_coupons_v6', next);
+      return next;
+    });
+  }, []);
   const setReviews = useCallback((updaterOrValue) => {
     setReviewsRaw(prev => {
       const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
@@ -212,7 +318,13 @@ export function StoreProvider({ children }) {
       return next;
     });
   }, []);
-  const setStockHistory = useCallback((v) => { setStockHistoryRaw(v); writeLS('abl_stock_history_v6', v); }, []);
+  const setStockHistory = useCallback((updaterOrValue) => {
+    setStockHistoryRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_stock_history_v6', next);
+      return next;
+    });
+  }, []);
   const setRoles = useCallback((v) => { setRolesRaw(v); writeLS('abl_roles', v); }, []);
   const setSettings = useCallback((v) => { setSettingsRaw(v); writeLS('abl_settings', v); }, []);
   const setSubscribers = useCallback((updaterOrValue) => {
@@ -229,7 +341,17 @@ export function StoreProvider({ children }) {
       return next;
     });
   }, []);
-  const setCart = useCallback((v) => { setCartRaw(v); writeLS('abl_cart', v); }, []);
+  const setCart = useCallback((updaterOrValue) => {
+    setCartRaw(prev => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_cart', next);
+      const user = readLS('abl_current_user', null);
+      if (user?.email) {
+        writeLS(`abl_cart_${user.email.toLowerCase()}`, next);
+      }
+      return next;
+    });
+  }, []);
   const setWishlist = useCallback((v) => { setWishlistRaw(v); writeLS('abl_wishlist', v); }, []);
   const setCurrentUser = useCallback((v) => { setCurrentUserRaw(v); writeLS('abl_current_user', v); }, []);
   const setAdminUser = useCallback((v) => { setAdminUserRaw(v); writeLS('abl_admin_user', v); }, []);
@@ -240,6 +362,29 @@ export function StoreProvider({ children }) {
       return next;
     });
   }, []);
+
+  // Long-term multi-year Cart preservation: sync account cart on user login
+  useEffect(() => {
+    if (currentUser?.email) {
+      const savedUserCart = readLS(`abl_cart_${currentUser.email.toLowerCase()}`, null);
+      if (Array.isArray(savedUserCart) && savedUserCart.length > 0) {
+        setCartRaw(currentLocalCart => {
+          const merged = [...currentLocalCart];
+          savedUserCart.forEach(savedItem => {
+            const exists = merged.find(m => m.id === savedItem.id && m.size === savedItem.size);
+            if (!exists) {
+              merged.push(savedItem);
+            }
+          });
+          writeLS('abl_cart', merged);
+          writeLS(`abl_cart_${currentUser.email.toLowerCase()}`, merged);
+          return merged;
+        });
+      } else if (cart.length > 0) {
+        writeLS(`abl_cart_${currentUser.email.toLowerCase()}`, cart);
+      }
+    }
+  }, [currentUser?.email]);
 
   // ============================================================
   // showToast
@@ -502,9 +647,10 @@ export function StoreProvider({ children }) {
     setAdminLoggedIn(true);
     writeLS('abl_admin_auth', true);
     setAdminUser(role);
+    syncBackendData();
     showToast(`Welcome, ${role.user}!`, 'check');
     return true;
-  }, [roles, setAdminUser, showToast]);
+  }, [roles, setAdminUser, showToast, syncBackendData]);
 
   const adminLogout = useCallback(() => {
     setAdminLoggedIn(false);
@@ -590,7 +736,16 @@ export function StoreProvider({ children }) {
       rawAmount: orderSubtotal,
       itemsCount: cart.length,
     };
-    setOrders([newOrder, ...orders]);
+    setOrders(prev => [newOrder, ...prev]);
+
+    // Async sync to server
+    try {
+      fetch('/api/orders/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: newOrder })
+      }).catch(() => {});
+    } catch {}
 
     // Update customer spending
     const custIdx = customers.findIndex(c => c.email.toLowerCase() === checkoutData.email.toLowerCase());
@@ -617,53 +772,96 @@ export function StoreProvider({ children }) {
     }
     showToast('Payment successful! Order placed.', 'check');
     return newOrder;
-  }, [cart, products, orders, customers, setProducts, setOrders, setCustomers, setCart, showToast, formatMoney]);
+  }, [cart, products, customers, setProducts, setOrders, setCustomers, setCart, showToast, formatMoney]);
 
   // ============================================================
   // Admin CRUD helpers
   // ============================================================
   const saveProduct = useCallback((productData) => {
-    const existing = products.find(p => p.id === productData.id);
-    if (existing) {
-      setProducts(products.map(p => p.id === productData.id ? { ...p, ...productData } : p));
-    } else {
-      setProducts([...products, { ...productData, id: `p${Date.now()}` }]);
-    }
+    const id = productData.id || `p_${Date.now()}`;
+    const productToSave = {
+      ...productData,
+      id,
+      category: (productData.category || 'necklaces').trim().toLowerCase(),
+      price: Number(productData.price) || 0,
+      salePrice: Number(productData.salePrice || 0),
+      stockQty: Number(productData.stockQty ?? 10),
+      inStock: (Number(productData.stockQty ?? 10)) > 0,
+      images: Array.isArray(productData.images) && productData.images.length > 0 ? productData.images : [productData.image].filter(Boolean),
+      image: productData.image || (Array.isArray(productData.images) && productData.images[0]) || ''
+    };
+
+    setProducts(prev => {
+      const idx = prev.findIndex(p => p.id === id || (productData.id && p.id === productData.id) || (productData.sku && p.sku && p.sku.toLowerCase() === productData.sku.toLowerCase()));
+      let updated;
+      if (idx !== -1) {
+        updated = prev.map((p, i) => i === idx ? { ...p, ...productToSave } : p);
+      } else {
+        updated = [productToSave, ...prev];
+      }
+      // Async sync to server
+      try {
+        fetch('/api/products/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: updated, product: productToSave })
+        }).catch(() => {});
+      } catch {}
+      return updated;
+    });
+
     showToast('Product saved!', 'check');
-  }, [products, setProducts, showToast]);
+  }, [setProducts, showToast]);
 
   const deleteProduct = useCallback((id) => {
-    setProducts(products.filter(p => p.id !== id));
+    setProducts(prev => {
+      const updated = prev.filter(p => p.id !== id);
+      try {
+        fetch('/api/products/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: updated, deleteId: id })
+        }).catch(() => {});
+      } catch {}
+      return updated;
+    });
     showToast('Product deleted', 'check');
-  }, [products, setProducts, showToast]);
+  }, [setProducts, showToast]);
 
   const adjustStockQty = useCallback((id, delta) => {
-    setProducts(products.map(p => p.id === id ? { ...p, stockQty: Math.max(0, (p.stockQty || 0) + delta) } : p));
-  }, [products, setProducts]);
+    setProducts(prev => prev.map(p => {
+      if (p.id === id) {
+        const newQty = Math.max(0, (p.stockQty || 0) + delta);
+        return { ...p, stockQty: newQty, inStock: newQty > 0 };
+      }
+      return p;
+    }));
+  }, [setProducts]);
 
   const restockAllLowStock = useCallback((qty) => {
-    setProducts(products.map(p => (p.stockQty || 0) <= 8 ? { ...p, stockQty: (p.stockQty || 0) + qty, inStock: true } : p));
+    setProducts(prev => prev.map(p => (p.stockQty || 0) <= 8 ? { ...p, stockQty: (p.stockQty || 0) + qty, inStock: true } : p));
     showToast('Low stock items restocked!', 'check');
-  }, [products, setProducts, showToast]);
+  }, [setProducts, showToast]);
 
   const saveCategory = useCallback((catData) => {
-    const existing = categories.find(c => c.id === catData.id);
-    if (existing) {
-      setCategories(categories.map(c => c.id === catData.id ? { ...c, ...catData } : c));
-    } else {
-      setCategories([...categories, catData]);
-    }
+    setCategories(prev => {
+      const idx = prev.findIndex(c => c.id === catData.id);
+      if (idx !== -1) {
+        return prev.map((c, i) => i === idx ? { ...c, ...catData } : c);
+      }
+      return [...prev, catData];
+    });
     showToast('Category saved!', 'check');
-  }, [categories, setCategories, showToast]);
+  }, [setCategories, showToast]);
 
   const deleteCategory = useCallback((id) => {
-    setCategories(categories.filter(c => c.id !== id));
+    setCategories(prev => prev.filter(c => c.id !== id));
     showToast('Category deleted', 'check');
-  }, [categories, setCategories, showToast]);
+  }, [setCategories, showToast]);
 
   const updateOrderStatus = useCallback((id, newStatus, additionalData = {}) => {
     let affectedOrder = null;
-    setOrders(orders.map(o => {
+    setOrders(prevOrders => prevOrders.map(o => {
       if (o.id === id) {
         const isCancelled = newStatus === 'Cancelled' || newStatus === 'Refunded';
         const rawAmt = o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0;
@@ -681,6 +879,17 @@ export function StoreProvider({ children }) {
       return o;
     }));
 
+    // Async sync updated order to server
+    if (affectedOrder) {
+      try {
+        fetch('/api/orders/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: affectedOrder })
+        }).catch(() => {});
+      } catch {}
+    }
+
     // Update customer spending when an order is cancelled or refunded
     if (affectedOrder && (newStatus === 'Cancelled' || newStatus === 'Refunded') && affectedOrder.email) {
       setCustomers(prev => prev.map(c => {
@@ -695,23 +904,33 @@ export function StoreProvider({ children }) {
     }
 
     showToast(`Order status updated to ${newStatus}`, 'check');
-  }, [orders, setOrders, setCustomers, showToast]);
+  }, [setOrders, setCustomers, showToast]);
 
   const cycleOrderStatus = useCallback((id) => {
     const statuses = ['Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
-    setOrders(orders.map(o => {
+    setOrders(prevOrders => prevOrders.map(o => {
       if (o.id === id) {
         const idx = statuses.indexOf(o.status);
         return { ...o, status: statuses[(idx + 1) % statuses.length] };
       }
       return o;
     }));
-  }, [orders, setOrders]);
+  }, [setOrders]);
 
   const deleteOrder = useCallback((id) => {
-    setOrders(orders.filter(o => o.id !== id));
+    setOrders(prev => {
+      const updated = prev.filter(o => o.id !== id);
+      try {
+        fetch('/api/orders/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orders: updated, deleteId: id })
+        }).catch(() => {});
+      } catch {}
+      return updated;
+    });
     showToast('Order deleted', 'check');
-  }, [orders, setOrders, showToast]);
+  }, [setOrders, showToast]);
 
   const saveCustomer = useCallback((custData) => {
     const existing = customers.find(c => c.id === custData.id);

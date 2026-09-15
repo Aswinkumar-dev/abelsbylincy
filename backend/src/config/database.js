@@ -72,6 +72,28 @@ async function runMigrations(connection) {
     } catch (userErr) {
       console.warn('⚠️ Users table migration note:', userErr.message);
     }
+
+    // 5. Check categories table for Silver Collections & Seasonal Collections
+    try {
+      const [existingCats] = await connection.query('SELECT slug FROM categories');
+      const catSlugs = existingCats.map(c => c.slug);
+      if (!catSlugs.includes('silver-collections')) {
+        await connection.query(
+          `INSERT INTO categories (name, slug, description, image_url, sort_order, is_active)
+           VALUES ('Silver Collections', 'silver-collections', 'Exquisite sterling silver jewellery and artisanal pieces.', 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp', 7, TRUE)`
+        );
+        console.log('Migrated: Seeded Silver Collections into categories table.');
+      }
+      if (!catSlugs.includes('seasonal-collections')) {
+        await connection.query(
+          `INSERT INTO categories (name, slug, description, image_url, sort_order, is_active)
+           VALUES ('Seasonal Collections', 'seasonal-collections', 'Curated seasonal jewellery pieces and limited releases.', 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png', 8, TRUE)`
+        );
+        console.log('Migrated: Seeded Seasonal Collections into categories table.');
+      }
+    } catch (catErr) {
+      // ignore if categories table is not created yet
+    }
   } catch (err) {
     console.error('⚠️ Database migration warning (tables may not exist yet):', err.message);
   }

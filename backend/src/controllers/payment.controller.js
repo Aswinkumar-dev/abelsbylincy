@@ -436,6 +436,22 @@ const recordStripeOrder = async (req, res, next) => {
       console.log('Database note (order logged locally):', dbErr.message);
     }
 
+    // Always persist to server-side fileStore
+    try {
+      const { getStoredOrders, saveStoredOrders } = require('../utils/fileStore');
+      const currentOrders = getStoredOrders() || [];
+      const orderMap = new Map();
+      currentOrders.forEach(o => {
+        const key = o.id || o.order_number || o.uuid;
+        if (key) orderMap.set(String(key), o);
+      });
+      const orderKey = order.id || order.order_number || `ABL-${Date.now()}`;
+      orderMap.set(String(orderKey), { ...(orderMap.get(String(orderKey)) || {}), ...order, id: orderKey });
+      saveStoredOrders(Array.from(orderMap.values()));
+    } catch (fsErr) {
+      console.error('FileStore order save error:', fsErr.message);
+    }
+
     res.status(200).json({ success: true, message: 'Stripe order recorded successfully.' });
   } catch (error) {
     next(error);

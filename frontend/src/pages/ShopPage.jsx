@@ -65,23 +65,32 @@ export default function ShopPage() {
 
   const filteredProducts = products
     .filter(p => {
-      if (activeCategory === 'all') return true;
-      if (activeCategory === 'new-arrivals') return Boolean(p.newArrival);
-      if (activeCategory === 'best-sellers') return Boolean(p.bestSeller);
-      if (activeCategory === 'silver-collections') return p.material?.toLowerCase().includes('silver');
-      if (activeCategory === 'seasonal-collections') return p.tags?.includes('seasonal');
-      return p.category === activeCategory;
+      const pCat = (p.category || '').toLowerCase().trim();
+      const active = (activeCategory || 'all').toLowerCase().trim();
+      if (active === 'all') return true;
+      if (active === 'new-arrivals') return Boolean(p.newArrival);
+      if (active === 'best-sellers') return Boolean(p.bestSeller);
+      if (active === 'silver-collections') return pCat === 'silver-collections' || p.material?.toLowerCase().includes('silver') || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('silver')));
+      if (active === 'seasonal-collections') return pCat === 'seasonal-collections' || (p.collection && p.collection.toLowerCase().includes('seasonal')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('seasonal')));
+      if (active === 'charms' || active === 'charm') {
+        return pCat === 'charms' || pCat === 'charm' || (p.name && p.name.toLowerCase().includes('charm')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('charm')));
+      }
+      return pCat === active;
     })
-    .filter(p => selectedMaterials.length === 0 || selectedMaterials.includes(p.material))
-    .filter(p => selectedGemstones.length === 0 || selectedGemstones.includes(p.gemstone))
-    .filter(p => p.price <= maxPrice)
-    .filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(p => selectedMaterials.length === 0 || (p.material && selectedMaterials.includes(p.material)))
+    .filter(p => selectedGemstones.length === 0 || (p.gemstone && selectedGemstones.includes(p.gemstone)))
+    .filter(p => Number(p.price || 0) <= maxPrice)
+    .filter(p => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (p.name || '').toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q);
+    })
     .sort((a, b) => {
       switch (currentSort) {
-        case 'price-asc': return a.price - b.price;
-        case 'price-desc': return b.price - a.price;
+        case 'price-asc': return (Number(a.price) || 0) - (Number(b.price) || 0);
+        case 'price-desc': return (Number(b.price) || 0) - (Number(a.price) || 0);
         case 'newest': return (b.newArrival ? 1 : 0) - (a.newArrival ? 1 : 0);
-        case 'name-asc': return a.name.localeCompare(b.name);
+        case 'name-asc': return (a.name || '').localeCompare(b.name || '');
         default: return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
       }
     });
@@ -152,7 +161,13 @@ export default function ShopPage() {
                   const count = cat.id === 'all' ? products.length :
                                 cat.id === 'new-arrivals' ? products.filter(p => p.newArrival).length :
                                 cat.id === 'best-sellers' ? products.filter(p => p.bestSeller).length :
-                                products.filter(p => p.category === cat.id).length;
+                                cat.id === 'silver-collections' ? products.filter(p => (p.category || '').toLowerCase().trim() === 'silver-collections' || p.material?.toLowerCase().includes('silver') || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('silver')))).length :
+                                cat.id === 'seasonal-collections' ? products.filter(p => (p.category || '').toLowerCase().trim() === 'seasonal-collections' || (p.collection && p.collection.toLowerCase().includes('seasonal')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('seasonal')))).length :
+                                cat.id === 'charms' ? products.filter(p => {
+                                  const c = (p.category || '').toLowerCase().trim();
+                                  return c === 'charms' || c === 'charm' || (p.name && p.name.toLowerCase().includes('charm')) || (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('charm')));
+                                }).length :
+                                products.filter(p => (p.category || '').toLowerCase().trim() === cat.id.toLowerCase().trim()).length;
                   return (
                     <li
                       key={cat.id}

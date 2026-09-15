@@ -114,8 +114,82 @@ const getOrderDetails = async (req, res, next) => {
   }
 };
 
+const { getStoredOrders, saveStoredOrders } = require('../utils/fileStore');
+
+const getAllOrders = async (req, res, next) => {
+  try {
+    let dbOrders = [];
+    try {
+      const [rows] = await db.query('SELECT * FROM orders ORDER BY created_at DESC');
+      for (const order of rows) {
+        try {
+          const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
+          const [addresses] = await db.query('SELECT * FROM order_addresses WHERE order_id = ?', [order.id]);
+          order.items = items;
+          order.addresses = addresses;
+        } catch {}
+      }
+      dbOrders = rows;
+    } catch (e) {
+      // DB offline fallback
+    }
+
+    const fileOrders = getStoredOrders() || [];
+    
+    // Merge unique orders by ID or order_number
+    const orderMap = new Map();
+    [...fileOrders, ...dbOrders].forEach(o => {
+      const key = o.id || o.order_number || o.uuid;
+      if (key) {
+        orderMap.set(String(key), { ...(orderMap.get(String(key)) || {}), ...o });
+      }
+    });
+
+    const merged = Array.from(orderMap.values());
+    res.status(200).json({ success: true, orders: merged });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const syncOrders = async (req, res, next) => {
+  try {
+    const { order, orders, deleteId } = req.body;
+    let currentOrders = getStoredOrders() || [];
+
+    if (Array.isArray(orders)) {
+      saveStoredOrders(orders);
+      return res.status(200).json({ success: true, message: 'Orders synchronized successfully.', orders });
+    }
+
+    if (deleteId) {
+      currentOrders = currentOrders.filter(o => o.id !== deleteId && o.order_number !== deleteId);
+      saveStoredOrders(currentOrders);
+      return res.status(200).json({ success: true, message: 'Order deleted from server.', orders: currentOrders });
+    }
+
+    if (order) {
+      const key = order.id || order.order_number || `ABL-${Date.now()}`;
+      const idx = currentOrders.findIndex(o => o.id === key || o.order_number === key);
+      if (idx !== -1) {
+        currentOrders[idx] = { ...currentOrders[idx], ...order, id: key };
+      } else {
+        currentOrders.unshift({ ...order, id: key });
+      }
+      saveStoredOrders(currentOrders);
+      return res.status(200).json({ success: true, message: 'Order saved.', orders: currentOrders });
+    }
+
+    res.status(200).json({ success: true, orders: currentOrders });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createOrder,
   getOrderHistory,
-  getOrderDetails
+  getOrderDetails,
+  getAllOrders,
+  syncOrders
 };
