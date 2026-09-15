@@ -1,5 +1,49 @@
 [
   {
+    "id": "p_na1",
+    "sku": "ABL-NK-101",
+    "name": "Red Heart Shaped Necklace",
+    "category": "necklaces",
+    "price": 179,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "Red Gem",
+    "inStock": true,
+    "stockQty": 15,
+    "sizes": [],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796749/abels_by_lincy/Red_heart_shaped_necklace_-_new_arrival.webp",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796749/abels_by_lincy/Red_heart_shaped_necklace_-_new_arrival.webp"
+    ],
+    "description": "A striking red heart-shaped pendant suspended on a fine 18K gold-plated chain.",
+    "featured": true,
+    "bestSeller": false,
+    "newArrival": true,
+    "tags": ["necklaces", "heart", "red"]
+  },
+  {
+    "id": "p_na2",
+    "sku": "ABL-BR-102",
+    "name": "Butterfly Bracelet",
+    "category": "bracelets",
+    "price": 149,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "Cubic Zirconia",
+    "inStock": true,
+    "stockQty": 20,
+    "sizes": [],
+    "colors": [],
+    "image": "/assets/demo img.png",
+    "images": ["/assets/demo img.png"],
+    "description": "Delicate butterfly motif bracelet featuring sparkling cubic zirconia accents.",
+    "featured": true,
+    "bestSeller": false,
+    "newArrival": true,
+    "tags": ["bracelets", "butterfly"]
+  },
+  {
     "id": "p_na3",
     "sku": "N49",
     "name": "Avacado Charm Necklace",
@@ -20,11 +64,7 @@
     "featured": true,
     "bestSeller": false,
     "newArrival": true,
-    "tags": [
-      "charms",
-      "necklace",
-      "avocado"
-    ]
+    "tags": ["charms", "necklace", "avocado"]
   },
   {
     "id": "p_ch_flower",
@@ -47,11 +87,7 @@
     "featured": false,
     "bestSeller": false,
     "newArrival": false,
-    "tags": [
-      "charms",
-      "necklace",
-      "flower"
-    ]
+    "tags": ["charms", "necklace", "flower"]
   },
   {
     "id": "p_ch_corals",
@@ -74,10 +110,236 @@
     "featured": false,
     "bestSeller": false,
     "newArrival": false,
-    "tags": [
-      "charms",
-      "necklace",
-      "corals"
-    ]
+    "tags": ["charms", "necklace", "corals"]
+  },
+  {
+    "id": "p_nk_cross",
+    "sku": "N03",
+    "name": "Cross Necklace",
+    "category": "necklaces",
+    "price": 35,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "None",
+    "inStock": true,
+    "stockQty": 10,
+    "sizes": [],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796748/abels_by_lincy/necklace-hero.webp"
+    ],
+    "description": "Classic cross pendant on a dainty 18K gold-plated link chain.",
+    "featured": false,
+    "bestSeller": false,
+    "newArrival": false,
+    "tags": ["necklaces", "cross"]
+  },
+  {
+    "id": "p_na4",
+    "sku": "ABL-ER-104",
+    "name": "Cherry Drop Earrings",
+    "category": "earrings",
+    "price": 119,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "Enamel & CZ",
+    "inStock": true,
+    "stockQty": 12,
+    "sizes": [],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796735/abels_by_lincy/cherry_earring_-_new_arrival.jpg",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796735/abels_by_lincy/cherry_earring_-_new_arrival.jpg"
+    ],
+    "description": "Playful and elegant cherry drop earrings with vibrant enamel and 18K gold plating.",
+    "featured": true,
+    "bestSeller": false,
+    "newArrival": true,
+    "tags": ["earrings", "cherry"]
+  },
+  {
+    "id": "p_na5",
+    "sku": "ABL-BR-105",
+    "name": "Green Gem Bracelet",
+    "category": "bracelets",
+    "price": 169,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "Emerald CZ",
+    "inStock": true,
+    "stockQty": 10,
+    "sizes": [],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796741/abels_by_lincy/green_gem_bracelete_-_new_arrival.webp",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796741/abels_by_lincy/green_gem_bracelete_-_new_arrival.webp"
+    ],
+    "description": "Lush green emerald CZ gemstones bezel-set along an 18K gold-plated link bracelet.",
+    "featured": true,
+    "bestSeller": false,
+    "newArrival": true,
+    "tags": ["bracelets", "emerald"]
+  },
+  {
+    "id": "p_na6",
+    "sku": "ABL-BR-106",
+    "name": "Heart Shaped Bracelet",
+    "category": "bracelets",
+    "price": 139,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "Cubic Zirconia",
+    "inStock": true,
+    "stockQty": 25,
+    "sizes": [],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796742/abels_by_lincy/heart_shaped_bracelete_-_new_arrival.webp",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796742/abels_by_lincy/heart_shaped_bracelete_-_new_arrival.webp"
+    ],
+    "description": "Charming heart link bracelet crafted in high-lustre 18K gold plating.",
+    "featured": true,
+    "bestSeller": false,
+    "newArrival": true,
+    "tags": ["bracelets", "heart"]
+  },
+  {
+    "id": "p_bs1",
+    "sku": "ABL-NK-201",
+    "name": "Bug Shaped Multi Gems Necklace",
+    "category": "necklaces",
+    "price": 219,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "Multi Gems",
+    "inStock": true,
+    "stockQty": 14,
+    "sizes": [],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796729/abels_by_lincy/Bug_shaped_multi_gems_neckalace_-_best_seller.webp",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796729/abels_by_lincy/Bug_shaped_multi_gems_neckalace_-_best_seller.webp"
+    ],
+    "description": "Statement beetle pendant encrusted with multi-colored gemstones in 18K gold setting.",
+    "featured": true,
+    "bestSeller": true,
+    "newArrival": false,
+    "tags": ["necklaces", "gemstones"]
+  },
+  {
+    "id": "p_bs2",
+    "sku": "ABL-BR-202",
+    "name": "Black Heart Gold Bracelet",
+    "category": "bracelets",
+    "price": 159,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "Black Onyx CZ",
+    "inStock": true,
+    "stockQty": 16,
+    "sizes": [],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796724/abels_by_lincy/black_hearted_gold_shape_bracelete_-_best_seller.webp",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796724/abels_by_lincy/black_hearted_gold_shape_bracelete_-_best_seller.webp"
+    ],
+    "description": "Elegant black heart motif bracelet framed by radiant 18K gold plating.",
+    "featured": true,
+    "bestSeller": true,
+    "newArrival": false,
+    "tags": ["bracelets", "onyx"]
+  },
+  {
+    "id": "p_bs3",
+    "sku": "ABL-BR-203",
+    "name": "Butterfly Gold Bracelet",
+    "category": "bracelets",
+    "price": 149,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "Cubic Zirconia",
+    "inStock": true,
+    "stockQty": 15,
+    "sizes": [],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796730/abels_by_lincy/butterfly_bracelete_-_best_seller.webp",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796730/abels_by_lincy/butterfly_bracelete_-_best_seller.webp"
+    ],
+    "description": "Artisanal butterfly charm bracelet in 18K gold plating.",
+    "featured": true,
+    "bestSeller": true,
+    "newArrival": false,
+    "tags": ["bracelets", "butterfly"]
+  },
+  {
+    "id": "p_bs4",
+    "sku": "ABL-RG-204",
+    "name": "Emerald Gem Ring",
+    "category": "rings",
+    "price": 179,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "Emerald CZ",
+    "inStock": true,
+    "stockQty": 12,
+    "sizes": ["6", "7", "8", "9"],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796740/abels_by_lincy/gem_ring_-_best_seller.webp",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796740/abels_by_lincy/gem_ring_-_best_seller.webp"
+    ],
+    "description": "Vibrant emerald CZ gemstone set on an 18K gold-plated band.",
+    "featured": true,
+    "bestSeller": true,
+    "newArrival": false,
+    "tags": ["rings", "emerald"]
+  },
+  {
+    "id": "p_bs5",
+    "sku": "ABL-NK-205",
+    "name": "Soleil Gold Necklace",
+    "category": "necklaces",
+    "price": 189,
+    "salePrice": 0,
+    "material": "22K Gold Plated",
+    "gemstone": "None",
+    "inStock": true,
+    "stockQty": 22,
+    "sizes": [],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796745/abels_by_lincy/necklace_-_best_seller.webp",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796745/abels_by_lincy/necklace_-_best_seller.webp"
+    ],
+    "description": "Artisanal sun-inspired medallion necklace with a rich 22K gold-plated finish.",
+    "featured": true,
+    "bestSeller": true,
+    "newArrival": false,
+    "tags": ["necklaces", "soleil"]
+  },
+  {
+    "id": "p_bs6",
+    "sku": "ABL-RG-206",
+    "name": "Royal Solitaire Ring",
+    "category": "rings",
+    "price": 169,
+    "salePrice": 0,
+    "material": "18K Gold Plated",
+    "gemstone": "Diamond CZ",
+    "inStock": true,
+    "stockQty": 19,
+    "sizes": ["6", "7", "8", "9"],
+    "colors": [],
+    "image": "https://res.cloudinary.com/gylnyxru/image/upload/v1787796750/abels_by_lincy/ring_-_best_seller.webp",
+    "images": [
+      "https://res.cloudinary.com/gylnyxru/image/upload/v1787796750/abels_by_lincy/ring_-_best_seller.webp"
+    ],
+    "description": "Classic solitaire ring featuring a brilliant-cut CZ diamond set in 18K gold plating.",
+    "featured": true,
+    "bestSeller": true,
+    "newArrival": false,
+    "tags": ["rings", "diamond"]
   }
 ]

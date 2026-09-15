@@ -235,9 +235,21 @@ export function StoreProvider({ children }) {
       const ordersRes = await fetch('/api/orders/all');
       if (ordersRes.ok) {
         const data = await ordersRes.json();
-        if (data.success && Array.isArray(data.orders)) {
-          setOrdersRaw(data.orders);
-          writeLS('abl_orders_v8', data.orders);
+        if (data.success && Array.isArray(data.orders) && data.orders.length > 0) {
+          setOrdersRaw(prev => {
+            const orderMap = new Map();
+            data.orders.forEach(o => {
+              const k = o.id || o.order_number || o.uuid;
+              if (k) orderMap.set(String(k), o);
+            });
+            prev.forEach(o => {
+              const k = o.id || o.order_number || o.uuid;
+              if (k) orderMap.set(String(k), { ...(orderMap.get(String(k)) || {}), ...o });
+            });
+            const merged = Array.from(orderMap.values());
+            writeLS('abl_orders_v8', merged);
+            return merged;
+          });
         }
       }
     } catch {
@@ -250,8 +262,37 @@ export function StoreProvider({ children }) {
       if (prodRes.ok) {
         const data = await prodRes.json();
         if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-          setProductsRaw(data.products);
-          writeLS('abl_products_v10', data.products);
+          setProductsRaw(prev => {
+            const prodMap = new Map();
+            // Start with backend server products
+            data.products.forEach(p => {
+              const key = p.id || p.sku;
+              if (key && p.id !== 'p1' && p.sku !== 'ABL-R001') {
+                prodMap.set(String(key), p);
+              }
+            });
+            // Merge all local products on top so user's newly added products are NEVER overwritten!
+            prev.forEach(p => {
+              const key = p.id || p.sku;
+              if (key && p.id !== 'p1' && p.sku !== 'ABL-R001') {
+                prodMap.set(String(key), { ...(prodMap.get(String(key)) || {}), ...p });
+              }
+            });
+            const merged = Array.from(prodMap.values());
+            if (merged.length > 0) {
+              writeLS('abl_products_v10', merged);
+              // Background sync the combined list so server also gets any newly added products
+              try {
+                fetch('/api/products/sync', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ products: merged })
+                }).catch(() => {});
+              } catch {}
+              return merged;
+            }
+            return prev;
+          });
         }
       }
     } catch {
