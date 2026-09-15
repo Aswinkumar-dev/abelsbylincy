@@ -1822,8 +1822,21 @@ input, select, textarea {
   flex-direction: column;
   gap: 10px;
   width: 72px;
+  max-height: 500px;
+  overflow-y: auto;
+  overflow-x: hidden;
   flex-shrink: 0;
   order: 1;
+  padding-right: 2px;
+}
+
+.pdp-thumbnails::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pdp-thumbnails::-webkit-scrollbar-thumb {
+  background: var(--border-dark);
+  border-radius: 4px;
 }
 
 .thumbnail-btn {

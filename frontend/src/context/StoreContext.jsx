@@ -514,15 +514,23 @@ export function StoreProvider({ children }) {
   // ============================================================
   // Cart actions
   // ============================================================
-  const addToCart = useCallback((id, qty = 1, size = '') => {
+  const addToCart = useCallback((id, qty = 1, size = '', color = '') => {
     setCart(prev => {
-      const existing = prev.find(i => i.id === id && i.size === size);
+      const existing = prev.find(i => i.id === id && (i.size || '') === (size || '') && (i.color || '') === (color || ''));
       const product = products.find(p => p.id === id);
       if (!product) return prev;
-      if (existing) {
-        return prev.map(i => i.id === id && i.size === size ? { ...i, quantity: i.quantity + qty } : i);
+      let itemImg = product.images?.[0] || product.image;
+      if (color && product.colorImages?.[color]?.[0]) {
+        itemImg = product.colorImages[color][0];
       }
-      return [...prev, { id, name: product.name, price: product.price, image: product.images?.[0] || product.image, quantity: qty, size }];
+      const itemPrice = (product.salePrice && Number(product.salePrice) > 0 && Number(product.salePrice) < Number(product.price))
+        ? Number(product.salePrice)
+        : Number(product.price);
+
+      if (existing) {
+        return prev.map(i => (i.id === id && (i.size || '') === (size || '') && (i.color || '') === (color || '')) ? { ...i, quantity: i.quantity + qty } : i);
+      }
+      return [...prev, { id, name: product.name, price: itemPrice, image: itemImg, quantity: qty, size: size || '', color: color || '' }];
     });
     const product = products.find(p => p.id === id);
     if (typeof window !== 'undefined' && window.gtag && product) {
@@ -535,13 +543,13 @@ export function StoreProvider({ children }) {
     showToast('Product Added to Cart!', 'cart', { label: 'View Bag', link: '/cart' });
   }, [products, setCart, showToast]);
 
-  const updateCartQty = useCallback((id, qty) => {
+  const updateCartQty = useCallback((id, qty, size = '', color = '') => {
     if (qty < 1) return;
-    setCart(prev => prev.map(i => i.id === id ? { ...i, quantity: qty } : i));
+    setCart(prev => prev.map(i => (i.id === id && (i.size || '') === (size || '') && (i.color || '') === (color || '')) ? { ...i, quantity: qty } : i));
   }, [setCart]);
 
-  const removeFromCart = useCallback((id) => {
-    setCart(prev => prev.filter(i => i.id !== id));
+  const removeFromCart = useCallback((id, size = '', color = '') => {
+    setCart(prev => prev.filter(i => !(i.id === id && (i.size || '') === (size || '') && (i.color || '') === (color || ''))));
     showToast('Removed from bag', 'check');
   }, [setCart, showToast]);
 

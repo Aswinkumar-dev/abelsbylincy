@@ -98,7 +98,7 @@ export default function CartPage() {
           {enrichedCart.map(item => {
             const isWishlisted = wishlist.includes(item.id);
             return (
-              <div key={`${item.id}-${item.size}`} className="cart-item" style={{ opacity: item.isOutOfStock ? 0.88 : 1, borderLeft: item.isOutOfStock ? '3px solid #EF4444' : undefined }}>
+              <div key={`${item.id}-${item.size || ''}-${item.color || ''}`} className="cart-item" style={{ opacity: item.isOutOfStock ? 0.88 : 1, borderLeft: item.isOutOfStock ? '3px solid #EF4444' : undefined }}>
                 <img
                   src={item.image}
                   alt={item.name}
@@ -113,6 +113,7 @@ export default function CartPage() {
                 
                 <div className="cart-item-details">
                   <p className="cart-item-name">{item.name}</p>
+                  {item.color && <p className="cart-item-size" style={{ textTransform: 'uppercase' }}>Color: {item.color}</p>}
                   {item.size && <p className="cart-item-size">Size: {item.size}</p>}
                   
                   {/* Out of Stock / Low Stock Indicators */}
@@ -138,7 +139,7 @@ export default function CartPage() {
                   <div className="qty-control">
                     <button
                       className="qty-btn"
-                      onClick={() => updateCartQty(item.id, item.quantity - 1)}
+                      onClick={() => updateCartQty(item.id, item.quantity - 1, item.size, item.color)}
                       disabled={item.quantity <= 1 || item.isOutOfStock}
                       title={item.isOutOfStock ? 'Item is out of stock' : 'Decrease quantity'}
                     >
@@ -152,7 +153,7 @@ export default function CartPage() {
                           if (item.maxAvailable && item.quantity >= item.maxAvailable) {
                             return;
                           }
-                          updateCartQty(item.id, item.quantity + 1);
+                          updateCartQty(item.id, item.quantity + 1, item.size, item.color);
                         }
                       }}
                       disabled={item.isOutOfStock || (item.maxAvailable > 0 && item.quantity >= item.maxAvailable)}
@@ -175,7 +176,7 @@ export default function CartPage() {
                     </button>
                     <button
                       className="cart-item-remove"
-                      onClick={() => removeFromCart(item.id)}
+                      onClick={() => removeFromCart(item.id, item.size, item.color)}
                       aria-label="Remove item"
                       title="Remove from bag"
                     >

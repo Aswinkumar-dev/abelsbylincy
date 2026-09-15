@@ -31,8 +31,8 @@ export default function ProductPage() {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     setSelectedImageIdx(0);
     setSelectedSize(product?.sizes?.[0] || '');
-    const defaultColor = product?.colors?.[0] || (product?.colorImages ? Object.keys(product.colorImages)[0] : '');
-    setSelectedColor(defaultColor || '');
+    // Reset color to empty so base product image is always shown first
+    setSelectedColor('');
   }, [productId, product, navigate]);
 
   if (!product) return null;
@@ -57,17 +57,80 @@ export default function ProductPage() {
     return [...sameCategory, ...sameMaterialOrGem, ...fallbackOther].slice(0, 4);
   }, [product, products]);
 
-  // Determine active images gallery (color-specific images if available, else base images)
-  const availableColorImgs = (selectedColor && product.colorImages?.[selectedColor]?.filter(Boolean)) || [];
-  const rawImages = availableColorImgs.length > 0 ? availableColorImgs : (product.images?.length > 0 ? product.images : [product.image]);
-  const images = Array.from(new Set(rawImages.filter(Boolean)));
+  // Build complete image list: Base Images first, then all variant color images so ALL thumbnails are always visible on the left
+  const galleryItems = React.useMemo(() => {
+    if (!product) return [];
+    const items = [];
+    const seenUrls = new Set();
+
+    // 1. Base product images first
+    const baseImgs = [
+      ...(Array.isArray(product.images) ? product.images : []),
+      product.image
+    ].filter(Boolean);
+
+    baseImgs.forEach(url => {
+      if (!seenUrls.has(url)) {
+        seenUrls.add(url);
+        items.push({ url, color: '', isBase: true });
+      }
+    });
+
+    // 2. All color variant images
+    if (product.colorImages && typeof product.colorImages === 'object') {
+      Object.entries(product.colorImages).forEach(([colorName, imgs]) => {
+        if (Array.isArray(imgs)) {
+          imgs.filter(Boolean).forEach(url => {
+            if (!seenUrls.has(url)) {
+              seenUrls.add(url);
+              items.push({ url, color: colorName, isBase: false });
+            }
+          });
+        }
+      });
+    }
+
+    // Fallback if no images found
+    if (items.length === 0) {
+      items.push({ url: '/assets/necklace-hero.webp', color: '', isBase: true });
+    }
+
+    return items;
+  }, [product]);
+
+  const images = galleryItems.map(item => item.url);
+
+  const handleThumbnailClick = (index) => {
+    setSelectedImageIdx(index);
+    const item = galleryItems[index];
+    if (item && item.color) {
+      setSelectedColor(item.color);
+    } else {
+      setSelectedColor('');
+    }
+  };
+
+  const handleColorClick = (colorName) => {
+    if (selectedColor?.toLowerCase() === colorName?.toLowerCase()) {
+      // Toggle back to base image
+      setSelectedColor('');
+      setSelectedImageIdx(0);
+    } else {
+      setSelectedColor(colorName);
+      // Find first image matching this color in galleryItems
+      const colorIdx = galleryItems.findIndex(item => item.color?.toLowerCase() === colorName?.toLowerCase());
+      if (colorIdx !== -1) {
+        setSelectedImageIdx(colorIdx);
+      }
+    }
+  };
 
   const handleAddToCart = () => {
     if (product.sizes?.length > 0 && !selectedSize) {
       showToast('Please select a size', 'alert-circle');
       return;
     }
-    addToCart(product.id, qty, selectedSize);
+    addToCart(product.id, qty, selectedSize, selectedColor);
   };
 
   const handleReviewSubmit = (e) => {
@@ -111,26 +174,28 @@ export default function ProductPage() {
       <div className="container">
         <div className="pdp-grid">
 
-          {/* Left Column: Image Gallery */}
+            {/* Left Column: Image Gallery */}
           <div className="pdp-gallery-wrapper">
             <div className="pdp-thumbnails">
-              {images.map((img, i) => (
+              {galleryItems.map((item, i) => (
                 <button
                   key={i}
+                  type="button"
                   className={`thumbnail-btn${i === selectedImageIdx ? ' active' : ''}`}
-                  onClick={() => setSelectedImageIdx(i)}
+                  onClick={() => handleThumbnailClick(i)}
+                  title={item.color ? `Color: ${item.color}` : 'Base image'}
                 >
-                  <img src={img} alt={`${product.name} thumbnail ${i + 1}`} />
+                  <img src={item.url} alt={`${product.name} thumbnail ${i + 1}`} />
                 </button>
               ))}
             </div>
 
             <div className="pdp-main-image" onClick={() => setZoomOpen(true)}>
               <img
-                src={images[selectedImageIdx]}
+                src={images[selectedImageIdx] || product.image}
                 alt={product.name}
                 onError={(e) => {
-                  const filename = images[selectedImageIdx].split('/').pop();
+                  const filename = (images[selectedImageIdx] || product.image || '').split('/').pop();
                   e.target.onerror = null;
                   e.target.src = `/assets/${decodeURIComponent(filename)}`;
                 }}
@@ -179,30 +244,51 @@ export default function ProductPage() {
             {/* Color Variant Options */}
             {(product.colors?.length > 0 || (product.colorImages && Object.keys(product.colorImages).length > 0)) && (
               <div className="pdp-option-group" style={{ marginBottom: 20 }}>
-                <span className="pdp-option-label" style={{ display: 'block', marginBottom: 8, fontWeight: 700 }}>
-                  Color: {selectedColor || product.colors?.[0] || Object.keys(product.colorImages || {})[0]}
-                </span>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {(product.colors || Object.keys(product.colorImages || {})).map(col => (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span className="pdp-option-label" style={{ margin: 0, fontWeight: 700 }}>
+                    COLOR: {selectedColor ? selectedColor.toUpperCase() : 'DEFAULT'}
+                  </span>
+                  {selectedColor && (
                     <button
-                      key={col}
-                      className={`btn-secondary${selectedColor === col ? ' active' : ''}`}
-                      style={{
-                        padding: '8px 16px',
-                        fontSize: 13,
-                        fontWeight: 600,
-                        borderColor: selectedColor === col ? 'var(--gold)' : 'var(--border)',
-                        background: selectedColor === col ? 'var(--gold)' : 'transparent',
-                        color: selectedColor === col ? '#FFFFFF' : 'var(--onyx)'
-                      }}
+                      type="button"
                       onClick={() => {
-                        setSelectedColor(col);
+                        setSelectedColor('');
                         setSelectedImageIdx(0);
                       }}
+                      style={{ fontSize: 12, color: 'var(--gold-dark)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                     >
-                      {col}
+                      View Base Image
                     </button>
-                  ))}
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {Array.from(new Set([
+                    ...(product.colors || []),
+                    ...Object.keys(product.colorImages || {})
+                  ])).filter(c => c && c.trim()).map(col => {
+                    const isSelected = selectedColor?.toLowerCase() === col?.toLowerCase();
+                    return (
+                      <button
+                        key={col}
+                        type="button"
+                        className={`btn-secondary${isSelected ? ' active' : ''}`}
+                        style={{
+                          padding: '8px 16px',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          borderColor: isSelected ? 'var(--gold)' : 'var(--border)',
+                          background: isSelected ? 'var(--gold)' : 'transparent',
+                          color: isSelected ? '#FFFFFF' : 'var(--onyx)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onClick={() => handleColorClick(col)}
+                      >
+                        {col}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
