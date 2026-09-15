@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
-// API Base URL (connects Hostinger frontend to Vercel backend API)
-export const API_BASE_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '');
+// API Base URL (connects Hostinger frontend to Vercel backend API & MySQL database)
+export const API_BASE_URL = (
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_BACKEND_URL ||
+  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? ''
+    : 'https://abelsbylincy.vercel.app')
+).replace(/\/+$/, '');
 
 export const apiFetch = (endpoint, options = {}) => {
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
