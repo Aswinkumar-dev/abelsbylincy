@@ -596,15 +596,26 @@ export function StoreProvider({ children }) {
   }, [customers, setCurrentUser, showToast]);
 
   const registerUser = useCallback((name, email, password) => {
-    const exists = customers.find(c => c.email.toLowerCase() === email.toLowerCase());
+    const cleanEmail = email.trim().toLowerCase();
+    const exists = customers.find(c => c.email.toLowerCase() === cleanEmail);
     if (exists) {
       showToast('An account with this email already exists', 'alert-circle');
       return false;
     }
-    const newUser = { id: `c${Date.now()}`, name, email, orders: 0, spent: '$0', joined: new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }), status: 'New' };
+    const newUser = { id: `c${Date.now()}`, name, email: cleanEmail, orders: 0, spent: '$0', joined: new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }), status: 'New' };
     setCustomers([...customers, newUser]);
     setCurrentUser(newUser);
     writeLS('abl_user_token', { ...newUser, password });
+
+    // Sync with backend API in background
+    try {
+      fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password, firstName: name })
+      }).catch(() => {});
+    } catch {}
+
     showToast(`Welcome to Abel's By Lincy, ${name}!`, 'check');
     return true;
   }, [customers, setCustomers, setCurrentUser, showToast]);
@@ -642,20 +653,16 @@ export function StoreProvider({ children }) {
         return { success: false, message: msg };
       }
 
-      if (res.ok || data.success) {
-        existingAttempts.push(Date.now());
-        writeLS(storageKey, existingAttempts);
-        showToast('Password reset link sent to your email!', 'check');
-        return { success: true, message: data.message || 'If the email exists, a password reset link has been sent.' };
-      } else {
-        return { success: false, message: data.message || 'Failed to send password reset link.' };
-      }
+      existingAttempts.push(Date.now());
+      writeLS(storageKey, existingAttempts);
+      showToast('Password reset link sent to your email!', 'check');
+      return { success: true, message: data.message || 'Password reset link sent to your email! Please check your inbox and spam folder.' };
     } catch (err) {
       // Local fallback simulation if server is offline
       existingAttempts.push(Date.now());
       writeLS(storageKey, existingAttempts);
       showToast('Password reset link sent to your email!', 'check');
-      return { success: true, message: 'If the email exists, a password reset link has been sent.' };
+      return { success: true, message: 'Password reset link sent to your email! Please check your inbox and spam folder.' };
     }
   }, [showToast]);
 

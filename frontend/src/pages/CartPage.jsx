@@ -44,7 +44,7 @@ export default function CartPage() {
         <ShoppingBag style={{ width: 64, height: 64, color: 'var(--border)', marginBottom: 24 }} />
         <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, marginBottom: 12 }}>Your bag is empty</h2>
         <p style={{ color: 'var(--slate)', marginBottom: 28 }}>Discover our curated collection of fine jewellery.</p>
-        <Link to="/shop" className="btn-primary">Shop All Jewellery <ArrowRight style={{ width: 16 }} /></Link>
+        <Link to="/shop" className="btn-primary">Shop Jewellery <ArrowRight style={{ width: 16 }} /></Link>
       </div>
     );
   }

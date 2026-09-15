@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Package, Tag, Layers, ShoppingCart, ShoppingBag, Users, Ticket, Globe, Inbox,
   ChartNoAxesColumn, Lock, ChevronRight, ChevronLeft, Crown, Search, Plus, Pencil, Trash2,
   RefreshCw, DollarSign, TrendingUp, AlertTriangle, AlertCircle, CheckCircle2, Star, Eye, EyeOff,
-  ArrowUp, ArrowDown, Download, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
+  ArrowUp, ArrowDown, Download, Upload, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
   User, Mail, Phone, MapPin, Printer, Truck, LogOut
 } from 'lucide-react';
 import { useStore, CAT_FALLBACK_IMAGES } from '../context/StoreContext';
@@ -1063,11 +1063,42 @@ export default function AdminPage() {
               );
             });
 
-            const itemsPerPage = 10;
-            const totalProdPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
-            const currentProdPage = Math.min(Math.max(1, prodPage), totalProdPages);
-            const startIndex = (currentProdPage - 1) * itemsPerPage;
-            const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+            const exportProductsJSON = () => {
+              try {
+                const dataStr = JSON.stringify(products, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `abels_products_catalogue_${new Date().toISOString().slice(0, 10)}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+                showToast(`Exported ${products.length} products!`, 'download');
+              } catch (err) {
+                showToast('Failed to export catalogue', 'alert-circle');
+              }
+            };
+
+            const importProductsJSON = (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                try {
+                  const imported = JSON.parse(event.target.result);
+                  if (Array.isArray(imported) && imported.length > 0) {
+                    setProducts(imported);
+                    showToast(`Successfully imported ${imported.length} products!`, 'check');
+                  } else {
+                    showToast('Invalid products JSON file', 'alert-circle');
+                  }
+                } catch (err) {
+                  showToast('Error parsing JSON file', 'alert-circle');
+                }
+              };
+              reader.readAsText(file);
+              e.target.value = '';
+            };
 
             return (
               <div>
@@ -1081,13 +1112,13 @@ export default function AdminPage() {
                     </p>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%', maxWidth: 520, justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', width: '100%', maxWidth: 640, justifyContent: 'flex-end' }}>
                     {/* Search Input */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FFFFFF', padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', flex: 1, minWidth: 200 }}>
                       <Search style={{ width: 16, height: 16, color: 'var(--slate)', flexShrink: 0 }} />
                       <input
                         type="text"
-                        placeholder="Search product name, product code, category..."
+                        placeholder="Search product name, code..."
                         value={prodSearchQuery}
                         onChange={e => { setProdSearchQuery(e.target.value); setProdPage(1); }}
                         style={{ border: 'none', outline: 'none', width: '100%', fontSize: 13, background: 'transparent' }}
@@ -1098,6 +1129,27 @@ export default function AdminPage() {
                         </button>
                       )}
                     </div>
+
+                    {/* Export Products JSON Button */}
+                    <button
+                      type="button"
+                      onClick={exportProductsJSON}
+                      className="btn-secondary"
+                      title="Export all current products as a JSON backup"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 12px', fontSize: 12, whiteSpace: 'nowrap', border: '1px solid var(--border)' }}
+                    >
+                      <Download style={{ width: 14, height: 14 }} /> Export
+                    </button>
+
+                    {/* Import Products JSON Button */}
+                    <label
+                      className="btn-secondary"
+                      title="Import products from a JSON backup file"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 12px', fontSize: 12, whiteSpace: 'nowrap', border: '1px solid var(--border)', cursor: 'pointer', margin: 0 }}
+                    >
+                      <Upload style={{ width: 14, height: 14 }} /> Import
+                      <input type="file" accept=".json" onChange={importProductsJSON} style={{ display: 'none' }} />
+                    </label>
 
                     <button
                       onClick={() => {
@@ -1113,7 +1165,7 @@ export default function AdminPage() {
                         setEditingProduct({});
                       }}
                       className="btn-primary"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', fontSize: 13, whiteSpace: 'nowrap' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', fontSize: 13, whiteSpace: 'nowrap' }}
                     >
                       <Plus style={{ width: 16, height: 16 }} /> Add Product
                     </button>
