@@ -107,14 +107,27 @@ const getProducts = async (req, res, next) => {
   }
 };
 
+const sanitizeServerProduct = (p) => {
+  if (!p || typeof p !== 'object') return p;
+  let img = p.image || '';
+  if (typeof img === 'string' && img.startsWith('data:image') && img.length > 500) {
+    img = '';
+  }
+  let images = Array.isArray(p.images)
+    ? p.images.map(i => (typeof i === 'string' && i.startsWith('data:image') && i.length > 500 ? '' : i)).filter(Boolean)
+    : (img ? [img] : []);
+  return { ...p, image: img || images[0] || '', images };
+};
+
 const syncProducts = async (req, res, next) => {
   try {
     const { products, product, deleteId } = req.body;
     let currentList = getStoredProducts() || [];
 
     if (Array.isArray(products)) {
-      saveStoredProducts(products);
-      return res.status(200).json({ success: true, message: 'Products synchronized successfully.', products });
+      const cleanList = products.map(sanitizeServerProduct);
+      saveStoredProducts(cleanList);
+      return res.status(200).json({ success: true, message: 'Products synchronized successfully.', products: cleanList });
     }
 
     if (deleteId) {
@@ -129,12 +142,13 @@ const syncProducts = async (req, res, next) => {
     }
 
     if (product) {
-      const key = product.id || product.sku || `p_${Date.now()}`;
-      const idx = currentList.findIndex(p => p.id === key || (product.id && p.id === product.id) || (product.sku && p.sku && p.sku.toLowerCase() === product.sku.toLowerCase()));
+      const cleanProd = sanitizeServerProduct(product);
+      const key = cleanProd.id || cleanProd.sku || `p_${Date.now()}`;
+      const idx = currentList.findIndex(p => p.id === key || (cleanProd.id && p.id === cleanProd.id) || (cleanProd.sku && p.sku && p.sku.toLowerCase() === cleanProd.sku.toLowerCase()));
       if (idx !== -1) {
-        currentList[idx] = { ...currentList[idx], ...product, id: key };
+        currentList[idx] = { ...currentList[idx], ...cleanProd, id: key };
       } else {
-        currentList.unshift({ ...product, id: key });
+        currentList.unshift({ ...cleanProd, id: key });
       }
       saveStoredProducts(currentList);
       return res.status(200).json({ success: true, message: 'Product saved.', products: currentList });
@@ -143,6 +157,28 @@ const syncProducts = async (req, res, next) => {
     res.status(200).json({ success: true, products: currentList });
   } catch (error) {
     next(error);
+  }
+};
+
+const uploadProductImage = async (req, res, next) => {
+  try {
+    const file = req.file || (req.files && req.files[0]);
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'No image file uploaded.' });
+    }
+    const { uploadFromBuffer } = require('../services/cloudinary.service');
+    const result = await uploadFromBuffer(file.buffer, 'products');
+    return res.status(200).json({
+      success: true,
+      url: result.secure_url,
+      public_id: result.public_id
+    });
+  } catch (err) {
+    console.error('Cloudinary product upload error:', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Image upload to CDN failed.'
+    });
   }
 };
 
@@ -188,5 +224,6 @@ const getProductBySlug = async (req, res, next) => {
 module.exports = {
   getProducts,
   getProductBySlug,
-  syncProducts
+  syncProducts,
+  uploadProductImage
 };

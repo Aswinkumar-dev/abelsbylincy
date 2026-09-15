@@ -7,7 +7,7 @@ import {
   ArrowUp, ArrowDown, Download, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
   User, Mail, Phone, MapPin, Printer, Truck
 } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
+import { useStore, CAT_FALLBACK_IMAGES } from '../context/StoreContext';
 
 export default function AdminPage() {
   const {
@@ -104,7 +104,7 @@ export default function AdminPage() {
     seoTitle: '', seoDesc: '', slug: ''
   });
 
-  const compressImage = (file, maxDimension = 800, quality = 0.75) => {
+  const compressImageToBlob = (file, maxDimension = 1200, quality = 0.82) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -126,12 +126,14 @@ export default function AdminPage() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', quality));
+          canvas.toBlob((blob) => {
+            resolve(blob || file);
+          }, 'image/jpeg', quality);
         };
-        img.onerror = () => resolve(e.target?.result || '');
+        img.onerror = () => resolve(file);
         img.src = e.target?.result;
       };
-      reader.onerror = () => resolve('');
+      reader.onerror = () => resolve(file);
       reader.readAsDataURL(file);
     });
   };
@@ -145,30 +147,63 @@ export default function AdminPage() {
       if (!file) return;
 
       setUploadingFieldKey(fieldKey);
+      showToast('Uploading image to Cloudinary CDN...', 'info');
+
       try {
-        const compressedBase64 = await compressImage(file);
-        if (compressedBase64) {
-          onComplete(compressedBase64);
-        }
+        const blob = await compressImageToBlob(file);
+        const uploadFile = new File([blob], file.name ? file.name.replace(/\.[^.]+$/, '.jpg') : 'product.jpg', { type: 'image/jpeg' });
 
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', 'abels_preset');
-        formData.append('cloud_name', 'gylnyxru');
+        let cdnUrl = '';
 
-        const res = await fetch('https://api.cloudinary.com/v1_1/gylnyxru/image/upload', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.secure_url) {
-            onComplete(data.secure_url);
+        // 1. Upload via backend server Cloudinary API endpoint
+        try {
+          const formData = new FormData();
+          formData.append('image', uploadFile);
+          const res = await fetch('/api/products/upload', {
+            method: 'POST',
+            body: formData
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.url) {
+              cdnUrl = data.url;
+            }
           }
+        } catch {}
+
+        // 2. Direct Cloudinary upload fallback
+        if (!cdnUrl) {
+          try {
+            const directForm = new FormData();
+            directForm.append('file', uploadFile);
+            directForm.append('upload_preset', 'abels_preset');
+            directForm.append('cloud_name', 'gylnyxru');
+
+            const res = await fetch('https://api.cloudinary.com/v1_1/gylnyxru/image/upload', {
+              method: 'POST',
+              body: directForm
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.secure_url) {
+                cdnUrl = data.secure_url;
+              }
+            }
+          } catch {}
         }
-      } catch {
-        // Safe fallback already handled by compressedBase64
+
+        if (cdnUrl) {
+          onComplete(cdnUrl);
+          showToast('Image uploaded successfully to Cloudinary CDN!', 'check');
+        } else {
+          // Safe fallback to avoid browser storage quota crash
+          const currentCat = (prodForm.category || 'necklaces').toLowerCase();
+          const fallbackUrl = (CAT_FALLBACK_IMAGES && CAT_FALLBACK_IMAGES[currentCat]) || 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp';
+          onComplete(fallbackUrl);
+          showToast('Server upload unreachable. Assigned category CDN image to protect browser storage.', 'alert');
+        }
+      } catch (err) {
+        showToast('Image upload failed: ' + err.message, 'x');
       } finally {
         setUploadingFieldKey(null);
       }
@@ -432,35 +467,49 @@ export default function AdminPage() {
     setHeroUploadSuccess(false);
 
     try {
+      const blob = await compressImageToBlob(file);
+      const uploadFile = new File([blob], 'hero.jpg', { type: 'image/jpeg' });
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'abels_preset');
-      formData.append('cloud_name', 'gylnyxru');
+      formData.append('image', uploadFile);
 
-      const res = await fetch('https://api.cloudinary.com/v1_1/gylnyxru/image/upload', {
-        method: 'POST',
-        body: formData
-      });
+      let cdnUrl = '';
+      try {
+        const res = await fetch('/api/products/upload', {
+          method: 'POST',
+          body: formData
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.url) cdnUrl = data.url;
+        }
+      } catch {}
 
-      if (res.ok) {
-        const data = await res.json();
-        setHeroForm(prev => ({ ...prev, image: data.secure_url }));
-        setHeroUploadSuccess(true);
-      } else {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          setHeroForm(prev => ({ ...prev, image: evt.target.result }));
-          setHeroUploadSuccess(true);
-        };
-        reader.readAsDataURL(file);
+      if (!cdnUrl) {
+        try {
+          const directForm = new FormData();
+          directForm.append('file', uploadFile);
+          directForm.append('upload_preset', 'abels_preset');
+          directForm.append('cloud_name', 'gylnyxru');
+          const res = await fetch('https://api.cloudinary.com/v1_1/gylnyxru/image/upload', {
+            method: 'POST',
+            body: directForm
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.secure_url) cdnUrl = data.secure_url;
+          }
+        } catch {}
       }
-    } catch {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        setHeroForm(prev => ({ ...prev, image: evt.target.result }));
+
+      if (cdnUrl) {
+        setHeroForm(prev => ({ ...prev, image: cdnUrl }));
         setHeroUploadSuccess(true);
-      };
-      reader.readAsDataURL(file);
+        showToast('Hero image uploaded to Cloudinary CDN!', 'check');
+      } else {
+        showToast('Hero image upload failed. Please try again.', 'x');
+      }
+    } catch (err) {
+      showToast('Hero image upload error: ' + err.message, 'x');
     } finally {
       setHeroUploading(false);
     }

@@ -141,6 +141,49 @@ const DEFAULT_SUBSCRIBERS = [
 ];
 
 // ============================================================
+// Category Fallback CDN Images (Lightweight Cloudinary URLs)
+// ============================================================
+export const CAT_FALLBACK_IMAGES = {
+  rings: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796753/abels_by_lincy/Ring_Category.png',
+  necklaces: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp',
+  earrings: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796736/abels_by_lincy/Earrings_Category.webp',
+  bracelets: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796726/abels_by_lincy/Bracelet_-_category.webp',
+  bangles: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796721/abels_by_lincy/Bangle_Category.webp',
+  charms: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp',
+  'silver-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp',
+  'seasonal-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png',
+};
+
+export function sanitizeProduct(p) {
+  if (!p || typeof p !== 'object') return p;
+  const cat = (p.category || 'necklaces').trim().toLowerCase();
+  const fallback = CAT_FALLBACK_IMAGES[cat] || CAT_FALLBACK_IMAGES.necklaces;
+
+  let img = p.image || '';
+  if (typeof img === 'string' && img.startsWith('data:image') && img.length > 200) {
+    img = fallback;
+  }
+  let images = Array.isArray(p.images) && p.images.length > 0 ? p.images : (img ? [img] : [fallback]);
+  images = images.map(item => {
+    if (typeof item === 'string' && item.startsWith('data:image') && item.length > 200) {
+      return fallback;
+    }
+    return item;
+  });
+
+  return {
+    ...p,
+    image: img || fallback,
+    images: images.length > 0 ? images : [img || fallback]
+  };
+}
+
+export function sanitizeProducts(list) {
+  if (!Array.isArray(list)) return list;
+  return list.map(sanitizeProduct);
+}
+
+// ============================================================
 // Helpers
 // ============================================================
 function readLS(key, fallback) {
@@ -154,13 +197,15 @@ function readLS(key, fallback) {
 
 function writeLS(key, val) {
   try {
-    localStorage.setItem(key, JSON.stringify(val));
+    const toStore = (key === 'abl_products_v11' && Array.isArray(val)) ? sanitizeProducts(val) : val;
+    localStorage.setItem(key, JSON.stringify(toStore));
   } catch (err) {
     try {
       ['abl_products_v10', 'abl_products_v9', 'abl_products_v8', 'abl_products_v7', 'abl_products', 'abl_orders_v8', 'abl_orders'].forEach(k => {
         try { localStorage.removeItem(k); } catch {}
       });
-      localStorage.setItem(key, JSON.stringify(val));
+      const toStore = (key === 'abl_products_v11' && Array.isArray(val)) ? sanitizeProducts(val) : val;
+      localStorage.setItem(key, JSON.stringify(toStore));
     } catch {}
   }
 }
@@ -171,7 +216,7 @@ function writeLS(key, val) {
 const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
-  // Purge any stale legacy localStorage keys
+  // Purge any stale legacy localStorage keys and cleanse bloated base64 images
   useEffect(() => {
     try {
       localStorage.removeItem('abl_products_v10');
@@ -182,6 +227,19 @@ export function StoreProvider({ children }) {
       localStorage.removeItem('abl_orders_v8');
       localStorage.removeItem('abl_orders_v7');
       localStorage.removeItem('abl_orders');
+    } catch {}
+
+    // Check existing stored products for base64 bloat and strip them immediately
+    try {
+      const saved = readLS('abl_products_v11', null);
+      if (Array.isArray(saved) && saved.length > 0) {
+        const hasBloat = saved.some(p => (typeof p.image === 'string' && p.image.startsWith('data:image') && p.image.length > 200) || (Array.isArray(p.images) && p.images.some(i => typeof i === 'string' && i.startsWith('data:image') && i.length > 200)));
+        if (hasBloat) {
+          const cleaned = sanitizeProducts(saved);
+          writeLS('abl_products_v11', cleaned);
+          setProductsRaw(cleaned);
+        }
+      }
     } catch {}
   }, []);
 
@@ -195,7 +253,9 @@ export function StoreProvider({ children }) {
     const deleted = readLS('abl_deleted_product_ids', []).filter(Boolean);
     const saved = readLS('abl_products_v11', null);
     if (saved !== null && Array.isArray(saved)) {
-      return saved.filter(p => !p.id || !deleted.includes(p.id));
+      const sanitized = sanitizeProducts(saved.filter(p => !p.id || !deleted.includes(p.id)));
+      writeLS('abl_products_v11', sanitized);
+      return sanitized;
     }
     return DEFAULT_PRODUCTS.filter(p => !p.id || !deleted.includes(p.id));
   });
@@ -262,7 +322,7 @@ export function StoreProvider({ children }) {
             data.products.forEach(p => {
               const k = p.id || p.sku;
               if (k && (!p.id || !deleted.includes(p.id))) {
-                prodMap.set(String(k), p);
+                prodMap.set(String(k), sanitizeProduct(p));
               }
             });
             // Merge all locally added or modified products from localStorage and memory
@@ -270,10 +330,10 @@ export function StoreProvider({ children }) {
             (Array.isArray(localSaved) ? localSaved : prev).forEach(p => {
               const k = p.id || p.sku;
               if (k && (!p.id || !deleted.includes(p.id))) {
-                prodMap.set(String(k), { ...(prodMap.get(String(k)) || {}), ...p });
+                prodMap.set(String(k), { ...(prodMap.get(String(k)) || {}), ...sanitizeProduct(p) });
               }
             });
-            const merged = Array.from(prodMap.values());
+            const merged = sanitizeProducts(Array.from(prodMap.values()));
             writeLS('abl_products_v11', merged);
             // Push merged list back to server so server also stores all newly added products
             try {
@@ -834,7 +894,7 @@ export function StoreProvider({ children }) {
   const saveProduct = useCallback(async (productData) => {
     const isEditing = Boolean(productData.id);
     const id = productData.id || `p_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const productToSave = {
+    const rawProduct = {
       ...productData,
       id,
       category: (productData.category || 'necklaces').trim().toLowerCase(),
@@ -845,6 +905,7 @@ export function StoreProvider({ children }) {
       images: Array.isArray(productData.images) && productData.images.length > 0 ? productData.images : [productData.image].filter(Boolean),
       image: productData.image || (Array.isArray(productData.images) && productData.images[0]) || ''
     };
+    const productToSave = sanitizeProduct(rawProduct);
 
     // Remove from deleted blacklist if saved/re-added
     const currentDeleted = readLS('abl_deleted_product_ids', []);
@@ -861,16 +922,18 @@ export function StoreProvider({ children }) {
       } else {
         updatedList = [productToSave, ...prev];
       }
-      writeLS('abl_products_v11', updatedList);
-      return updatedList;
+      const sanitized = sanitizeProducts(updatedList);
+      writeLS('abl_products_v11', sanitized);
+      return sanitized;
     });
 
     // Authoritative Server & Database sync
     try {
+      const cleanList = sanitizeProducts(updatedList);
       const res = await fetch('/api/products/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: productToSave, products: updatedList })
+        body: JSON.stringify({ product: productToSave, products: cleanList })
       });
       if (res.ok) {
         const data = await res.json();
@@ -880,16 +943,16 @@ export function StoreProvider({ children }) {
             data.products.forEach(p => {
               const k = p.id || p.sku;
               if (k && (!p.id || !newDeleted.includes(p.id)) && (!p.sku || !newDeleted.includes(p.sku))) {
-                map.set(String(k), p);
+                map.set(String(k), sanitizeProduct(p));
               }
             });
             prev.forEach(p => {
               const k = p.id || p.sku;
               if (k && (!p.id || !newDeleted.includes(p.id)) && (!p.sku || !newDeleted.includes(p.sku))) {
-                map.set(String(k), { ...(map.get(String(k)) || {}), ...p });
+                map.set(String(k), { ...(map.get(String(k)) || {}), ...sanitizeProduct(p) });
               }
             });
-            const merged = Array.from(map.values());
+            const merged = sanitizeProducts(Array.from(map.values()));
             writeLS('abl_products_v11', merged);
             return merged;
           });
