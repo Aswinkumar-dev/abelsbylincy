@@ -108,12 +108,9 @@ export default function ResetPasswordPage() {
               <CheckCircle style={{ width: 32, height: 32, color: '#059669' }} />
             </div>
 
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--onyx)', margin: '0 0 10px 0' }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--onyx)', margin: '0 0 24px 0' }}>
               New Password Saved!
             </h2>
-            <p style={{ fontSize: 13, color: 'var(--slate)', lineHeight: 1.5, margin: '0 0 24px 0' }}>
-              Your new password has been saved in the database. You can now sign in with your email and new password.
-            </p>
 
             <button
               type="button"
@@ -139,12 +136,6 @@ export default function ResetPasswordPage() {
             >
               Sign In to Your Account <ArrowRight style={{ width: 16, height: 16 }} />
             </button>
-
-            <div style={{ marginTop: 20 }}>
-              <Link to={`/account?email=${encodeURIComponent(email)}&resetSuccess=true`} style={{ fontSize: 13, color: 'var(--gold-dark)', fontWeight: 600, textDecoration: 'underline' }}>
-                ← Back to Sign In Page
-              </Link>
-            </div>
           </div>
         ) : (
           /* RESET FORM */
@@ -338,12 +329,6 @@ export default function ResetPasswordPage() {
                 )}
               </button>
             </form>
-
-            <div style={{ marginTop: 22, textAlign: 'center' }}>
-              <Link to="/account" style={{ fontSize: 13, color: 'var(--gold-dark)', fontWeight: 600, textDecoration: 'underline' }}>
-                ← Return to Sign In
-              </Link>
-            </div>
           </div>
         )}
       </div>
