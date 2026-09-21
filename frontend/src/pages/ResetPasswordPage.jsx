@@ -109,10 +109,10 @@ export default function ResetPasswordPage() {
             </div>
 
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--onyx)', margin: '0 0 10px 0' }}>
-              Password Reset Complete!
+              New Password Saved!
             </h2>
             <p style={{ fontSize: 13, color: 'var(--slate)', lineHeight: 1.5, margin: '0 0 24px 0' }}>
-              Your password has been successfully updated. Your saved items and shopping bag have been preserved.
+              Your new password has been saved in the database. You can now sign in with your email and new password.
             </p>
 
             <button
@@ -141,8 +141,8 @@ export default function ResetPasswordPage() {
             </button>
 
             <div style={{ marginTop: 20 }}>
-              <Link to="/" style={{ fontSize: 13, color: 'var(--gold-dark)', fontWeight: 600, textDecoration: 'underline' }}>
-                ← Return to Store
+              <Link to={`/account?email=${encodeURIComponent(email)}&resetSuccess=true`} style={{ fontSize: 13, color: 'var(--gold-dark)', fontWeight: 600, textDecoration: 'underline' }}>
+                ← Back to Sign In Page
               </Link>
             </div>
           </div>

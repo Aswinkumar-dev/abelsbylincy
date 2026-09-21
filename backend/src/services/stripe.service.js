@@ -156,9 +156,7 @@ const handleWebhookEvent = async (event) => {
           // Requirement 29 & 30: Stock Deduction with Automatic Failure Reconciliation
           try {
             for (const item of orderItems) {
-              if (item.variant_id) {
-                await adjustStock(connection, item.variant_id, -item.quantity, 'sale', 'orders', orderId, `Sale order #${order.order_number}`);
-              }
+              await adjustStock(connection, item.variant_id, -item.quantity, 'sale', 'orders', orderId, `Sale order #${order.order_number}`, item.product_id);
             }
 
             try {
@@ -332,9 +330,7 @@ const reconcilePendingPaymentsWithStripe = async () => {
           // Decrement stock
           const [orderItems] = await connection.query('SELECT * FROM order_items WHERE order_id = ?', [payRecord.order_id]);
           for (const item of orderItems) {
-            if (item.variant_id) {
-              try { await adjustStock(connection, item.variant_id, -item.quantity, 'sale', 'orders', payRecord.order_id, `Recovery sale #${payRecord.order_number}`); } catch {}
-            }
+            try { await adjustStock(connection, item.variant_id, -item.quantity, 'sale', 'orders', payRecord.order_id, `Recovery sale #${payRecord.order_number}`, item.product_id); } catch {}
           }
 
           recoveredCount++;

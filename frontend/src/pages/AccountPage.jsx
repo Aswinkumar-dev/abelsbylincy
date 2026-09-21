@@ -126,7 +126,7 @@ export default function AccountPage() {
       const res = await requestPasswordReset(forgotEmail.trim());
       if (res.success) {
         setForgotSuccess(true);
-        setForgotSuccessMsg(res.message || 'Password reset link sent! Check your inbox.');
+        setForgotSuccessMsg(res.message || 'Please check your inbox and spam folder.');
       } else {
         setForgotErrorMsg(res.message || 'Failed to send password reset email.');
         triggerShake();
@@ -709,11 +709,13 @@ export default function AccountPage() {
               </form>
             )}
 
-            <div style={{ marginTop: 24, textAlign: 'center' }}>
-              <Link to="/" style={{ fontSize: 13, color: 'var(--gold-dark)', fontWeight: 600, textDecoration: 'underline' }}>
-                ← Return to Store
-              </Link>
-            </div>
+            {authMode !== 'forgot' && (
+              <div style={{ marginTop: 24, textAlign: 'center' }}>
+                <Link to="/" style={{ fontSize: 13, color: 'var(--gold-dark)', fontWeight: 600, textDecoration: 'underline' }}>
+                  ← Return to Store
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </>

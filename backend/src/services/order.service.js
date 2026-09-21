@@ -81,7 +81,7 @@ const createOrderFromCart = async (userId, guestEmail, shippingAddress, billingA
       );
 
       // Decrement stock and log movement
-      await adjustStock(connection, item.variantId, -item.quantity, 'sale', 'orders', orderId, `Sale order #${orderNumber}`);
+      await adjustStock(connection, item.variantId, -item.quantity, 'sale', 'orders', orderId, `Sale order #${orderNumber}`, item.productId);
     }
 
     // 4. Clear user cart items if logged in

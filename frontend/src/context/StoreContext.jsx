@@ -318,6 +318,33 @@ export function StoreProvider({ children }) {
     } catch (err) {
       // Server offline fallback
     }
+
+    try {
+      // 3. Fetch Reviews from Server / Database (Authoritative sync across all browsers)
+      const revRes = await apiFetch('/api/reviews');
+      if (revRes.ok) {
+        const data = await revRes.json();
+        if (data.success && Array.isArray(data.reviews) && data.reviews.length > 0) {
+          const formatted = data.reviews.map(r => ({
+            id: r.id,
+            productId: r.product_id,
+            userId: r.user_id,
+            userEmail: r.user_email,
+            author: [r.first_name, r.last_name].filter(Boolean).join(' ') || r.user_email || 'Customer',
+            rating: Number(r.rating) || 5,
+            title: r.title || `${r.rating} Star Rating`,
+            text: r.review_text || '',
+            date: r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
+            status: r.status || 'approved',
+            verified: Boolean(r.is_verified_purchase)
+          }));
+          setReviewsRaw(formatted);
+          writeLS('abl_reviews_v7', formatted);
+        }
+      }
+    } catch (err) {
+      // Offline fallback
+    }
   }, []);
 
   useEffect(() => {
@@ -632,14 +659,14 @@ export function StoreProvider({ children }) {
 
       existingAttempts.push(Date.now());
       writeLS(storageKey, existingAttempts);
-      showToast('Password reset link sent to your email!', 'check');
-      return { success: true, message: data.message || 'Password reset link sent to your email! Please check your inbox and spam folder.' };
+      showToast('Please check your inbox and spam folder.', 'check');
+      return { success: true, message: data.message || 'Please check your inbox and spam folder.' };
     } catch (err) {
       // Local fallback simulation if server is offline
       existingAttempts.push(Date.now());
       writeLS(storageKey, existingAttempts);
-      showToast('Password reset link sent to your email!', 'check');
-      return { success: true, message: 'Password reset link sent to your email! Please check your inbox and spam folder.' };
+      showToast('Please check your inbox and spam folder.', 'check');
+      return { success: true, message: 'Please check your inbox and spam folder.' };
     }
   }, [showToast]);
 
@@ -653,7 +680,7 @@ export function StoreProvider({ children }) {
       const res = await apiFetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, newPassword })
+        body: JSON.stringify({ token, newPassword, email: userEmail })
       });
 
       const data = await res.json().catch(() => ({}));
@@ -1295,12 +1322,56 @@ export function StoreProvider({ children }) {
     showToast('Subscriber removed', 'check');
   }, [setSubscribers, setMessages, showToast]);
 
-  const addReview = useCallback((reviewData) => {
+  const addReview = useCallback(async (reviewData) => {
+    const existingUserReviews = (reviews || []).filter(r => 
+      String(r.productId) === String(reviewData.productId) && 
+      (
+        (r.userId && currentUser?.id && String(r.userId) === String(currentUser.id)) ||
+        (r.userEmail && currentUser?.email && r.userEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+        (r.author && currentUser?.name && r.author.toLowerCase() === currentUser.name.toLowerCase()) ||
+        (r.author && currentUser?.email && r.author.toLowerCase() === currentUser.email.toLowerCase())
+      )
+    );
+
+    if (existingUserReviews.length >= 5) {
+      showToast('oops! You have reached the limit of 5 reviews for this product', 'alert-circle');
+      return { success: false, message: 'oops! You have reached the limit of 5 reviews for this product' };
+    }
+
+    try {
+      const token = localStorage.getItem('abl_access_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await apiFetch('/api/reviews/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          productId: reviewData.productId,
+          rating: Number(reviewData.rating) || 1,
+          title: reviewData.title || `${reviewData.rating || 1} Star Rating`,
+          reviewText: reviewData.text || '',
+          userEmail: currentUser?.email || reviewData.userEmail || '',
+          authorName: currentUser?.name || reviewData.author || 'Customer'
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 400 && data.message && data.message.includes('limit of 5 reviews')) {
+        showToast('oops! You have reached the limit of 5 reviews for this product', 'alert-circle');
+        return { success: false, message: 'oops! You have reached the limit of 5 reviews for this product' };
+      }
+    } catch (err) {
+      console.warn('⚠️ Review submission note:', err.message);
+    }
+
     const newRev = {
       id: `rev_${Date.now()}`,
       productId: reviewData.productId,
       productName: reviewData.productName || 'Jewelry Piece',
-      author: reviewData.author || 'Customer',
+      userId: currentUser?.id || null,
+      userEmail: currentUser?.email || '',
+      author: currentUser?.name || currentUser?.email || reviewData.author || 'Customer',
       rating: Number(reviewData.rating) || 1,
       title: reviewData.title || `${reviewData.rating || 1} Star Rating`,
       text: reviewData.text || '',
@@ -1310,8 +1381,8 @@ export function StoreProvider({ children }) {
     };
     setReviews(prev => [newRev, ...(prev || [])]);
     showToast('Review submitted! Thank you.', 'check');
-    return newRev;
-  }, [setReviews, showToast]);
+    return { success: true, review: newRev };
+  }, [reviews, currentUser, setReviews, showToast]);
 
 
   const applyCoupon = useCallback((code, subtotal) => {

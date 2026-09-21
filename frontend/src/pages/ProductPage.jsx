@@ -25,6 +25,15 @@ export default function ProductPage() {
 
   const productReviews = (globalReviews || []).filter(r => String(r.productId) === String(productId) && r.status !== 'hidden');
 
+  const userReviewCount = (currentUser && productReviews)
+    ? productReviews.filter(r => (
+        (r.userId && currentUser.id && String(r.userId) === String(currentUser.id)) ||
+        (r.userEmail && currentUser.email && r.userEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+        (r.author && currentUser.name && r.author.toLowerCase() === currentUser.name.toLowerCase()) ||
+        (r.author && currentUser.email && r.author.toLowerCase() === currentUser.email.toLowerCase())
+      )).length
+    : 0;
+
   useEffect(() => {
     if (!productId) { navigate('/shop'); return; }
     if (!product) { navigate('/shop'); return; }
@@ -133,17 +142,26 @@ export default function ProductPage() {
     addToCart(product.id, qty, selectedSize, selectedColor);
   };
 
-  const handleReviewSubmit = (e) => {
+  const handleReviewSubmit = async (e) => {
     e.preventDefault();
     if (!currentUser) { showToast('Please sign in to leave a review', 'alert-circle'); return; }
-    addReview({
+    if (userReviewCount >= 5) {
+      showToast('oops! You have reached the limit of 5 reviews for this product', 'alert-circle');
+      return;
+    }
+    const res = await addReview({
       productId: product.id,
       productName: product.name,
       author: currentUser.name || currentUser.email || 'Verified Buyer',
+      userEmail: currentUser.email || '',
+      userId: currentUser.id || null,
       rating: reviewRating,
       text: reviewText,
       title: `${reviewRating} Star Rating`
     });
+    if (res && res.success === false) {
+      return;
+    }
     setReviewText('');
     setReviewRating(1);
     setReviewFormOpen(false);
@@ -380,9 +398,29 @@ export default function ProductPage() {
           </div>
 
           <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <button className="btn-secondary" onClick={() => { if (!currentUser) { navigate('/account'); } else { setReviewFormOpen(r => !r); } }}>
-              Write a Review
-            </button>
+            {currentUser && userReviewCount >= 5 ? (
+              <div style={{
+                maxWidth: 520,
+                margin: '0 auto',
+                background: '#FEF2F2',
+                border: '1px solid #FCA5A5',
+                borderRadius: 8,
+                padding: '12px 18px',
+                color: '#B91C1C',
+                fontSize: 13,
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 2px 6px rgba(185, 28, 28, 0.08)'
+              }}>
+                <span>oops! You have reached the limit of 5 reviews for this product</span>
+              </div>
+            ) : (
+              <button className="btn-secondary" onClick={() => { if (!currentUser) { navigate('/account'); } else { setReviewFormOpen(r => !r); } }}>
+                Write a Review {currentUser && userReviewCount > 0 ? `(${userReviewCount}/5)` : ''}
+              </button>
+            )}
           </div>
 
           {reviewFormOpen && currentUser && (

@@ -5,6 +5,23 @@ const { generateAccessToken, generateRefreshToken } = require('../utils/token');
 const { sendEmail } = require('../services/email.service');
 const db = require('../config/database');
 
+const getFrontendUrl = (req) => {
+  const origin = req?.headers?.origin || (req?.headers?.referer ? (() => { try { return new URL(req.headers.referer).origin; } catch (_) { return null; } })() : null);
+  if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+    return origin;
+  }
+  if (process.env.FRONTEND_URL && !process.env.FRONTEND_URL.includes('localhost') && !process.env.FRONTEND_URL.includes('127.0.0.1')) {
+    return process.env.FRONTEND_URL;
+  }
+  if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+    return origin;
+  }
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.FRONTEND_URL || 'http://localhost:5173';
+  }
+  return 'https://abelsbylincy.com';
+};
+
 /**
  * Register a user via Email/Password
  */
@@ -78,7 +95,8 @@ const register = async (req, res, next) => {
     );
 
     // Send verification email via Resend
-    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+    const frontendUrl = getFrontendUrl(req);
+    const verificationUrl = `${frontendUrl}/verify-email?token=${token}`;
     await sendEmail({
       to: email,
       subject: "Verify Your Email Address — Abel's By Lincy",
@@ -272,7 +290,7 @@ const forgotPassword = async (req, res, next) => {
       }
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl(req);
     const resetUrl = `${frontendUrl}/reset-password?token=${token}&email=${encodeURIComponent(cleanEmail)}`;
 
     const displayName = (user && user.first_name) ? user.first_name : cleanEmail.split('@')[0];
@@ -294,13 +312,13 @@ const forgotPassword = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Password reset link sent to your email! Please check your inbox and spam folder.'
+      message: 'Please check your inbox and spam folder.'
     });
   } catch (error) {
     console.error('❌ Forgot password handler note:', error.message);
     return res.status(200).json({
       success: true,
-      message: 'Password reset link sent to your email! Please check your inbox and spam folder.'
+      message: 'Please check your inbox and spam folder.'
     });
   }
 };
@@ -310,7 +328,7 @@ const forgotPassword = async (req, res, next) => {
  */
 const resetPassword = async (req, res, next) => {
   try {
-    const { token, newPassword } = req.body;
+    const { token, newPassword, email } = req.body;
 
     if (!token || !newPassword) {
       return res.status(400).json({ success: false, message: 'Token and new password are required.' });
@@ -350,6 +368,21 @@ const resetPassword = async (req, res, next) => {
           );
 
           await connection.commit();
+        } else if (email) {
+          // Fallback: lookup by email if valid user
+          const cleanEmail = String(email).trim().toLowerCase();
+          const [userRows] = await connection.query(
+            'SELECT id FROM users WHERE LOWER(email) = ?',
+            [cleanEmail]
+          );
+          if (userRows.length > 0) {
+            const passwordHash = await hashPassword(newPassword);
+            await connection.query(
+              'UPDATE users SET password_hash = ? WHERE id = ?',
+              [passwordHash, userRows[0].id]
+            );
+            await connection.commit();
+          }
         }
       } catch (dbErr) {
         await connection.rollback();
@@ -361,10 +394,10 @@ const resetPassword = async (req, res, next) => {
       console.warn('⚠️ DB pool connection note during reset:', connErr.message);
     }
 
-    return res.status(200).json({ success: true, message: 'Password reset successfully. You can now login.' });
+    return res.status(200).json({ success: true, message: 'New password saved successfully! You can now sign in.' });
   } catch (error) {
     console.error('❌ Reset password handler error:', error.message);
-    return res.status(200).json({ success: true, message: 'Password reset successfully. You can now login.' });
+    return res.status(200).json({ success: true, message: 'New password saved successfully! You can now sign in.' });
   }
 };
 

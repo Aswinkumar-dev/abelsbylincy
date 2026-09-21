@@ -17,4 +17,19 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
+const optionalAuthenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token) {
+    try {
+      const decoded = verifyAccessToken(token);
+      req.user = decoded;
+    } catch (_) {
+      // Pass through if optional
+    }
+  }
+  next();
+};
+
 module.exports = authenticateToken;
+module.exports.optionalAuthenticateToken = optionalAuthenticateToken;
