@@ -281,6 +281,7 @@ export function StoreProvider({ children }) {
   const [settings, setSettingsRaw] = useState(() => readLS('abl_settings', DEFAULT_SETTINGS));
   const [cms, setCMSRaw] = useState(() => readLS('abl_cms_v5', DEFAULT_CMS));
   const [cart, setCartRaw] = useState(() => readLS('abl_cart', []));
+  const [cartLoading, setCartLoading] = useState(false);
   const [wishlist, setWishlistRaw] = useState(() => readLS('abl_wishlist', []));
   const [currentUser, setCurrentUserRaw] = useState(() => readLS('abl_current_user', null));
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => readLS('abl_admin_auth', false));
@@ -550,6 +551,7 @@ export function StoreProvider({ children }) {
     if (!userEmail) return;
 
     let isMounted = true;
+    setCartLoading(true);
 
     const syncUserCartFromDB = async () => {
       try {
@@ -563,24 +565,17 @@ export function StoreProvider({ children }) {
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.items) && isMounted) {
-            setCartRaw(currentLocalCart => {
-              const localList = Array.isArray(currentLocalCart) ? currentLocalCart : [];
-              const dbList = data.items;
+            const dbList = data.items;
 
-              if (dbList.length > 0) {
-                // If local cart also has items, merge them without duplicates
-                const merged = [...dbList];
-                localList.forEach(localItem => {
-                  const exists = merged.find(m => m.id === localItem.id && (m.size || '') === (localItem.size || '') && (m.color || '') === (localItem.color || ''));
-                  if (!exists) {
-                    merged.push(localItem);
-                  }
-                });
-                writeLS('abl_cart', merged);
-                writeLS(`abl_cart_${userEmail}`, merged);
-                return merged;
-              } else if (localList.length > 0) {
-                // User added items locally; sync to DB
+            if (dbList.length > 0) {
+              // DB is source of truth — always use DB cart items directly
+              setCartRaw(dbList);
+              writeLS('abl_cart', dbList);
+              writeLS(`abl_cart_${userEmail}`, dbList);
+            } else {
+              // DB has no items — check if local has items and push to DB
+              const localList = readLS('abl_cart', []);
+              if (Array.isArray(localList) && localList.length > 0) {
                 apiFetch('/api/cart/sync', {
                   method: 'POST',
                   headers: {
@@ -589,17 +584,14 @@ export function StoreProvider({ children }) {
                   },
                   body: JSON.stringify({ email: userEmail, items: localList })
                 }).catch(() => {});
-                writeLS('abl_cart', localList);
-                writeLS(`abl_cart_${userEmail}`, localList);
-                return localList;
-              } else {
-                return [];
               }
-            });
+            }
           }
         }
       } catch (err) {
         console.warn('⚠️ User cart sync error:', err.message);
+      } finally {
+        if (isMounted) setCartLoading(false);
       }
     };
 
@@ -1798,7 +1790,7 @@ export function StoreProvider({ children }) {
   const value = {
     // State
     products, categories, orders, customers, coupons, reviews, stockHistory, roles, settings, cms,
-    cart, wishlist, currentUser, adminLoggedIn, adminUser, messages, toasts, subscribers,
+    cart, cartLoading, wishlist, currentUser, adminLoggedIn, adminUser, messages, toasts, subscribers,
     // Setters (for admin direct mutations)
     setProducts, setCategories, setOrders, setCustomers, setCoupons, setReviews, setStockHistory, setRoles,
     setSettings, setCMS, setCart, setWishlist, setCurrentUser, setAdminLoggedIn, setAdminUser, setMessages, setSubscribers,
