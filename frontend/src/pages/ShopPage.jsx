@@ -4,8 +4,6 @@ import { SlidersHorizontal, ArrowUpDown, X, ChevronDown } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import ProductCard from '../components/ProductCard';
 
-const ALL_MATERIALS = ['18K Gold Plated', '22K Gold Plated', 'Rose Gold Plated', 'Sterling Silver'];
-const ALL_GEMSTONES = ['Cubic Zirconia', 'Pearl', 'Diamond CZ', 'Freshwater Pearl', 'None'];
 const CATEGORY_LABELS = {
   all: 'All Jewellery',
   'new-arrivals': 'New Arrivals',
@@ -74,8 +72,6 @@ export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || 'all');
-  const [selectedMaterials, setSelectedMaterials] = useState([]);
-  const [selectedGemstones, setSelectedGemstones] = useState([]);
   const [maxPrice, setMaxPrice] = useState(500);
   const [currentSort, setCurrentSort] = useState('featured');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -100,12 +96,7 @@ export default function ShopPage() {
     { id: 'seasonal-collections', label: 'Seasonal Collections' },
   ];
 
-  const toggleMaterial = (m) => setSelectedMaterials(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
-  const toggleGemstone = (g) => setSelectedGemstones(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
-
   const clearFilters = () => {
-    setSelectedMaterials([]);
-    setSelectedGemstones([]);
     setMaxPrice(500);
     setActiveCategory('all');
     setCurrentSort('featured');
@@ -119,8 +110,6 @@ export default function ShopPage() {
 
   const filteredProducts = products
     .filter(p => isProductInCat(p, activeCategory))
-    .filter(p => selectedMaterials.length === 0 || (p.material && selectedMaterials.includes(p.material)))
-    .filter(p => selectedGemstones.length === 0 || (p.gemstone && selectedGemstones.includes(p.gemstone)))
     .filter(p => Number(p.price || 0) <= maxPrice)
     .filter(p => {
       if (!searchQuery) return true;
@@ -137,7 +126,7 @@ export default function ShopPage() {
       }
     });
 
-  const hasActiveFilters = selectedMaterials.length > 0 || selectedGemstones.length > 0 || maxPrice < 500 || activeCategory !== 'all';
+  const hasActiveFilters = maxPrice < 500 || activeCategory !== 'all';
 
   return (
     <>
@@ -213,42 +202,6 @@ export default function ShopPage() {
                   );
                 })}
               </ul>
-            </div>
-
-            {/* Material */}
-            <div className="filter-block">
-              <h4 className="filter-title">Material</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {ALL_MATERIALS.map(m => (
-                  <label key={m} className="filter-checkbox-label">
-                    <input
-                      type="checkbox"
-                      className="filter-checkbox"
-                      checked={selectedMaterials.includes(m)}
-                      onChange={() => toggleMaterial(m)}
-                    />
-                    <span style={{ fontSize: 13, color: 'var(--slate)' }}>{m}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Gemstone */}
-            <div className="filter-block">
-              <h4 className="filter-title">Gemstone</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {ALL_GEMSTONES.map(g => (
-                  <label key={g} className="filter-checkbox-label">
-                    <input
-                      type="checkbox"
-                      className="filter-checkbox"
-                      checked={selectedGemstones.includes(g)}
-                      onChange={() => toggleGemstone(g)}
-                    />
-                    <span style={{ fontSize: 13, color: 'var(--slate)' }}>{g}</span>
-                  </label>
-                ))}
-              </div>
             </div>
 
             {/* Price Slider */}
@@ -344,42 +297,6 @@ export default function ShopPage() {
                     );
                   })}
                 </select>
-              </div>
-
-              {/* Material Checkboxes */}
-              <div>
-                <h4 className="filter-title" style={{ marginBottom: 10 }}>Material</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  {ALL_MATERIALS.map(m => (
-                    <label key={m} className="filter-checkbox-label" style={{ fontSize: 13 }}>
-                      <input
-                        type="checkbox"
-                        className="filter-checkbox"
-                        checked={selectedMaterials.includes(m)}
-                        onChange={() => toggleMaterial(m)}
-                      />
-                      <span style={{ color: 'var(--onyx)' }}>{m}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Gemstone Checkboxes */}
-              <div>
-                <h4 className="filter-title" style={{ marginBottom: 10 }}>Gemstone</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  {ALL_GEMSTONES.map(g => (
-                    <label key={g} className="filter-checkbox-label" style={{ fontSize: 13 }}>
-                      <input
-                        type="checkbox"
-                        className="filter-checkbox"
-                        checked={selectedGemstones.includes(g)}
-                        onChange={() => toggleGemstone(g)}
-                      />
-                      <span style={{ color: 'var(--onyx)' }}>{g}</span>
-                    </label>
-                  ))}
-                </div>
               </div>
 
               {/* Max Price Slider */}

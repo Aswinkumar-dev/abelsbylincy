@@ -44,20 +44,9 @@ export default function CartPage() {
         <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#FAF7F2', border: '1px solid #E8DFD8', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
           <ShoppingBag style={{ width: 36, height: 36, color: '#D4AF37' }} />
         </div>
-        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 30, fontWeight: 600, marginBottom: 12, color: 'var(--onyx, #1A1A1A)', letterSpacing: '-0.01em' }}>
+        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 30, fontWeight: 600, margin: 0, color: 'var(--onyx, #1A1A1A)', letterSpacing: '-0.01em' }}>
           Kindly login to see the products in your bag
         </h2>
-        <p style={{ color: 'var(--slate, #666)', marginBottom: 32, maxWidth: 460, fontSize: 15, lineHeight: 1.6 }}>
-          Please sign in to access your saved jewellery pieces, enjoy seamless checkout across all your devices, and manage your orders.
-        </p>
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Link to="/account" className="btn-primary" style={{ padding: '14px 32px', fontSize: 14, fontWeight: 600, letterSpacing: '0.05em', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            Sign In / Register <ArrowRight style={{ width: 16 }} />
-          </Link>
-          <Link to="/shop" className="btn-outline" style={{ padding: '14px 28px', fontSize: 14, fontWeight: 600, letterSpacing: '0.05em' }}>
-            Continue Shopping
-          </Link>
-        </div>
       </div>
     );
   }

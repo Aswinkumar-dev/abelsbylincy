@@ -722,5 +722,5 @@ export default function AccountPage() {
     );
   }
 
-  return null;
+  return <div style={{ minHeight: '100vh', background: '#FAF9F6' }} />;
 }

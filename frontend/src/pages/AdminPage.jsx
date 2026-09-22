@@ -463,6 +463,7 @@ export default function AdminPage() {
   const [cmsAnnouncement, setCmsAnnouncement] = useState(() => cms?.announcement || 'Free Express Shipping on all orders across Australia');
   const [bannerSavedNotice, setBannerSavedNotice] = useState(false);
   const [showHeroModal, setShowHeroModal] = useState(false);
+  const [editingHeroIdx, setEditingHeroIdx] = useState(null);
   const [heroUploadSuccess, setHeroUploadSuccess] = useState(false);
   const [heroUploading, setHeroUploading] = useState(false);
   const heroFileInputRef = React.useRef(null);
@@ -473,6 +474,24 @@ export default function AdminPage() {
   const [heroSubmittedNotice, setHeroSubmittedNotice] = useState(false);
   const [draggedHeroIdx, setDraggedHeroIdx] = useState(null);
   const [dragOverHeroIdx, setDragOverHeroIdx] = useState(null);
+
+  const handleEditHeroSlide = (slide, idx) => {
+    setEditingHeroIdx(idx);
+    setHeroForm({
+      tagline: slide.tagline || '',
+      title: slide.title || '',
+      description: slide.description || '',
+      image: slide.image || '',
+      ctaText: slide.ctaText || '',
+      ctaLink: slide.ctaLink || '',
+      id: slide.id || undefined,
+      theme: slide.theme || 'gold'
+    });
+    setHeroFormErrors({});
+    setHeroUploadSuccess(Boolean(slide.image));
+    setHeroSubmittedNotice(false);
+    setShowHeroModal(true);
+  };
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [messageSubTab, setMessageSubTab] = useState('contact');
   const [prodSearchQuery, setProdSearchQuery] = useState('');
@@ -2073,7 +2092,14 @@ export default function AdminPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowHeroModal(true)}
+                    onClick={() => {
+                      setEditingHeroIdx(null);
+                      setHeroForm({ tagline: '', title: '', description: '', image: '', ctaText: '', ctaLink: '' });
+                      setHeroFormErrors({});
+                      setHeroUploadSuccess(false);
+                      setHeroSubmittedNotice(false);
+                      setShowHeroModal(true);
+                    }}
                     className="btn-primary"
                     style={{ padding: '8px 16px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
                   >
@@ -2154,9 +2180,26 @@ export default function AdminPage() {
                           <h5 style={{ fontSize: 15, fontWeight: 700, margin: '2px 0', color: 'var(--onyx)' }}>{slide.title?.replace(/<\/?[^>]+(>|$)/g, "")}</h5>
                           <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}>{slide.description}</p>
                         </div>
-                        <button onClick={() => deleteHeroSlide(idx)} className="btn-secondary" style={{ color: 'var(--danger)', padding: 8 }} title="Delete slide">
-                          <Trash2 style={{ width: 15, height: 15 }} />
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <button
+                            type="button"
+                            onClick={() => handleEditHeroSlide(slide, idx)}
+                            className="btn-secondary"
+                            style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--onyx)' }}
+                            title="Edit slide"
+                          >
+                            <Pencil style={{ width: 14, height: 14 }} /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteHeroSlide(idx)}
+                            className="btn-secondary"
+                            style={{ color: 'var(--danger)', padding: '6px 8px' }}
+                            title="Delete slide"
+                          >
+                            <Trash2 style={{ width: 15, height: 15 }} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -3246,7 +3289,7 @@ export default function AdminPage() {
           <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 540, width: '95%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)' }}>
             <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'clamp(16px, 4vw, 24px)', width: '100%', boxSizing: 'border-box' }}>
               <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 700, marginBottom: 16, color: 'var(--onyx)' }}>
-                Add Homepage Hero Banner Slide
+                {editingHeroIdx !== null ? 'Edit Homepage Hero Banner Slide' : 'Add Homepage Hero Banner Slide'}
               </h3>
 
             <form onSubmit={e => {
@@ -3277,13 +3320,20 @@ export default function AdminPage() {
               }
 
               setHeroFormErrors({});
-              saveHeroSlide(heroForm);
-              setHeroSubmittedNotice(true);
-              showToast('Hero slide added to homepage slider!', 'check');
+              if (editingHeroIdx !== null && editingHeroIdx >= 0) {
+                saveHeroSlide(editingHeroIdx, heroForm);
+                setHeroSubmittedNotice(true);
+                showToast('Hero slide updated & saved to database!', 'check');
+              } else {
+                saveHeroSlide(heroForm);
+                setHeroSubmittedNotice(true);
+                showToast('Hero slide added & saved to database!', 'check');
+              }
               setTimeout(() => {
                 setShowHeroModal(false);
                 setHeroUploadSuccess(false);
                 setHeroSubmittedNotice(false);
+                setEditingHeroIdx(null);
                 setHeroForm({
                   tagline: '', title: '', description: '', image: '', ctaText: '', ctaLink: ''
                 });
@@ -3292,7 +3342,7 @@ export default function AdminPage() {
               {heroSubmittedNotice && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '10px 14px', background: '#E6F4EA', color: '#137333', border: '1px solid #CEEAD6', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
                   <CheckCircle2 style={{ width: 16, height: 16, flexShrink: 0 }} />
-                  <span>✓ Hero slide created and added to homepage slider!</span>
+                  <span>{editingHeroIdx !== null ? '✓ Hero slide updated and saved!' : '✓ Hero slide created and added to homepage slider!'}</span>
                 </div>
               )}
 
@@ -3493,8 +3543,8 @@ export default function AdminPage() {
               </div>
 
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => { setShowHeroModal(false); setHeroUploadSuccess(false); setHeroFormErrors({}); }} className="btn-secondary">Cancel</button>
-                <button type="submit" className="btn-primary">Add Hero Slide</button>
+                <button type="button" onClick={() => { setShowHeroModal(false); setHeroUploadSuccess(false); setHeroFormErrors({}); setEditingHeroIdx(null); }} className="btn-secondary">Cancel</button>
+                <button type="submit" className="btn-primary">{editingHeroIdx !== null ? 'Save Changes' : 'Add Hero Slide'}</button>
               </div>
             </form>
           </div>

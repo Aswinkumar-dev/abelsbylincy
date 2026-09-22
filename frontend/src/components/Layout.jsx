@@ -11,7 +11,7 @@ export default function Layout({ children }) {
   const location = useLocation();
   const { currentUser } = useStore();
 
-  const isAuthScreen = location.pathname === '/account' && !currentUser;
+  const isAuthScreen = location.pathname.toLowerCase() === '/account';
   const validPaths = ['/', '/shop', '/product', '/cart', '/checkout', '/account', '/wishlist', '/collections', '/about', '/contact', '/faq', '/policy', '/admin'];
   const is404Route = !validPaths.includes(location.pathname.toLowerCase());
   const hideNavigation = isAuthScreen || is404Route;
