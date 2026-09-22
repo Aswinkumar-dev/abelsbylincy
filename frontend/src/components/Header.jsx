@@ -14,7 +14,7 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
+  const cartCount = currentUser ? (cart || []).reduce((s, i) => s + (Number(i.quantity) || 1), 0) : 0;
   const wishlistCount = wishlist.length;
 
   const rawAnnouncement = cms?.announcement || 'FREE AUSTRALIA-WIDE SHIPPING $60+ · ANTI-TARNISH GOLD-PLATED JEWELLERY · AFFORDABLE LUXURY · WATERPROOF EVERYDAY PIECES';

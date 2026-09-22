@@ -49,7 +49,7 @@ const getCms = async (req, res, next) => {
 };
 
 /**
- * Update / Save CMS Content
+ * Update / Save CMS Content (Merges announcement banner, hero slides, promo, etc.)
  */
 const updateCms = async (req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -66,9 +66,8 @@ const updateCms = async (req, res, next) => {
       });
     }
 
-    const cmsJson = JSON.stringify(cms);
-
-    // 1. Ensure site_settings table exists and insert/update in MySQL
+    // 1. Fetch existing CMS data to merge cleanly
+    let existingCms = {};
     try {
       await db.query(`
         CREATE TABLE IF NOT EXISTS site_settings (
@@ -78,6 +77,23 @@ const updateCms = async (req, res, next) => {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
+      const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'cms_data'");
+      if (rows && rows.length > 0 && rows[0].setting_value) {
+        existingCms = JSON.parse(rows[0].setting_value) || {};
+      }
+    } catch (dbErr) {
+      console.warn('⚠️ CMS DB existing read note:', dbErr.message);
+    }
+
+    const mergedCms = { ...existingCms, ...cms };
+    if (Array.isArray(cms.heroSlides)) {
+      mergedCms.heroSlides = cms.heroSlides;
+    }
+
+    const cmsJson = JSON.stringify(mergedCms);
+
+    // 2. Insert/Update in MySQL
+    try {
       await db.query(
         `INSERT INTO site_settings (setting_key, setting_value) 
          VALUES ('cms_data', ?) 
@@ -88,13 +104,13 @@ const updateCms = async (req, res, next) => {
       console.warn('⚠️ CMS DB write note:', dbErr.message);
     }
 
-    // 2. Save to fileStore / memory
-    saveStoredCms(cms);
+    // 3. Save to fileStore / memory
+    saveStoredCms(mergedCms);
 
     return res.status(200).json({
       success: true,
-      message: 'CMS settings saved successfully across all devices and browsers!',
-      cms
+      message: 'CMS settings and Hero slides saved successfully across all devices and browsers!',
+      cms: mergedCms
     });
   } catch (error) {
     next(error);

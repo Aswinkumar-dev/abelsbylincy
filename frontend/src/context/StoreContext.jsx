@@ -347,13 +347,19 @@ export function StoreProvider({ children }) {
     }
 
     try {
-      // 4. Fetch CMS Settings & Announcement Banner from Server / Database (Authoritative sync across all browsers)
+      // 4. Fetch CMS Settings, Announcement Banner, & Hero Slides from Server / Database (Authoritative sync across all browsers)
       const cmsRes = await apiFetch(`/api/cms?t=${Date.now()}`);
       if (cmsRes.ok) {
         const data = await cmsRes.json();
         if (data.success && data.cms && typeof data.cms === 'object') {
-          setCMSRaw(prev => ({ ...prev, ...data.cms }));
-          writeLS('abl_cms_v5', data.cms);
+          setCMSRaw(prev => {
+            const merged = { ...DEFAULT_CMS, ...(prev || {}), ...data.cms };
+            if (Array.isArray(data.cms.heroSlides) && data.cms.heroSlides.length > 0) {
+              merged.heroSlides = data.cms.heroSlides;
+            }
+            writeLS('abl_cms_v5', merged);
+            return merged;
+          });
         }
       }
     } catch (err) {
@@ -692,6 +698,25 @@ export function StoreProvider({ children }) {
         setCurrentUser(userObj);
         writeLS('abl_current_user', userObj);
         writeLS('abl_user_token', { ...userObj, password });
+
+        // Immediately fetch user's cart from MySQL DB upon login
+        try {
+          const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(cleanEmail)}&t=${Date.now()}`, {
+            headers: {
+              'Cache-Control': 'no-cache',
+              ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
+            }
+          });
+          if (cartRes.ok) {
+            const cartData = await cartRes.json();
+            if (cartData.success && Array.isArray(cartData.items)) {
+              setCartRaw(cartData.items);
+              writeLS('abl_cart', cartData.items);
+              writeLS(`abl_cart_${cleanEmail}`, cartData.items);
+            }
+          }
+        } catch (_) {}
+
         showToast(`Welcome back, ${userName}!`, 'check');
         return true;
       } else {
@@ -885,6 +910,23 @@ export function StoreProvider({ children }) {
     setCurrentUser(userObj);
     writeLS('abl_current_user', userObj);
     writeLS('abl_user_token', { email: lowerEmail, name: userObj.name, provider: 'google' });
+
+    // Immediately fetch user's cart from MySQL DB upon Google login
+    try {
+      apiFetch(`/api/cart?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      })
+        .then(res => res.json())
+        .then(cartData => {
+          if (cartData.success && Array.isArray(cartData.items)) {
+            setCartRaw(cartData.items);
+            writeLS('abl_cart', cartData.items);
+            writeLS(`abl_cart_${lowerEmail}`, cartData.items);
+          }
+        })
+        .catch(() => {});
+    } catch (_) {}
+
     showToast(`Welcome back, ${userObj.name}!`, 'check');
     return true;
   }, [customers, setCustomers, setCurrentUser, showToast]);
@@ -970,6 +1012,8 @@ export function StoreProvider({ children }) {
   const logoutUser = useCallback(() => {
     setCurrentUser(null);
     writeLS('abl_current_user', null);
+    setCartRaw([]);
+    writeLS('abl_cart', []);
     try {
       localStorage.removeItem('abl_access_token');
       localStorage.removeItem('abl_user_token');
@@ -1408,9 +1452,11 @@ export function StoreProvider({ children }) {
     }
   }, [showToast]);
 
-  const saveHeroSlide = useCallback((idxOrData, slideData) => {
-    setCMS(prev => {
-      const slides = [...(prev?.heroSlides || [])];
+  const saveHeroSlide = useCallback(async (idxOrData, slideData) => {
+    let nextState;
+    setCMSRaw(prev => {
+      const base = prev || DEFAULT_CMS;
+      const slides = [...(base.heroSlides || DEFAULT_CMS.heroSlides || [])];
       let idx = typeof idxOrData === 'number' ? idxOrData : -1;
       let data = typeof idxOrData === 'object' ? idxOrData : slideData;
       if (idx === -1) {
@@ -1418,48 +1464,110 @@ export function StoreProvider({ children }) {
       } else {
         slides[idx] = { ...slides[idx], ...data };
       }
-      return { ...prev, heroSlides: slides };
+      nextState = { ...base, heroSlides: slides };
+      writeLS('abl_cms_v5', nextState);
+      return nextState;
     });
-    showToast('Slide saved!', 'check');
-  }, [setCMS, showToast]);
 
-  const deleteHeroSlide = useCallback((target) => {
-    setCMS(prev => {
-      const slides = [...(prev?.heroSlides || [])];
+    try {
+      const cur = readLS('abl_cms_v5', DEFAULT_CMS);
+      const toSend = nextState || cur;
+      await apiFetch('/api/cms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cms: toSend })
+      });
+      showToast('Hero slide saved to database!', 'check');
+    } catch (err) {
+      console.warn('⚠️ Hero slide save note:', err.message);
+    }
+  }, [showToast]);
+
+  const deleteHeroSlide = useCallback(async (target) => {
+    let nextState;
+    setCMSRaw(prev => {
+      const base = prev || DEFAULT_CMS;
+      const slides = [...(base.heroSlides || DEFAULT_CMS.heroSlides || [])];
       let newSlides;
       if (typeof target === 'number') {
         newSlides = slides.filter((_, i) => i !== target);
       } else {
         newSlides = slides.filter(s => s.id !== target);
       }
-      return { ...prev, heroSlides: newSlides };
+      nextState = { ...base, heroSlides: newSlides };
+      writeLS('abl_cms_v5', nextState);
+      return nextState;
     });
-    showToast('Slide deleted', 'check');
-  }, [setCMS, showToast]);
 
-  const moveHeroSlide = useCallback((idx, dir) => {
-    setCMS(prev => {
-      const slides = [...(prev?.heroSlides || [])];
+    try {
+      const cur = readLS('abl_cms_v5', DEFAULT_CMS);
+      const toSend = nextState || cur;
+      await apiFetch('/api/cms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cms: toSend })
+      });
+      showToast('Hero slide deleted from database', 'check');
+    } catch (err) {
+      console.warn('⚠️ Hero slide delete note:', err.message);
+    }
+  }, [showToast]);
+
+  const moveHeroSlide = useCallback(async (idx, dir) => {
+    let nextState;
+    setCMSRaw(prev => {
+      const base = prev || DEFAULT_CMS;
+      const slides = [...(base.heroSlides || DEFAULT_CMS.heroSlides || [])];
       const newIdx = idx + dir;
       if (newIdx < 0 || newIdx >= slides.length) return prev;
       const temp = slides[idx];
       slides[idx] = slides[newIdx];
       slides[newIdx] = temp;
-      return { ...prev, heroSlides: slides };
+      nextState = { ...base, heroSlides: slides };
+      writeLS('abl_cms_v5', nextState);
+      return nextState;
     });
-    showToast('Hero slide reordered!', 'check');
-  }, [setCMS, showToast]);
 
-  const reorderHeroSlides = useCallback((fromIdx, toIdx) => {
-    setCMS(prev => {
-      const slides = [...(prev?.heroSlides || [])];
+    try {
+      const cur = readLS('abl_cms_v5', DEFAULT_CMS);
+      const toSend = nextState || cur;
+      await apiFetch('/api/cms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cms: toSend })
+      });
+      showToast('Hero slides reordered in database!', 'check');
+    } catch (err) {
+      console.warn('⚠️ Hero slide reorder note:', err.message);
+    }
+  }, [showToast]);
+
+  const reorderHeroSlides = useCallback(async (fromIdx, toIdx) => {
+    let nextState;
+    setCMSRaw(prev => {
+      const base = prev || DEFAULT_CMS;
+      const slides = [...(base.heroSlides || DEFAULT_CMS.heroSlides || [])];
       if (fromIdx < 0 || fromIdx >= slides.length || toIdx < 0 || toIdx >= slides.length || fromIdx === toIdx) return prev;
       const [movedItem] = slides.splice(fromIdx, 1);
       slides.splice(toIdx, 0, movedItem);
-      return { ...prev, heroSlides: slides };
+      nextState = { ...base, heroSlides: slides };
+      writeLS('abl_cms_v5', nextState);
+      return nextState;
     });
-    showToast('Hero slide reordered!', 'check');
-  }, [setCMS, showToast]);
+
+    try {
+      const cur = readLS('abl_cms_v5', DEFAULT_CMS);
+      const toSend = nextState || cur;
+      await apiFetch('/api/cms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cms: toSend })
+      });
+      showToast('Hero slides reordered in database!', 'check');
+    } catch (err) {
+      console.warn('⚠️ Hero slide reorder note:', err.message);
+    }
+  }, [showToast]);
 
   const saveStoreSettings = useCallback((updates) => {
     setSettings({ ...settings, ...updates });
