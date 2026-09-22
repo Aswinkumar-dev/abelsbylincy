@@ -510,30 +510,27 @@ export function StoreProvider({ children }) {
     let nextItems;
     setCartRaw(prev => {
       nextItems = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      if (!Array.isArray(nextItems)) nextItems = [];
       writeLS('abl_cart', nextItems);
       return nextItems;
     });
 
-    // Reliable MySQL DB cart sync for authenticated user (executed outside setState updater)
     const user = readLS('abl_current_user', null) || currentUser;
-    if (user?.email && Array.isArray(nextItems)) {
-      const email = user.email.trim().toLowerCase();
+    const email = user?.email?.trim().toLowerCase();
+    if (email && Array.isArray(nextItems)) {
       writeLS(`abl_cart_${email}`, nextItems);
-      try {
-        const token = localStorage.getItem('abl_access_token');
-        apiFetch('/api/cart/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({ email, items: nextItems })
-        }).catch(err => console.warn('⚠️ Cart sync note:', err.message));
-      } catch (err) {
-        console.warn('⚠️ Cart sync exception:', err.message);
-      }
+      const token = localStorage.getItem('abl_access_token');
+      apiFetch('/api/cart/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ email, items: nextItems })
+      }).catch(err => console.warn('⚠️ Cart sync note:', err.message));
     }
   }, [currentUser]);
+
   const setWishlist = useCallback((v) => { setWishlistRaw(v); writeLS('abl_wishlist', v); }, []);
   const setCurrentUser = useCallback((v) => { setCurrentUserRaw(v); writeLS('abl_current_user', v); }, []);
   const setAdminUser = useCallback((v) => { setAdminUserRaw(v); writeLS('abl_admin_user', v); }, []);
@@ -544,6 +541,22 @@ export function StoreProvider({ children }) {
       return next;
     });
   }, []);
+
+  // Continuous auto-sync: when cart changes or user logs in, persist cart to DB
+  useEffect(() => {
+    const userEmail = currentUser?.email?.trim().toLowerCase();
+    if (!userEmail || !Array.isArray(cart) || cart.length === 0) return;
+
+    const token = localStorage.getItem('abl_access_token');
+    apiFetch('/api/cart/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ email: userEmail, items: cart })
+    }).catch(() => {});
+  }, [cart, currentUser?.email]);
 
   // Long-term multi-device & Incognito Cart preservation: sync account cart from MySQL DB
   useEffect(() => {
@@ -566,25 +579,32 @@ export function StoreProvider({ children }) {
           const data = await res.json();
           if (data.success && Array.isArray(data.items) && isMounted) {
             const dbList = data.items;
+            const localList = readLS('abl_cart', []) || [];
 
-            if (dbList.length > 0) {
-              // DB is source of truth — always use DB cart items directly
-              setCartRaw(dbList);
-              writeLS('abl_cart', dbList);
-              writeLS(`abl_cart_${userEmail}`, dbList);
-            } else {
-              // DB has no items — check if local has items and push to DB
-              const localList = readLS('abl_cart', []);
-              if (Array.isArray(localList) && localList.length > 0) {
-                apiFetch('/api/cart/sync', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                  },
-                  body: JSON.stringify({ email: userEmail, items: localList })
-                }).catch(() => {});
-              }
+            // If DB has items, merge any local items without duplicating
+            const merged = [...dbList];
+            if (Array.isArray(localList)) {
+              localList.forEach(loc => {
+                if (!loc || !loc.id) return;
+                const exists = merged.find(m => String(m.id) === String(loc.id) && (m.size || '') === (loc.size || '') && (m.color || '') === (loc.color || ''));
+                if (!exists) merged.push(loc);
+              });
+            }
+
+            const finalList = merged.length > 0 ? merged : localList;
+            setCartRaw(finalList);
+            writeLS('abl_cart', finalList);
+            writeLS(`abl_cart_${userEmail}`, finalList);
+
+            if (finalList.length > 0) {
+              apiFetch('/api/cart/sync', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({ email: userEmail, items: finalList })
+              }).catch(() => {});
             }
           }
         }
@@ -716,6 +736,7 @@ export function StoreProvider({ children }) {
         }
 
         // Direct MySQL DB cart fetch on login (ensures immediate cart visibility in Incognito and new devices)
+        const localItems = readLS('abl_cart', []) || [];
         try {
           const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(cleanEmail)}&t=${Date.now()}`, {
             headers: {
@@ -725,15 +746,34 @@ export function StoreProvider({ children }) {
           });
           if (cartRes.ok) {
             const cartData = await cartRes.json();
-            if (cartData.success && Array.isArray(cartData.items)) {
-              setCartRaw(cartData.items);
-              writeLS('abl_cart', cartData.items);
-              writeLS(`abl_cart_${cleanEmail}`, cartData.items);
+            const dbItems = (cartData.success && Array.isArray(cartData.items)) ? cartData.items : [];
+            const merged = [...dbItems];
+            if (Array.isArray(localItems)) {
+              localItems.forEach(loc => {
+                if (!loc || !loc.id) return;
+                const exists = merged.find(m => String(m.id) === String(loc.id) && (m.size || '') === (loc.size || '') && (m.color || '') === (loc.color || ''));
+                if (!exists) merged.push(loc);
+              });
+            }
+            const finalList = merged.length > 0 ? merged : localItems;
+            setCartRaw(finalList);
+            writeLS('abl_cart', finalList);
+            writeLS(`abl_cart_${cleanEmail}`, finalList);
+
+            if (finalList.length > 0) {
+              apiFetch('/api/cart/sync', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
+                },
+                body: JSON.stringify({ email: cleanEmail, items: finalList })
+              }).catch(() => {});
             }
           }
         } catch (cErr) {
           // Cart fetch failed — not a login failure, continue
-          const cachedUserCart = readLS(`abl_cart_${cleanEmail}`, null);
+          const cachedUserCart = readLS(`abl_cart_${cleanEmail}`, null) || localItems;
           if (Array.isArray(cachedUserCart) && cachedUserCart.length > 0) {
             setCartRaw(cachedUserCart);
             writeLS('abl_cart', cachedUserCart);
@@ -933,6 +973,7 @@ export function StoreProvider({ children }) {
     }
 
     // Direct MySQL DB cart fetch on login (ensures immediate cart visibility in Incognito and new devices)
+    const localItems = readLS('abl_cart', []) || [];
     try {
       const token = localStorage.getItem('abl_access_token');
       const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
@@ -943,14 +984,33 @@ export function StoreProvider({ children }) {
       });
       if (cartRes.ok) {
         const cartData = await cartRes.json();
-        if (cartData.success && Array.isArray(cartData.items)) {
-          setCartRaw(cartData.items);
-          writeLS('abl_cart', cartData.items);
-          writeLS(`abl_cart_${lowerEmail}`, cartData.items);
+        const dbItems = (cartData.success && Array.isArray(cartData.items)) ? cartData.items : [];
+        const merged = [...dbItems];
+        if (Array.isArray(localItems)) {
+          localItems.forEach(loc => {
+            if (!loc || !loc.id) return;
+            const exists = merged.find(m => String(m.id) === String(loc.id) && (m.size || '') === (loc.size || '') && (m.color || '') === (loc.color || ''));
+            if (!exists) merged.push(loc);
+          });
+        }
+        const finalList = merged.length > 0 ? merged : localItems;
+        setCartRaw(finalList);
+        writeLS('abl_cart', finalList);
+        writeLS(`abl_cart_${lowerEmail}`, finalList);
+
+        if (finalList.length > 0) {
+          apiFetch('/api/cart/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ email: lowerEmail, items: finalList })
+          }).catch(() => {});
         }
       }
     } catch (_) {
-      const cachedUserCart = readLS(`abl_cart_${lowerEmail}`, null);
+      const cachedUserCart = readLS(`abl_cart_${lowerEmail}`, null) || localItems;
       if (Array.isArray(cachedUserCart) && cachedUserCart.length > 0) {
         setCartRaw(cachedUserCart);
         writeLS('abl_cart', cachedUserCart);
