@@ -74,8 +74,12 @@ const fetchAllProductsFromDB = async () => {
         colorImages,
         category: p.category_slug || p.category || 'necklaces',
         isFeatured: !!(p.is_featured || p.isFeatured || p.featured),
-        bestSeller: !!(p.is_best_seller || p.bestSeller),
-        newArrival: !!(p.is_new_arrival || p.newArrival)
+        featured: !!(p.is_featured || p.isFeatured || p.featured),
+        is_featured: !!(p.is_featured || p.isFeatured || p.featured) ? 1 : 0,
+        bestSeller: !!(p.is_best_seller || p.bestSeller || p.best_seller || p.isBestSeller),
+        is_best_seller: !!(p.is_best_seller || p.bestSeller || p.best_seller || p.isBestSeller) ? 1 : 0,
+        newArrival: !!(p.is_new_arrival || p.newArrival || p.new_arrival || p.isNewArrival),
+        is_new_arrival: !!(p.is_new_arrival || p.newArrival || p.new_arrival || p.isNewArrival) ? 1 : 0
       });
     }
   });
@@ -96,6 +100,10 @@ const fetchAllProductsFromDB = async () => {
 };
 
 const getProducts = async (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   try {
     const { category, search, featured, newArrival } = req.query;
     let result = await fetchAllProductsFromDB();
@@ -111,7 +119,7 @@ const getProducts = async (req, res, next) => {
       result = result.filter(p => p.featured || p.isFeatured || p.is_featured);
     }
     if (newArrival === 'true') {
-      result = result.filter(p => p.newArrival || p.is_new_arrival);
+      result = result.filter(p => p.newArrival || p.is_new_arrival || p.isNewArrival);
     }
     if (search) {
       const s = search.toLowerCase();

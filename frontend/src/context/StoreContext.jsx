@@ -306,7 +306,7 @@ export function StoreProvider({ children }) {
 
     try {
       // 2. Fetch Products from Server / Database (Authoritative single source of truth)
-      const prodRes = await apiFetch('/api/products');
+      const prodRes = await apiFetch(`/api/products?t=${Date.now()}`);
       if (prodRes.ok) {
         const data = await prodRes.json();
         if (data.success && Array.isArray(data.products)) {
