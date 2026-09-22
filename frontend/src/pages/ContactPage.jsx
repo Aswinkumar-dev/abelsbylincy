@@ -19,7 +19,7 @@ export default function ContactPage() {
 
   const validateEmail = (emailVal) => {
     if (!emailVal.trim()) {
-      return 'Email address is required.';
+      return 'Please enter your email.';
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailVal.trim())) {

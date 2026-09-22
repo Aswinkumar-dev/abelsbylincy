@@ -62,14 +62,6 @@ export default function Footer() {
               />
               <button type="submit" className="newsletter-btn">Subscribe</button>
             </form>
-
-            {/* Validation Error Message (Left-aligned with input box border) */}
-            {errorMsg && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 6, marginTop: 8, color: '#fc8181', fontSize: 13, fontWeight: 500, paddingLeft: 2 }}>
-                <AlertCircle style={{ width: 16, height: 16, flexShrink: 0 }} />
-                <span>{errorMsg}</span>
-              </div>
-            )}
           </div>
         </div>
       </div>

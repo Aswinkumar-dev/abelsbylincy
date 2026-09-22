@@ -722,18 +722,37 @@ export function StoreProvider({ children }) {
         if (data.accessToken) {
           localStorage.setItem('abl_access_token', data.accessToken);
         }
-        const cachedUserCart = readLS(`abl_cart_${cleanEmail}`, null);
-        if (Array.isArray(cachedUserCart) && cachedUserCart.length > 0) {
-          setCartRaw(cachedUserCart);
-          writeLS('abl_cart', cachedUserCart);
+
+        // Direct MySQL DB cart fetch on login (ensures immediate cart visibility in Incognito and new devices)
+        try {
+          const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(cleanEmail)}&t=${Date.now()}`, {
+            headers: {
+              'Cache-Control': 'no-cache',
+              ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
+            }
+          });
+          if (cartRes.ok) {
+            const cartData = await cartRes.json();
+            if (cartData.success && Array.isArray(cartData.items)) {
+              setCartRaw(cartData.items);
+              writeLS('abl_cart', cartData.items);
+              writeLS(`abl_cart_${cleanEmail}`, cartData.items);
+            }
+          }
+        } catch (cErr) {
+          const cachedUserCart = readLS(`abl_cart_${cleanEmail}`, null);
+          if (Array.isArray(cachedUserCart) && cachedUserCart.length > 0) {
+            setCartRaw(cachedUserCart);
+            writeLS('abl_cart', cachedUserCart);
+          }
         }
+
         setCurrentUser(userObj);
         writeLS('abl_current_user', userObj);
         writeLS('abl_user_token', { ...userObj, password });
 
         showToast(`Welcome back, ${userName}!`, 'check');
         return true;
-        return false;
       }
     } catch (err) {
       // Local fallback if offline
@@ -890,7 +909,7 @@ export function StoreProvider({ children }) {
     }
   }
 
-  const loginWithGoogleProfile = useCallback((profile) => {
+  const loginWithGoogleProfile = useCallback(async (profile) => {
     if (!profile || !profile.email) {
       showToast('Google authentication failed. Please try again.', 'alert-circle');
       return false;
@@ -917,11 +936,31 @@ export function StoreProvider({ children }) {
       setCustomers(prev => (prev || []).map(c => c.email?.toLowerCase() === lowerEmail ? { ...c, avatar: userObj.avatar || c.avatar } : c));
     }
 
-    const cachedUserCart = readLS(`abl_cart_${lowerEmail}`, null);
-    if (Array.isArray(cachedUserCart) && cachedUserCart.length > 0) {
-      setCartRaw(cachedUserCart);
-      writeLS('abl_cart', cachedUserCart);
+    // Direct MySQL DB cart fetch on login (ensures immediate cart visibility in Incognito and new devices)
+    try {
+      const token = localStorage.getItem('abl_access_token');
+      const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (cartRes.ok) {
+        const cartData = await cartRes.json();
+        if (cartData.success && Array.isArray(cartData.items)) {
+          setCartRaw(cartData.items);
+          writeLS('abl_cart', cartData.items);
+          writeLS(`abl_cart_${lowerEmail}`, cartData.items);
+        }
+      }
+    } catch (_) {
+      const cachedUserCart = readLS(`abl_cart_${lowerEmail}`, null);
+      if (Array.isArray(cachedUserCart) && cachedUserCart.length > 0) {
+        setCartRaw(cachedUserCart);
+        writeLS('abl_cart', cachedUserCart);
+      }
     }
+
     setCurrentUser(userObj);
     writeLS('abl_current_user', userObj);
     writeLS('abl_user_token', { email: lowerEmail, name: userObj.name, provider: 'google' });
