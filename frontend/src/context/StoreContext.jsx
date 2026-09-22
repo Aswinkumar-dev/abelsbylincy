@@ -322,22 +322,24 @@ export function StoreProvider({ children }) {
 
     try {
       // 3. Fetch Reviews from Server / Database (Authoritative sync across all browsers)
-      const revRes = await apiFetch('/api/reviews');
+      const revRes = await apiFetch(`/api/reviews?t=${Date.now()}`);
       if (revRes.ok) {
         const data = await revRes.json();
-        if (data.success && Array.isArray(data.reviews) && data.reviews.length > 0) {
+        if (data.success && Array.isArray(data.reviews)) {
           const formatted = data.reviews.map(r => ({
             id: r.id,
-            productId: r.product_id,
-            userId: r.user_id,
-            userEmail: r.user_email,
-            author: [r.first_name, r.last_name].filter(Boolean).join(' ') || r.user_email || 'Customer',
+            productId: String(r.productId || r.product_id),
+            productName: r.productName || r.product_name || '',
+            userId: r.userId || r.user_id || null,
+            userEmail: r.userEmail || r.user_email || '',
+            author: r.author || r.author_name || [r.first_name, r.last_name].filter(Boolean).join(' ') || (r.userEmail || r.user_email || '').split('@')[0] || 'Customer',
             rating: Number(r.rating) || 5,
-            title: r.title || `${r.rating} Star Rating`,
-            text: r.review_text || '',
-            date: r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
+            title: r.title || `${r.rating || 5} Star Rating`,
+            text: r.text || r.review_text || '',
+            date: (r.createdAt || r.created_at) ? new Date(r.createdAt || r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (r.date || 'Recent'),
             status: r.status || 'approved',
-            verified: Boolean(r.is_verified_purchase)
+            verified: r.is_verified_purchase !== undefined ? Boolean(r.is_verified_purchase) : (r.verified !== undefined ? Boolean(r.verified) : true),
+            reply: r.reply || ''
           }));
           setReviewsRaw(formatted);
           writeLS('abl_reviews_v7', formatted);
@@ -1742,13 +1744,16 @@ export function StoreProvider({ children }) {
   }, [setMessages, showToast]);
 
   const addReview = useCallback(async (reviewData) => {
+    const authorName = currentUser?.name || (currentUser?.email ? currentUser.email.split('@')[0] : '') || reviewData.author || 'Customer';
+    const userEmail = currentUser?.email || reviewData.userEmail || '';
+    const userId = currentUser?.id || null;
+
     const existingUserReviews = (reviews || []).filter(r => 
       String(r.productId) === String(reviewData.productId) && 
       (
-        (r.userId && currentUser?.id && String(r.userId) === String(currentUser.id)) ||
-        (r.userEmail && currentUser?.email && r.userEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
-        (r.author && currentUser?.name && r.author.toLowerCase() === currentUser.name.toLowerCase()) ||
-        (r.author && currentUser?.email && r.author.toLowerCase() === currentUser.email.toLowerCase())
+        (userId && r.userId && String(r.userId) === String(userId)) ||
+        (userEmail && r.userEmail && r.userEmail.toLowerCase() === userEmail.toLowerCase()) ||
+        (authorName && r.author && r.author.toLowerCase() === authorName.toLowerCase())
       )
     );
 
@@ -1756,6 +1761,9 @@ export function StoreProvider({ children }) {
       showToast('oops! You have reached the limit of 5 reviews for this product', 'alert-circle');
       return { success: false, message: 'oops! You have reached the limit of 5 reviews for this product' };
     }
+
+    let createdReviewId = `rev_${Date.now()}`;
+    let serverReview = null;
 
     try {
       const token = localStorage.getItem('abl_access_token');
@@ -1766,12 +1774,14 @@ export function StoreProvider({ children }) {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          productId: reviewData.productId,
-          rating: Number(reviewData.rating) || 1,
-          title: reviewData.title || `${reviewData.rating || 1} Star Rating`,
+          productId: String(reviewData.productId),
+          productName: reviewData.productName || 'Jewelry Piece',
+          rating: Number(reviewData.rating) || 5,
+          title: reviewData.title || `${reviewData.rating || 5} Star Rating`,
           reviewText: reviewData.text || '',
-          userEmail: currentUser?.email || reviewData.userEmail || '',
-          authorName: currentUser?.name || reviewData.author || 'Customer'
+          userEmail: userEmail,
+          authorName: authorName,
+          userId: userId
         })
       });
 
@@ -1780,28 +1790,92 @@ export function StoreProvider({ children }) {
         showToast('oops! You have reached the limit of 5 reviews for this product', 'alert-circle');
         return { success: false, message: 'oops! You have reached the limit of 5 reviews for this product' };
       }
+      if (res.ok && data.success) {
+        if (data.reviewId) createdReviewId = data.reviewId;
+        if (data.review) serverReview = data.review;
+      }
     } catch (err) {
       console.warn('⚠️ Review submission note:', err.message);
     }
 
-    const newRev = {
-      id: `rev_${Date.now()}`,
-      productId: reviewData.productId,
+    const newRev = serverReview ? {
+      id: serverReview.id,
+      productId: String(serverReview.productId || serverReview.product_id),
+      productName: serverReview.productName || serverReview.product_name || reviewData.productName || 'Jewelry Piece',
+      userId: serverReview.userId || userId,
+      userEmail: serverReview.userEmail || userEmail,
+      author: serverReview.author || serverReview.author_name || authorName,
+      rating: Number(serverReview.rating || reviewData.rating || 5),
+      title: serverReview.title || reviewData.title || `${reviewData.rating || 5} Star Rating`,
+      text: serverReview.text || serverReview.review_text || reviewData.text || '',
+      date: serverReview.created_at ? new Date(serverReview.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      status: serverReview.status || 'approved',
+      verified: serverReview.is_verified_purchase !== undefined ? Boolean(serverReview.is_verified_purchase) : true,
+      reply: serverReview.reply || ''
+    } : {
+      id: createdReviewId,
+      productId: String(reviewData.productId),
       productName: reviewData.productName || 'Jewelry Piece',
-      userId: currentUser?.id || null,
-      userEmail: currentUser?.email || '',
-      author: currentUser?.name || currentUser?.email || reviewData.author || 'Customer',
-      rating: Number(reviewData.rating) || 1,
-      title: reviewData.title || `${reviewData.rating || 1} Star Rating`,
+      userId: userId,
+      userEmail: userEmail,
+      author: authorName,
+      rating: Number(reviewData.rating) || 5,
+      title: reviewData.title || `${reviewData.rating || 5} Star Rating`,
       text: reviewData.text || '',
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       status: 'approved',
-      verified: true
+      verified: true,
+      reply: ''
     };
-    setReviews(prev => [newRev, ...(prev || [])]);
+
+    setReviews(prev => [newRev, ...(prev || []).filter(r => String(r.id) !== String(newRev.id))]);
     showToast('Review submitted! Thank you.', 'check');
     return { success: true, review: newRev };
   }, [reviews, currentUser, setReviews, showToast]);
+
+  const updateReviewStatus = useCallback(async (reviewId, newStatus) => {
+    setReviews(prev => (prev || []).map(r => String(r.id) === String(reviewId) ? { ...r, status: newStatus } : r));
+    showToast(`Review ${newStatus === 'approved' ? 'approved' : 'hidden'}`, 'check');
+
+    try {
+      await apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+    } catch (err) {
+      console.warn('⚠️ Review status update API note:', err.message);
+    }
+  }, [setReviews, showToast]);
+
+  const replyToReview = useCallback(async (reviewId, replyText) => {
+    setReviews(prev => (prev || []).map(r => String(r.id) === String(reviewId) ? { ...r, reply: replyText } : r));
+    showToast('Store reply saved!', 'check');
+
+    try {
+      await apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}/reply`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply: replyText })
+      });
+    } catch (err) {
+      console.warn('⚠️ Review reply API note:', err.message);
+    }
+  }, [setReviews, showToast]);
+
+  const deleteReview = useCallback(async (reviewId) => {
+    setReviews(prev => (prev || []).filter(r => String(r.id) !== String(reviewId)));
+    showToast('Review deleted', 'trash');
+
+    try {
+      await apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.warn('⚠️ Delete review API note:', err.message);
+    }
+  }, [setReviews, showToast]);
+
 
 
   const applyCoupon = useCallback((code, subtotal) => {
@@ -1865,7 +1939,7 @@ export function StoreProvider({ children }) {
     loginWithEmail, registerUser, loginWithGoogle, logoutUser, saveUserAddress,
     requestPasswordReset, resetUserPassword,
     adminLogin, adminLogout,
-    handleContactForm, handleNewsletter, deleteSubscriber, deleteMessage, addReview,
+    handleContactForm, handleNewsletter, deleteSubscriber, deleteMessage, addReview, updateReviewStatus, replyToReview, deleteReview,
     placeOrder, applyCoupon,
     // Admin CRUD
     saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,

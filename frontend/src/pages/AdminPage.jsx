@@ -17,7 +17,8 @@ export default function AdminPage() {
     formatMoney, saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,
     saveCategory, deleteCategory, updateOrderStatus, cycleOrderStatus, deleteOrder,
     saveCustomer, deleteCustomer, deleteSubscriber, deleteMessage, setSubscribers, saveCoupon, deleteCoupon,
-    saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide, reorderHeroSlides, showToast
+    saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide, reorderHeroSlides,
+    updateReviewStatus, replyToReview, deleteReview, showToast
   } = useStore();
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -1810,7 +1811,7 @@ export default function AdminPage() {
                 <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>
                   Customer Reviews <span style={{ color: 'var(--onyx)', fontWeight: 600, whiteSpace: 'nowrap' }}>({reviews.length})</span>
                 </h2>
-                <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Approve, hide, or reply to customer product feedback.</p>
+                <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Approve, hide, reply to, or delete customer product reviews across the store.</p>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1821,13 +1822,28 @@ export default function AdminPage() {
                 ) : (
                   reviews.map(r => (
                     <div key={r.id} style={{ background: '#FFFFFF', padding: 20, borderRadius: 12, border: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, flexWrap: 'wrap', gap: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
                         <div>
-                          {r.productName && (
-                            <span style={{ background: '#FAF4E8', color: 'var(--gold-dark)', border: '1px solid var(--gold)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, display: 'inline-block', marginBottom: 6 }}>
-                              Product: {r.productName}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                            {r.productName && (
+                              <span style={{ background: '#FAF4E8', color: 'var(--gold-dark)', border: '1px solid var(--gold)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, display: 'inline-block' }}>
+                                Product: {r.productName}
+                              </span>
+                            )}
+                            <span style={{
+                              fontSize: 10,
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              background: r.status === 'approved' ? '#E6F4EA' : '#FEF2F2',
+                              color: r.status === 'approved' ? '#137333' : '#B91C1C',
+                              border: `1px solid ${r.status === 'approved' ? '#CEEAD6' : '#FCA5A5'}`
+                            }}>
+                              {r.status === 'approved' ? 'Approved (Visible)' : 'Hidden'}
                             </span>
-                          )}
+                          </div>
+
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--gold)', marginBottom: 4 }}>
                             {[...Array(5)].map((_, i) => (
                               <Star key={i} style={{ width: 16, height: 16, fill: i < r.rating ? 'var(--gold)' : 'none' }} />
@@ -1835,26 +1851,94 @@ export default function AdminPage() {
                             <span style={{ fontWeight: 700, color: 'var(--onyx)', marginLeft: 6 }}>{r.title}</span>
                           </div>
                           <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>
-                            By <strong>{r.author}</strong> {r.verified && <span style={{ background: '#C6F6D5', color: '#22543D', fontSize: 10, padding: '2px 6px', borderRadius: 4, marginLeft: 6 }}>Verified Purchase</span>} — {r.date}
+                            By <strong>{r.author}</strong> {r.userEmail && <span style={{ color: 'var(--slate)', fontSize: 12 }}>({r.userEmail})</span>} {r.verified && <span style={{ background: '#C6F6D5', color: '#22543D', fontSize: 10, padding: '2px 6px', borderRadius: 4, marginLeft: 6 }}>Verified Purchase</span>} — {r.date}
                           </p>
                         </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                           <button
+                            type="button"
                             onClick={() => {
-                              const updated = reviews.map(item => item.id === r.id ? { ...item, status: item.status === 'approved' ? 'hidden' : 'approved' } : item);
-                              setReviews(updated);
-                              showToast(`Review ${r.status === 'approved' ? 'hidden' : 'approved'}`, 'check');
+                              const newStatus = r.status === 'approved' ? 'hidden' : 'approved';
+                              updateReviewStatus(r.id, newStatus);
                             }}
-                            className="btn-secondary" style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600 }}
+                            className={r.status === 'approved' ? 'btn-secondary' : 'btn-primary'}
+                            style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600 }}
                           >
                             {r.status === 'approved' ? 'Hide' : 'Approve'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (replyingReviewId === r.id) {
+                                setReplyingReviewId(null);
+                                setReviewReplyText('');
+                              } else {
+                                setReplyingReviewId(r.id);
+                                setReviewReplyText(r.reply || '');
+                              }
+                            }}
+                            className="btn-secondary"
+                            style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600 }}
+                          >
+                            {r.reply ? 'Edit Reply' : 'Reply'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete this review by ${r.author}?`)) {
+                                deleteReview(r.id);
+                              }
+                            }}
+                            className="btn-secondary"
+                            style={{ padding: '6px 10px', fontSize: 12, color: '#C5221F', borderColor: '#FAD2CF' }}
+                            title="Delete Review"
+                          >
+                            <Trash2 style={{ width: 14, height: 14 }} />
                           </button>
                         </div>
                       </div>
                       <p style={{ fontSize: 14, color: 'var(--onyx)', margin: '8px 0', lineHeight: 1.6 }}>"{r.text}"</p>
-                      {r.reply && (
+                      {r.reply && replyingReviewId !== r.id && (
                         <div style={{ background: 'var(--cream)', padding: 12, borderRadius: 8, marginTop: 8, fontSize: 13, borderLeft: '3px solid var(--gold)' }}>
                           <strong>Store Reply:</strong> {r.reply}
+                        </div>
+                      )}
+
+                      {replyingReviewId === r.id && (
+                        <div style={{ marginTop: 12, padding: 14, background: 'var(--cream)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, margin: '0 0 6px 0', color: 'var(--onyx)' }}>Store Reply:</p>
+                          <textarea
+                            value={reviewReplyText}
+                            onChange={(e) => setReviewReplyText(e.target.value)}
+                            placeholder="Write an official response to this client..."
+                            rows={3}
+                            style={{ width: '100%', padding: 10, borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                          />
+                          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                replyToReview(r.id, reviewReplyText);
+                                setReplyingReviewId(null);
+                                setReviewReplyText('');
+                              }}
+                              className="btn-primary"
+                              style={{ padding: '6px 16px', fontSize: 12 }}
+                            >
+                              Save Reply
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyingReviewId(null);
+                                setReviewReplyText('');
+                              }}
+                              className="btn-secondary"
+                              style={{ padding: '6px 14px', fontSize: 12 }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>

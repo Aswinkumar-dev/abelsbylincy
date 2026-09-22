@@ -405,18 +405,25 @@
       document.getElementById('review-form').reset();
       
       try {
-        const token = localStorage.getItem('abl_user_token') || '';
-        fetch('http://localhost:5000/api/reviews/create', {
+        const token = localStorage.getItem('abl_access_token') || localStorage.getItem('abl_user_token') || '';
+        const apiUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+          ? '/api/reviews/create'
+          : 'https://abelsbylincy.vercel.app/api/reviews/create';
+
+        fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
           },
           body: JSON.stringify({
             productId: currentProduct.id,
+            productName: currentProduct.name,
             rating: rating,
-            title: title || 'Review',
-            reviewText: reviewText
+            title: title || `${rating} Star Rating`,
+            reviewText: reviewText,
+            authorName: user.name || (user.email ? user.email.split('@')[0] : 'Customer'),
+            userEmail: user.email || ''
           })
         }).then(res => res.json())
           .then(data => {

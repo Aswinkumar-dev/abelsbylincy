@@ -179,6 +179,53 @@ async function runMigrations(connection) {
     } catch (subTableErr) {
       console.warn('⚠️ Newsletter table migration note:', subTableErr.message);
     }
+
+    // 10. Check reviews table & columns
+    try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS reviews (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          product_id VARCHAR(100) NOT NULL,
+          product_name VARCHAR(255) NULL,
+          user_id INT NULL,
+          user_email VARCHAR(255) NULL,
+          author_name VARCHAR(255) NULL,
+          rating INT NOT NULL DEFAULT 5,
+          title VARCHAR(255) NULL,
+          review_text TEXT NULL,
+          is_verified_purchase TINYINT(1) DEFAULT 1,
+          status VARCHAR(50) DEFAULT 'approved',
+          reply TEXT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_prod (product_id),
+          INDEX idx_user (user_id),
+          INDEX idx_user_email (user_email)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      const [revCols] = await connection.query('SHOW COLUMNS FROM reviews');
+      const revColNames = revCols.map(c => c.Field);
+
+      if (!revColNames.includes('product_name')) {
+        await connection.query('ALTER TABLE reviews ADD COLUMN product_name VARCHAR(255) NULL AFTER product_id');
+        console.log('Migrated: Added product_name column to reviews table.');
+      }
+      if (!revColNames.includes('user_email')) {
+        await connection.query('ALTER TABLE reviews ADD COLUMN user_email VARCHAR(255) NULL AFTER user_id');
+        console.log('Migrated: Added user_email column to reviews table.');
+      }
+      if (!revColNames.includes('author_name')) {
+        await connection.query('ALTER TABLE reviews ADD COLUMN author_name VARCHAR(255) NULL AFTER user_email');
+        console.log('Migrated: Added author_name column to reviews table.');
+      }
+      if (!revColNames.includes('reply')) {
+        await connection.query('ALTER TABLE reviews ADD COLUMN reply TEXT NULL AFTER status');
+        console.log('Migrated: Added reply column to reviews table.');
+      }
+      console.log('Migrated: Ensured reviews table & columns exist.');
+    } catch (revTableErr) {
+      console.warn('⚠️ Reviews table migration note:', revTableErr.message);
+    }
   } catch (err) {
     console.error('⚠️ Database migration warning (tables may not exist yet):', err.message);
   }

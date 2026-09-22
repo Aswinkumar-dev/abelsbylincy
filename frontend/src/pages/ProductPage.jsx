@@ -149,10 +149,11 @@ export default function ProductPage() {
       showToast('oops! You have reached the limit of 5 reviews for this product', 'alert-circle');
       return;
     }
+    const authorUsername = currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Verified Buyer');
     const res = await addReview({
       productId: product.id,
       productName: product.name,
-      author: currentUser.name || currentUser.email || 'Verified Buyer',
+      author: authorUsername,
       userEmail: currentUser.email || '',
       userId: currentUser.id || null,
       rating: reviewRating,
@@ -478,6 +479,12 @@ export default function ProductPage() {
                   </div>
                   {r.title && <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', marginBottom: 6 }}>{r.title}</p>}
                   {r.text && <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--slate)', margin: 0 }}>{r.text}</p>}
+                  {r.reply && (
+                    <div style={{ background: 'var(--cream)', padding: 12, borderRadius: 6, marginTop: 10, fontSize: 12.5, borderLeft: '3px solid var(--gold)', lineHeight: 1.5 }}>
+                      <strong style={{ color: 'var(--onyx)', display: 'block', marginBottom: 2 }}>Store Response:</strong>
+                      <span style={{ color: 'var(--slate)' }}>{r.reply}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

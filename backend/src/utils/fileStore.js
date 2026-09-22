@@ -140,12 +140,56 @@ function saveStoredCms(cms) {
   return saved;
 }
 
+const REVIEWS_FILE = path.join(DATA_DIR, 'reviews.json');
+const TMP_REVIEWS_FILE = path.join(TMP_DIR, 'reviews.json');
+let memoryReviews = null;
+
+function getStoredReviews() {
+  if (memoryReviews && Array.isArray(memoryReviews)) return memoryReviews;
+  try {
+    if (fs.existsSync(TMP_REVIEWS_FILE)) {
+      const data = fs.readFileSync(TMP_REVIEWS_FILE, 'utf8');
+      memoryReviews = JSON.parse(data || '[]');
+      return memoryReviews;
+    }
+    if (fs.existsSync(REVIEWS_FILE)) {
+      const data = fs.readFileSync(REVIEWS_FILE, 'utf8');
+      memoryReviews = JSON.parse(data || '[]');
+      return memoryReviews;
+    }
+    return [];
+  } catch (err) {
+    return memoryReviews || [];
+  }
+}
+
+function saveStoredReviews(reviews) {
+  memoryReviews = reviews;
+  let saved = false;
+  try {
+    ensureDir(DATA_DIR);
+    fs.writeFileSync(REVIEWS_FILE, JSON.stringify(reviews, null, 2), 'utf8');
+    saved = true;
+  } catch {}
+
+  try {
+    ensureDir(TMP_DIR);
+    fs.writeFileSync(TMP_REVIEWS_FILE, JSON.stringify(reviews, null, 2), 'utf8');
+    saved = true;
+  } catch {}
+
+  return saved;
+}
+
 module.exports = {
   getStoredOrders,
   saveStoredOrders,
   getStoredProducts,
   saveStoredProducts,
   getStoredCms,
-  saveStoredCms
+  saveStoredCms,
+  getStoredReviews,
+  saveStoredReviews
 };
+
 
