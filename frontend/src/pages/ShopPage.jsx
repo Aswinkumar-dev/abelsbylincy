@@ -19,52 +19,50 @@ export function isProductInCat(p, catId) {
   const active = (catId || 'all').toLowerCase().trim();
 
   if (active === 'all') return true;
-  if (active === 'new-arrivals') return Boolean(p.newArrival);
-  if (active === 'best-sellers') return Boolean(p.bestSeller);
+  if (active === 'new-arrivals') return Boolean(p.newArrival || p.is_new_arrival || p.isNewArrival);
+  if (active === 'best-sellers') return Boolean(p.bestSeller || p.is_best_seller || p.isBestSeller);
 
-  if (active === 'silver-collections' || active === 'silver') {
-    return pCat === 'silver-collections' || pCat === 'silver-collection' || pCat === 'silver' ||
-      p.material?.toLowerCase().includes('silver') ||
-      (p.name && p.name.toLowerCase().includes('silver')) ||
+  // Normalize plural and singular forms to standard slugs
+  const normalize = (cat) => {
+    const c = (cat || '').toLowerCase().trim();
+    if (c === 'rings' || c === 'ring') return 'rings';
+    if (c === 'necklaces' || c === 'necklace') return 'necklaces';
+    if (c === 'earrings' || c === 'earring') return 'earrings';
+    if (c === 'bracelets' || c === 'bracelet') return 'bracelets';
+    if (c === 'bangles' || c === 'bangle') return 'bangles';
+    if (c === 'charms' || c === 'charm') return 'charms';
+    if (c === 'silver-collections' || c === 'silver-collection' || c === 'silver') return 'silver-collections';
+    if (c === 'seasonal-collections' || c === 'seasonal-collection' || c === 'seasonal') return 'seasonal-collections';
+    return c;
+  };
+
+  const normActive = normalize(active);
+  const normPCat = normalize(pCat);
+
+  // Exact category match
+  if (normPCat && normPCat === normActive) {
+    return true;
+  }
+
+  // Handle collections and special categories
+  if (normActive === 'silver-collections') {
+    return normPCat === 'silver-collections' ||
+      (p.material && p.material.toLowerCase().includes('silver')) ||
       (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('silver')));
   }
-  if (active === 'seasonal-collections' || active === 'seasonal') {
-    return pCat === 'seasonal-collections' || pCat === 'seasonal-collection' || pCat === 'seasonal' ||
+
+  if (normActive === 'seasonal-collections') {
+    return normPCat === 'seasonal-collections' ||
       (p.collection && p.collection.toLowerCase().includes('seasonal')) ||
-      (p.name && p.name.toLowerCase().includes('seasonal')) ||
       (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('seasonal')));
   }
-  if (active === 'charms' || active === 'charm') {
-    return pCat === 'charms' || pCat === 'charm' ||
-      (p.name && p.name.toLowerCase().includes('charm')) ||
-      (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('charm')));
+
+  // Fallback check against product tags
+  if (Array.isArray(p.tags)) {
+    return p.tags.some(t => normalize(t) === normActive);
   }
-  if (active === 'bangles' || active === 'bangle') {
-    return pCat === 'bangles' || pCat === 'bangle' ||
-      (p.name && p.name.toLowerCase().includes('bangle')) ||
-      (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('bangle')));
-  }
-  if (active === 'bracelets' || active === 'bracelet') {
-    return pCat === 'bracelets' || pCat === 'bracelet' ||
-      (p.name && p.name.toLowerCase().includes('bracelet')) ||
-      (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('bracelet')));
-  }
-  if (active === 'necklaces' || active === 'necklace') {
-    return pCat === 'necklaces' || pCat === 'necklace' ||
-      (p.name && p.name.toLowerCase().includes('necklace')) ||
-      (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('necklace')));
-  }
-  if (active === 'rings' || active === 'ring') {
-    return pCat === 'rings' || pCat === 'ring' ||
-      (p.name && p.name.toLowerCase().includes('ring')) ||
-      (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('ring')));
-  }
-  if (active === 'earrings' || active === 'earring') {
-    return pCat === 'earrings' || pCat === 'earring' ||
-      (p.name && p.name.toLowerCase().includes('earring')) ||
-      (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('earring')));
-  }
-  return pCat === active || pCat.startsWith(active) || active.startsWith(pCat);
+
+  return false;
 }
 
 export default function ShopPage() {
@@ -156,7 +154,7 @@ export default function ShopPage() {
               <span>Filters</span>
               {hasActiveFilters && (
                 <span className="filter-count-badge">
-                  {(selectedMaterials.length + selectedGemstones.length + (maxPrice < 500 ? 1 : 0) + (activeCategory !== 'all' ? 1 : 0))}
+                  {((maxPrice < 500 ? 1 : 0) + (activeCategory !== 'all' ? 1 : 0))}
                 </span>
               )}
             </button>
