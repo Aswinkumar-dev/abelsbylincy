@@ -1816,8 +1816,8 @@ export default function AdminPage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {reviews.length === 0 ? (
-                  <div className="admin-table-card" style={{ padding: 32, textAlign: 'center', color: 'var(--slate)' }}>
-                    No customer reviews submitted yet. When clients submit reviews on product pages, they will appear here for moderation.
+                  <div className="admin-table-card" style={{ padding: 40, textAlign: 'center', color: 'var(--slate)', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    No customer reviews submitted yet.
                   </div>
                 ) : (
                   reviews.map(r => (
@@ -1851,7 +1851,7 @@ export default function AdminPage() {
                             <span style={{ fontWeight: 700, color: 'var(--onyx)', marginLeft: 6 }}>{r.title}</span>
                           </div>
                           <p style={{ fontSize: 13, color: 'var(--slate)', margin: 0 }}>
-                            By <strong>{r.author}</strong> {r.userEmail && <span style={{ color: 'var(--slate)', fontSize: 12 }}>({r.userEmail})</span>} {r.verified && <span style={{ background: '#C6F6D5', color: '#22543D', fontSize: 10, padding: '2px 6px', borderRadius: 4, marginLeft: 6 }}>Verified Purchase</span>} — {r.date}
+                            By <strong>{r.author}</strong> {r.userEmail && <span style={{ color: 'var(--slate)', fontSize: 12 }}>({r.userEmail})</span>} — {r.date}
                           </p>
                         </div>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

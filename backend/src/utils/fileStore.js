@@ -181,6 +181,48 @@ function saveStoredReviews(reviews) {
   return saved;
 }
 
+const DELETED_REVIEWS_FILE = path.join(DATA_DIR, 'deleted_reviews.json');
+const TMP_DELETED_REVIEWS_FILE = path.join(TMP_DIR, 'deleted_reviews.json');
+let memoryDeletedReviews = null;
+
+function getDeletedReviewIds() {
+  if (memoryDeletedReviews && Array.isArray(memoryDeletedReviews)) return memoryDeletedReviews;
+  try {
+    if (fs.existsSync(TMP_DELETED_REVIEWS_FILE)) {
+      const data = fs.readFileSync(TMP_DELETED_REVIEWS_FILE, 'utf8');
+      memoryDeletedReviews = JSON.parse(data || '[]');
+      return memoryDeletedReviews;
+    }
+    if (fs.existsSync(DELETED_REVIEWS_FILE)) {
+      const data = fs.readFileSync(DELETED_REVIEWS_FILE, 'utf8');
+      memoryDeletedReviews = JSON.parse(data || '[]');
+      return memoryDeletedReviews;
+    }
+    return [];
+  } catch (err) {
+    return memoryDeletedReviews || [];
+  }
+}
+
+function addDeletedReviewId(id) {
+  if (!id) return;
+  const current = getDeletedReviewIds();
+  const updated = Array.from(new Set([...current, String(id)]));
+  memoryDeletedReviews = updated;
+
+  try {
+    ensureDir(DATA_DIR);
+    fs.writeFileSync(DELETED_REVIEWS_FILE, JSON.stringify(updated, null, 2), 'utf8');
+  } catch {}
+
+  try {
+    ensureDir(TMP_DIR);
+    fs.writeFileSync(TMP_DELETED_REVIEWS_FILE, JSON.stringify(updated, null, 2), 'utf8');
+  } catch {}
+
+  return updated;
+}
+
 module.exports = {
   getStoredOrders,
   saveStoredOrders,
@@ -189,7 +231,10 @@ module.exports = {
   getStoredCms,
   saveStoredCms,
   getStoredReviews,
-  saveStoredReviews
+  saveStoredReviews,
+  getDeletedReviewIds,
+  addDeletedReviewId
 };
+
 
 

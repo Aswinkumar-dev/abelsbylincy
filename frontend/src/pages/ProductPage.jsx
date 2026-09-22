@@ -465,11 +465,6 @@ export default function ProductPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--onyx)', margin: 0 }}>{r.author}</p>
-                        {r.verified && (
-                          <span style={{ fontSize: 10, background: '#e6f4ea', color: '#137333', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
-                            Verified Buyer
-                          </span>
-                        )}
                       </div>
                       <p style={{ fontSize: 11, color: 'var(--slate)', margin: 0, marginTop: 2 }}>{r.date}</p>
                     </div>

@@ -249,6 +249,11 @@ export function StoreProvider({ children }) {
     return readLS('abl_deleted_product_ids', []).filter(Boolean);
   });
 
+  // Persistent blacklist for deleted reviews (ensures deleted reviews NEVER reappear on refresh)
+  const [deletedReviewIds, setDeletedReviewIds] = useState(() => {
+    return readLS('abl_deleted_review_ids', []).filter(Boolean);
+  });
+
   // Products initialized from clean storage or empty array
   const [products, setProductsRaw] = useState(() => {
     // Clear out any old legacy mock local storage caches
@@ -273,7 +278,8 @@ export function StoreProvider({ children }) {
   const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons_v6', DEFAULT_COUPONS));
   const [reviews, setReviewsRaw] = useState(() => {
     const saved = readLS('abl_reviews_v7', null);
-    if (Array.isArray(saved)) return saved;
+    const deletedIds = (readLS('abl_deleted_review_ids', []) || []).map(String);
+    if (Array.isArray(saved)) return saved.filter(r => !deletedIds.includes(String(r.id)));
     return DEFAULT_REVIEWS;
   });
   const [stockHistory, setStockHistoryRaw] = useState(() => readLS('abl_stock_history_v6', DEFAULT_STOCK_HISTORY));
@@ -326,21 +332,23 @@ export function StoreProvider({ children }) {
       if (revRes.ok) {
         const data = await revRes.json();
         if (data.success && Array.isArray(data.reviews)) {
-          const formatted = data.reviews.map(r => ({
-            id: r.id,
-            productId: String(r.productId || r.product_id),
-            productName: r.productName || r.product_name || '',
-            userId: r.userId || r.user_id || null,
-            userEmail: r.userEmail || r.user_email || '',
-            author: r.author || r.author_name || [r.first_name, r.last_name].filter(Boolean).join(' ') || (r.userEmail || r.user_email || '').split('@')[0] || 'Customer',
-            rating: Number(r.rating) || 5,
-            title: r.title || `${r.rating || 5} Star Rating`,
-            text: r.text || r.review_text || '',
-            date: (r.createdAt || r.created_at) ? new Date(r.createdAt || r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (r.date || 'Recent'),
-            status: r.status || 'approved',
-            verified: r.is_verified_purchase !== undefined ? Boolean(r.is_verified_purchase) : (r.verified !== undefined ? Boolean(r.verified) : true),
-            reply: r.reply || ''
-          }));
+          const deletedIds = (readLS('abl_deleted_review_ids', []) || []).map(String);
+          const formatted = data.reviews
+            .filter(r => !deletedIds.includes(String(r.id)))
+            .map(r => ({
+              id: r.id,
+              productId: String(r.productId || r.product_id),
+              productName: r.productName || r.product_name || '',
+              userId: r.userId || r.user_id || null,
+              userEmail: r.userEmail || r.user_email || '',
+              author: r.author || r.author_name || [r.first_name, r.last_name].filter(Boolean).join(' ') || (r.userEmail || r.user_email || '').split('@')[0] || 'Customer',
+              rating: Number(r.rating) || 5,
+              title: r.title || `${r.rating || 5} Star Rating`,
+              text: r.text || r.review_text || '',
+              date: (r.createdAt || r.created_at) ? new Date(r.createdAt || r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (r.date || 'Recent'),
+              status: r.status || 'approved',
+              reply: r.reply || ''
+            }));
           setReviewsRaw(formatted);
           writeLS('abl_reviews_v7', formatted);
         }
@@ -1864,9 +1872,21 @@ export function StoreProvider({ children }) {
   }, [setReviews, showToast]);
 
   const deleteReview = useCallback(async (reviewId) => {
-    setReviews(prev => (prev || []).filter(r => String(r.id) !== String(reviewId)));
+    // 1. Add to permanent deleted review blacklist
+    const currentDeleted = readLS('abl_deleted_review_ids', []);
+    const updatedDeleted = Array.from(new Set([...currentDeleted, String(reviewId)]));
+    writeLS('abl_deleted_review_ids', updatedDeleted);
+    setDeletedReviewIds(updatedDeleted);
+
+    // 2. Remove immediately from React state and localStorage
+    setReviewsRaw(prev => {
+      const updated = (prev || []).filter(r => String(r.id) !== String(reviewId));
+      writeLS('abl_reviews_v7', updated);
+      return updated;
+    });
     showToast('Review deleted', 'trash');
 
+    // 3. Delete from backend server
     try {
       await apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}`, {
         method: 'DELETE'
@@ -1874,7 +1894,8 @@ export function StoreProvider({ children }) {
     } catch (err) {
       console.warn('⚠️ Delete review API note:', err.message);
     }
-  }, [setReviews, showToast]);
+  }, [showToast]);
+
 
 
 

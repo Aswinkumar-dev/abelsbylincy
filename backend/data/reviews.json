@@ -1,23 +1,5 @@
 [
   {
-    "id": "rev_1790073141409_253",
-    "productId": "ABL-RG-201",
-    "productName": "Fine Jewellery",
-    "userId": null,
-    "userEmail": "s.aswinkumar477@gmail.com",
-    "author": "s.aswinkumar477",
-    "author_name": "s.aswinkumar477",
-    "rating": 4,
-    "title": "4 Star Rating",
-    "text": "testing purpose 5",
-    "review_text": "testing purpose 5",
-    "is_verified_purchase": true,
-    "status": "approved",
-    "reply": "",
-    "date": "22 Sept 2026",
-    "created_at": "2026-09-22T10:32:21.409Z"
-  },
-  {
     "id": "rev_1790073141397_750",
     "productId": "ABL-RG-201",
     "productName": "Fine Jewellery",

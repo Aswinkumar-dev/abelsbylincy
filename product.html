@@ -281,7 +281,6 @@
                         <i data-lucide="star" style="width: 12px; height: 12px; ${idx < r.rating ? 'fill: var(--gold); color: var(--gold);' : 'color: var(--border);'}"></i>
                       `).join('')}
                     </div>
-                    ${r.is_verified_purchase ? `<span style="font-size: 10px; background: rgba(198,168,106,0.15); color: var(--gold-dark); padding: 1px 6px; border-radius: 4px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Verified Purchase</span>` : ''}
                   </div>
                   <h6 style="font-size: 14px; font-weight: 600; color: var(--onyx); margin: 0 0 6px 0;">${r.title}</h6>
                   <p style="font-size: 13.5px; line-height: 1.6; color: var(--slate); margin: 0;">${r.review_text || ''}</p>

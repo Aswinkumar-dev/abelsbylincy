@@ -1,10 +1,11 @@
 const db = require('../config/database');
-const { getStoredReviews, saveStoredReviews, getStoredProducts } = require('../utils/fileStore');
+const { getStoredReviews, saveStoredReviews, getStoredProducts, getDeletedReviewIds, addDeletedReviewId } = require('../utils/fileStore');
 
 /**
  * Helper to fetch all combined reviews from MySQL and FileStore
  */
 const fetchAllCombinedReviews = async () => {
+  const deletedIds = new Set((getDeletedReviewIds() || []).map(String));
   let dbReviews = [];
 
   try {
@@ -15,40 +16,45 @@ const fetchAllCombinedReviews = async () => {
        ORDER BY r.created_at DESC`
     );
     if (Array.isArray(rows)) {
-      dbReviews = rows.map(r => ({
-        id: r.id,
-        productId: String(r.product_id),
-        productName: r.product_name || '',
-        userId: r.user_id || null,
-        userEmail: r.user_email || r.user_email_account || '',
-        author: r.author_name || [r.first_name, r.last_name].filter(Boolean).join(' ') || (r.user_email || r.user_email_account || '').split('@')[0] || 'Customer',
-        rating: Number(r.rating) || 5,
-        title: r.title || `${r.rating || 5} Star Rating`,
-        text: r.review_text || '',
-        is_verified_purchase: Boolean(r.is_verified_purchase),
-        status: r.status || 'approved',
-        reply: r.reply || '',
-        createdAt: r.created_at || new Date().toISOString(),
-        created_at: r.created_at || new Date().toISOString()
-      }));
+      dbReviews = rows
+        .filter(r => !deletedIds.has(String(r.id)))
+        .map(r => ({
+          id: r.id,
+          productId: String(r.product_id),
+          productName: r.product_name || '',
+          userId: r.user_id || null,
+          userEmail: r.user_email || r.user_email_account || '',
+          author: r.author_name || [r.first_name, r.last_name].filter(Boolean).join(' ') || (r.user_email || r.user_email_account || '').split('@')[0] || 'Customer',
+          rating: Number(r.rating) || 5,
+          title: r.title || `${r.rating || 5} Star Rating`,
+          text: r.review_text || '',
+          is_verified_purchase: Boolean(r.is_verified_purchase),
+          status: r.status || 'approved',
+          reply: r.reply || '',
+          createdAt: r.created_at || new Date().toISOString(),
+          created_at: r.created_at || new Date().toISOString()
+        }));
     }
   } catch (err) {
     // MySQL offline / not available fallback
     console.warn('⚠️ Review DB query note:', err.message);
   }
 
-  const fileReviews = getStoredReviews() || [];
+  const fileReviews = (getStoredReviews() || []).filter(r => !deletedIds.has(String(r.id)));
   const reviewMap = new Map();
 
   // 1. Add MySQL reviews
   dbReviews.forEach(r => {
     const key = String(r.id);
-    reviewMap.set(key, r);
+    if (!deletedIds.has(key)) {
+      reviewMap.set(key, r);
+    }
   });
 
   // 2. Add / merge file reviews
   fileReviews.forEach(r => {
     const key = String(r.id);
+    if (deletedIds.has(key)) return;
     if (reviewMap.has(key)) {
       reviewMap.set(key, { ...reviewMap.get(key), ...r });
     } else {
@@ -71,7 +77,7 @@ const fetchAllCombinedReviews = async () => {
     }
   });
 
-  return Array.from(reviewMap.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  return Array.from(reviewMap.values()).filter(r => !deletedIds.has(String(r.id))).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 };
 
 const getAllReviews = async (req, res, next) => {
@@ -291,14 +297,17 @@ const deleteReview = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // 1. Delete from MySQL
+    // 1. Add to permanent deleted review blacklist
+    addDeletedReviewId(id);
+
+    // 2. Delete from MySQL
     try {
       await db.query('DELETE FROM reviews WHERE id = ?', [id]);
     } catch (dbErr) {
       console.warn('⚠️ Delete review DB note:', dbErr.message);
     }
 
-    // 2. Delete from FileStore
+    // 3. Delete from FileStore
     const stored = getStoredReviews() || [];
     const updated = stored.filter(r => String(r.id) !== String(id));
     saveStoredReviews(updated);
