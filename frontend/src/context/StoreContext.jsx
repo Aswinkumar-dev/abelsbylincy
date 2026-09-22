@@ -732,6 +732,7 @@ export function StoreProvider({ children }) {
             }
           }
         } catch (cErr) {
+          // Cart fetch failed — not a login failure, continue
           const cachedUserCart = readLS(`abl_cart_${cleanEmail}`, null);
           if (Array.isArray(cachedUserCart) && cachedUserCart.length > 0) {
             setCartRaw(cachedUserCart);
@@ -746,8 +747,11 @@ export function StoreProvider({ children }) {
         showToast(`Welcome back, ${userName}!`, 'check');
         return true;
       }
+
+      // Server responded but login failed (wrong email/password)
+      return false;
     } catch (err) {
-      // Local fallback if offline
+      // Network error / server offline — try local fallback
       const found = customers.find(c => c.email.toLowerCase() === cleanEmail);
       if (found) {
         setCurrentUser({ ...found });
