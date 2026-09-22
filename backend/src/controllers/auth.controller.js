@@ -69,49 +69,24 @@ const register = async (req, res, next) => {
     const passwordHash = await hashPassword(password);
     const uuid = crypto.randomUUID();
 
-    // Create user (inactive until verified)
+    // Create user (active and ready to login across all browsers)
     const [userResult] = await connection.query(
       `INSERT INTO users (uuid, email, password_hash, first_name, last_name, role, status, email_verified) 
-       VALUES (?, ?, ?, ?, ?, 'customer', 'inactive', FALSE)`,
+       VALUES (?, ?, ?, ?, ?, 'customer', 'active', TRUE)`,
       [uuid, email, passwordHash, firstName || null, lastName || null]
     );
     const userId = userResult.insertId;
 
-    // Create email verification token
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours expiry
-
-    await connection.query(
-      'INSERT INTO email_verification_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
-      [userId, tokenHash, expiresAt]
-    );
-
     // Track initial identity provider record
     await connection.query(
-      "INSERT INTO auth_identities (user_id, provider, provider_email) VALUES (?, 'email', ?)",
+      "INSERT INTO auth_identities (user_id, provider, provider_email, provider_email_verified) VALUES (?, 'email', ?, TRUE)",
       [userId, email]
     );
-
-    // Send verification email via Resend
-    const frontendUrl = getFrontendUrl(req);
-    const verificationUrl = `${frontendUrl}/verify-email?token=${token}`;
-    await sendEmail({
-      to: email,
-      subject: "Verify Your Email Address — Abel's By Lincy",
-      templateName: 'verify-email',
-      variables: {
-        verificationUrl,
-        customerName: firstName || 'there'
-      },
-      userId
-    });
 
     await connection.commit();
     res.status(201).json({
       success: true,
-      message: 'Registration successful. Please check your email to verify your account.'
+      message: 'Registration successful! You can now sign in.'
     });
   } catch (error) {
     await connection.rollback();
@@ -378,12 +353,27 @@ const resetPassword = async (req, res, next) => {
             'SELECT id FROM users WHERE LOWER(email) = ?',
             [cleanEmail]
           );
+          const passwordHash = await hashPassword(newPassword);
           if (userRows.length > 0) {
-            const passwordHash = await hashPassword(newPassword);
             await connection.query(
               "UPDATE users SET password_hash = ?, status = 'active', email_verified = TRUE WHERE id = ?",
               [passwordHash, userRows[0].id]
             );
+            await connection.commit();
+          } else {
+            const uuid = crypto.randomUUID();
+            const namePart = cleanEmail.split('@')[0];
+            const [newUser] = await connection.query(
+              `INSERT INTO users (uuid, email, password_hash, first_name, role, status, email_verified)
+               VALUES (?, ?, ?, ?, 'customer', 'active', TRUE)`,
+              [uuid, cleanEmail, passwordHash, namePart]
+            );
+            if (newUser.insertId) {
+              await connection.query(
+                "INSERT INTO auth_identities (user_id, provider, provider_email, provider_email_verified) VALUES (?, 'email', ?, TRUE)",
+                [newUser.insertId, cleanEmail]
+              );
+            }
             await connection.commit();
           }
         }

@@ -345,6 +345,20 @@ export function StoreProvider({ children }) {
     } catch (err) {
       // Offline fallback
     }
+
+    try {
+      // 4. Fetch CMS Settings & Announcement Banner from Server / Database
+      const cmsRes = await apiFetch('/api/cms');
+      if (cmsRes.ok) {
+        const data = await cmsRes.json();
+        if (data.success && data.cms && typeof data.cms === 'object') {
+          setCMSRaw(prev => ({ ...prev, ...data.cms }));
+          writeLS('abl_cms_v5', data.cms);
+        }
+      }
+    } catch (err) {
+      // Offline fallback
+    }
   }, []);
 
   useEffect(() => {
@@ -447,6 +461,13 @@ export function StoreProvider({ children }) {
     setCMSRaw(prev => {
       const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
       writeLS('abl_cms_v5', next);
+      try {
+        apiFetch('/api/cms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cms: next })
+        }).catch(() => {});
+      } catch {}
       return next;
     });
   }, []);
@@ -638,7 +659,7 @@ export function StoreProvider({ children }) {
     }
   }, [customers, setCurrentUser, showToast]);
 
-  const registerUser = useCallback((name, email, password) => {
+  const registerUser = useCallback(async (name, email, password) => {
     const cleanEmail = email.trim().toLowerCase();
     const exists = customers.find(c => c.email.toLowerCase() === cleanEmail);
     if (exists) {
@@ -646,18 +667,25 @@ export function StoreProvider({ children }) {
       return false;
     }
     const newUser = { id: `c${Date.now()}`, name, email: cleanEmail, orders: 0, spent: '$0', joined: new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }), status: 'New' };
-    setCustomers([...customers, newUser]);
+    setCustomers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
+    writeLS('abl_current_user', newUser);
     writeLS('abl_user_token', { ...newUser, password });
 
-    // Sync with backend API in background
+    // Sync with backend API (creates MySQL record)
     try {
-      apiFetch('/api/auth/register', {
+      const res = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password, firstName: name })
-      }).catch(() => {});
-    } catch {}
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.accessToken) {
+        localStorage.setItem('abl_access_token', data.accessToken);
+      }
+    } catch (err) {
+      console.warn('⚠️ Register DB sync note:', err.message);
+    }
 
     showToast(`Welcome to Abel's By Lincy, ${name}!`, 'check');
     return true;

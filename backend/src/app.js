@@ -11,6 +11,7 @@ const orderRoutes = require('./routes/order.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const reviewRoutes = require('./routes/review.routes');
 const adminRoutes = require('./routes/admin.routes');
+const cmsRoutes = require('./routes/cms.routes');
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/cms', cmsRoutes);
 
 // Base route handler
 app.use((req, res) => {

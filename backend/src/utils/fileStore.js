@@ -99,9 +99,53 @@ function saveStoredProducts(products) {
   return saved;
 }
 
+const CMS_FILE = path.join(DATA_DIR, 'cms.json');
+const TMP_CMS_FILE = path.join(TMP_DIR, 'cms.json');
+let memoryCms = null;
+
+function getStoredCms() {
+  if (memoryCms && typeof memoryCms === 'object') return memoryCms;
+  try {
+    if (fs.existsSync(TMP_CMS_FILE)) {
+      const data = fs.readFileSync(TMP_CMS_FILE, 'utf8');
+      memoryCms = JSON.parse(data || '{}');
+      return memoryCms;
+    }
+    if (fs.existsSync(CMS_FILE)) {
+      const data = fs.readFileSync(CMS_FILE, 'utf8');
+      memoryCms = JSON.parse(data || '{}');
+      return memoryCms;
+    }
+    return null;
+  } catch (err) {
+    return memoryCms;
+  }
+}
+
+function saveStoredCms(cms) {
+  memoryCms = cms;
+  let saved = false;
+  try {
+    ensureDir(DATA_DIR);
+    fs.writeFileSync(CMS_FILE, JSON.stringify(cms, null, 2), 'utf8');
+    saved = true;
+  } catch {}
+
+  try {
+    ensureDir(TMP_DIR);
+    fs.writeFileSync(TMP_CMS_FILE, JSON.stringify(cms, null, 2), 'utf8');
+    saved = true;
+  } catch {}
+
+  return saved;
+}
+
 module.exports = {
   getStoredOrders,
   saveStoredOrders,
   getStoredProducts,
-  saveStoredProducts
+  saveStoredProducts,
+  getStoredCms,
+  saveStoredCms
 };
+
