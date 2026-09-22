@@ -15,6 +15,8 @@ const ensureNewsletterTable = async () => {
   }
 };
 
+const { sendNewsletterWelcomeEmail } = require('../services/email.service');
+
 /**
  * Subscribe to Newsletter
  */
@@ -31,14 +33,38 @@ const subscribeNewsletter = async (req, res, next) => {
     await ensureNewsletterTable();
 
     const cleanEmail = email.trim().toLowerCase();
+
+    // Check if email already registered in DB
+    const [existing] = await db.query(
+      'SELECT id, email, status FROM newsletter_subscribers WHERE LOWER(email) = ?',
+      [cleanEmail]
+    );
+
+    if (existing && existing.length > 0) {
+      return res.status(200).json({
+        success: false,
+        alreadySubscribed: true,
+        message: 'You are already in the Lincy circle.',
+        subscriber: existing[0]
+      });
+    }
+
     const id = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
     await db.query(
       `INSERT INTO newsletter_subscribers (id, email, status, created_at)
-       VALUES (?, ?, 'Active', NOW())
-       ON DUPLICATE KEY UPDATE status = 'Active'`,
+       VALUES (?, ?, 'Active', NOW())`,
       [id, cleanEmail]
     );
+
+    // Send welcome confirmation email to new subscriber
+    setTimeout(async () => {
+      try {
+        await sendNewsletterWelcomeEmail(cleanEmail);
+      } catch (err) {
+        console.warn('⚠️ Welcome email dispatch error:', err.message);
+      }
+    }, 300);
 
     return res.status(200).json({
       success: true,

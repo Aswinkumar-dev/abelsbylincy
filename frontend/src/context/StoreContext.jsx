@@ -1101,7 +1101,43 @@ export function StoreProvider({ children }) {
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       showToast('Please enter a valid email address.', 'alert-circle');
-      return false;
+      return { success: false, message: 'Please enter a valid email address.' };
+    }
+
+    // Check local store list first
+    const list = subscribers || [];
+    if (list.some(s => s.email?.toLowerCase() === cleanEmail)) {
+      showToast('You are already in the Lincy circle.', 'info');
+      return { success: false, alreadySubscribed: true, message: 'You are already in the Lincy circle.' };
+    }
+
+    try {
+      const res = await apiFetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (data.alreadySubscribed || (data.message && data.message.includes('already in the Lincy circle'))) {
+        showToast('You are already in the Lincy circle.', 'info');
+        return { success: false, alreadySubscribed: true, message: 'You are already in the Lincy circle.' };
+      }
+
+      if (res.ok && data.success) {
+        const newSub = data.subscriber || {
+          id: `sub_${Date.now()}`,
+          email: cleanEmail,
+          status: 'Active',
+          date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        };
+        setSubscribers(prev => [newSub, ...(prev || [])]);
+        showToast('Thank you for joining the Circle!', 'check');
+        return { success: true, message: 'Thank you for subscribing! Check your inbox for exclusive access.' };
+      }
+    } catch (err) {
+      console.warn('⚠️ Newsletter subscribe API note:', err.message);
     }
 
     const newSub = {
@@ -1110,26 +1146,10 @@ export function StoreProvider({ children }) {
       status: 'Active',
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     };
-
-    setSubscribers(prev => {
-      const list = prev || [];
-      if (list.some(s => s.email?.toLowerCase() === cleanEmail)) return list;
-      return [newSub, ...list];
-    });
-
+    setSubscribers(prev => [newSub, ...(prev || [])]);
     showToast('Thank you for joining the Circle!', 'check');
-
-    try {
-      await apiFetch('/api/newsletter/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail })
-      });
-    } catch (err) {
-      console.warn('⚠️ Newsletter subscribe API note:', err.message);
-    }
-    return true;
-  }, [setSubscribers, showToast]);
+    return { success: true, message: 'Thank you for subscribing! Check your inbox for exclusive access.' };
+  }, [subscribers, setSubscribers, showToast]);
 
   // ============================================================
   // Place order

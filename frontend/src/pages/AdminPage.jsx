@@ -822,15 +822,6 @@ export default function AdminPage() {
             >
               <Menu style={{ width: 22, height: 22, color: 'var(--onyx)' }} />
             </button>
-
-            <Search style={{ color: 'var(--slate)', width: 16, flexShrink: 0 }} />
-            <input
-              type="text"
-              placeholder="Search..."
-              style={{ border: 'none', outline: 'none', width: '100%', minWidth: 0, maxWidth: 200, fontSize: 13, background: 'transparent' }}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -1894,32 +1885,6 @@ export default function AdminPage() {
                     <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 26px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Client Communications & Inquiries</h2>
                     <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Manage client contact form messages and newsletter subscriptions synchronized with database.</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const [msgRes, subRes] = await Promise.all([
-                          apiFetch(`/api/contact/messages?t=${Date.now()}`),
-                          apiFetch(`/api/newsletter/subscribers?t=${Date.now()}`)
-                        ]);
-                        if (msgRes.ok) {
-                          const msgData = await msgRes.json();
-                          if (msgData.success && Array.isArray(msgData.messages)) setMessages(msgData.messages);
-                        }
-                        if (subRes.ok) {
-                          const subData = await subRes.json();
-                          if (subData.success && Array.isArray(subData.subscribers)) setSubscribers(subData.subscribers);
-                        }
-                        showToast('Communications refreshed from database!', 'check');
-                      } catch {
-                        showToast('Failed to refresh communications', 'alert-circle');
-                      }
-                    }}
-                    className="btn-secondary"
-                    style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                  >
-                    <RefreshCw style={{ width: 14, height: 14 }} /> Refresh from DB
-                  </button>
                 </div>
 
                 {/* Sub-tab pills */}

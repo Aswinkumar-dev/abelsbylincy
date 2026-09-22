@@ -32,9 +32,14 @@ const sendEmail = async ({ to, subject, templateName, variables, userId = null }
     let htmlContent = fs.readFileSync(templatePath, 'utf8');
 
     // Replace template variables
-    Object.keys(variables).forEach((key) => {
+    const varsWithDefaults = {
+      currentYear: new Date().getFullYear(),
+      ...(variables || {})
+    };
+
+    Object.keys(varsWithDefaults).forEach((key) => {
       const placeholder = new RegExp(`{{${key}}}`, 'g');
-      htmlContent = htmlContent.replace(placeholder, variables[key]);
+      htmlContent = htmlContent.replace(placeholder, varsWithDefaults[key]);
     });
 
     // 1. Try sending via Nodemailer if SMTP configured

@@ -9,7 +9,7 @@ export default function Footer() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -26,19 +26,14 @@ export default function Footer() {
       return;
     }
 
-    const res = handleNewsletter(trimmed);
-    if (res) {
+    const res = await handleNewsletter(trimmed);
+    if (res?.alreadySubscribed) {
+      setErrorMsg('You are already in the Lincy circle.');
+    } else if (res?.success || res === true) {
       setSuccessMsg('Thank you for subscribing! Check your inbox for exclusive access.');
       setEmail('');
-      
-      // Dispatch welcome email asynchronously via backend
-      apiFetch('/api/payments/subscribe-newsletter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmed })
-      }).catch(err => console.warn('Newsletter welcome email note:', err));
     } else {
-      setErrorMsg('Subscription failed. Please try again.');
+      setErrorMsg(res?.message || 'Subscription failed. Please try again.');
     }
   };
 

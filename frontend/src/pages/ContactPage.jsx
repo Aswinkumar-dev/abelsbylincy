@@ -5,8 +5,17 @@ import { useStore } from '../context/StoreContext';
 export default function ContactPage() {
   const { handleContactForm } = useStore();
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [messageError, setMessageError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+
+  const validateName = (nameVal) => {
+    if (!nameVal.trim()) {
+      return 'Please enter your name.';
+    }
+    return '';
+  };
 
   const validateEmail = (emailVal) => {
     if (!emailVal.trim()) {
@@ -19,6 +28,21 @@ export default function ContactPage() {
     return '';
   };
 
+  const validateMessage = (msgVal) => {
+    if (!msgVal.trim()) {
+      return 'Please enter your message.';
+    }
+    return '';
+  };
+
+  const handleNameChange = (e) => {
+    const val = e.target.value;
+    setFormData(f => ({ ...f, name: val }));
+    if (nameError) {
+      setNameError(validateName(val));
+    }
+  };
+
   const handleEmailChange = (e) => {
     const val = e.target.value;
     setFormData(f => ({ ...f, email: val }));
@@ -27,19 +51,33 @@ export default function ContactPage() {
     }
   };
 
+  const handleMessageChange = (e) => {
+    const val = e.target.value;
+    setFormData(f => ({ ...f, message: val }));
+    if (messageError) {
+      setMessageError(validateMessage(val));
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const { name, email, message } = formData;
     
-    const err = validateEmail(email);
-    if (err) {
-      setEmailError(err);
+    const nErr = validateName(name);
+    const eErr = validateEmail(email);
+    const mErr = validateMessage(message);
+
+    setNameError(nErr);
+    setEmailError(eErr);
+    setMessageError(mErr);
+
+    if (nErr || eErr || mErr) {
       return;
     }
 
-    if (!name.trim() || !message.trim()) return;
-
+    setNameError('');
     setEmailError('');
+    setMessageError('');
     handleContactForm(name, email, 'Contact Inquiry', message);
     setSubmitted(true);
     setFormData({ name: '', email: '', message: '' });
@@ -125,11 +163,26 @@ export default function ContactPage() {
                 <input
                   type="text"
                   className="form-control"
-                  style={{ width: '100%', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: 8,
+                    border: nameError ? '1px solid #e53e3e' : '1px solid var(--border)',
+                    fontSize: 14,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.2s ease'
+                  }}
                   value={formData.name}
-                  onChange={e => setFormData(f => ({ ...f, name: e.target.value }))}
+                  onChange={handleNameChange}
+                  onBlur={() => setNameError(validateName(formData.name))}
                   required
                 />
+                {nameError && (
+                  <span style={{ color: '#e53e3e', fontSize: 12, marginTop: 6, display: 'block', fontWeight: 500 }}>
+                    {nameError}
+                  </span>
+                )}
               </div>
 
               <div style={{ marginBottom: 18 }}>
@@ -168,11 +221,26 @@ export default function ContactPage() {
                 <textarea
                   className="form-control"
                   rows={5}
-                  style={{ width: '100%', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: 8,
+                    border: messageError ? '1px solid #e53e3e' : '1px solid var(--border)',
+                    fontSize: 14,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.2s ease'
+                  }}
                   value={formData.message}
-                  onChange={e => setFormData(f => ({ ...f, message: e.target.value }))}
+                  onChange={handleMessageChange}
+                  onBlur={() => setMessageError(validateMessage(formData.message))}
                   required
                 />
+                {messageError && (
+                  <span style={{ color: '#e53e3e', fontSize: 12, marginTop: 6, display: 'block', fontWeight: 500 }}>
+                    {messageError}
+                  </span>
+                )}
               </div>
 
               <button type="submit" className="btn-primary" style={{ width: '100%', padding: '15px 28px', fontSize: 13, letterSpacing: '0.1em' }}>
