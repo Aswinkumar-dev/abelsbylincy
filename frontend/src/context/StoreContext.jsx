@@ -365,6 +365,34 @@ export function StoreProvider({ children }) {
     } catch (err) {
       // Offline fallback
     }
+
+    try {
+      // 5. Fetch Contact Inquiries from MySQL Database
+      const msgRes = await apiFetch(`/api/contact/messages?t=${Date.now()}`);
+      if (msgRes.ok) {
+        const data = await msgRes.json();
+        if (data.success && Array.isArray(data.messages)) {
+          setMessagesRaw(data.messages);
+          writeLS('abl_messages_v2', data.messages);
+        }
+      }
+    } catch (err) {
+      // Offline fallback
+    }
+
+    try {
+      // 6. Fetch Newsletter Subscribers from MySQL Database
+      const subRes = await apiFetch(`/api/newsletter/subscribers?t=${Date.now()}`);
+      if (subRes.ok) {
+        const data = await subRes.json();
+        if (data.success && Array.isArray(data.subscribers)) {
+          setSubscribersRaw(data.subscribers);
+          writeLS('abl_subscribers_v2', data.subscribers);
+        }
+      }
+    } catch (err) {
+      // Offline fallback
+    }
   }, []);
 
   useEffect(() => {
@@ -705,9 +733,6 @@ export function StoreProvider({ children }) {
 
         showToast(`Welcome back, ${userName}!`, 'check');
         return true;
-      } else {
-        const errorMsg = data.message || 'Invalid email or password credentials.';
-        showToast(errorMsg, 'alert-circle');
         return false;
       }
     } catch (err) {
@@ -726,7 +751,6 @@ export function StoreProvider({ children }) {
         showToast(`Welcome back, ${stored.name}!`, 'check');
         return true;
       }
-      showToast('Invalid email or password credentials', 'alert-circle');
       return false;
     }
   }, [customers, setCurrentUser, showToast]);
@@ -1038,49 +1062,74 @@ export function StoreProvider({ children }) {
   // ============================================================
   // Contact form
   // ============================================================
-  const handleContactForm = useCallback((name, email, subject, message) => {
+  const handleContactForm = useCallback(async (name, email, subject, message) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanName = (name || 'Website Visitor').trim();
+    const cleanSubject = (subject || 'Contact Inquiry').trim();
+    const cleanMessage = (message || '').trim();
+
     const newMsg = {
-      id: `m${Date.now()}`,
-      name: name || 'Website Visitor',
-      email,
-      subject: subject || 'Contact Inquiry',
-      message,
+      id: `m_${Date.now()}`,
+      name: cleanName,
+      email: cleanEmail,
+      subject: cleanSubject,
+      message: cleanMessage,
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      type: 'contact'
+      type: 'contact',
+      status: 'unread'
     };
+
     setMessages(prev => [newMsg, ...(prev || [])]);
     showToast("Message sent! We'll be in touch soon.", 'check');
+
+    try {
+      await apiFetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cleanName, email: cleanEmail, subject: cleanSubject, message: cleanMessage })
+      });
+    } catch (err) {
+      console.warn('⚠️ Contact form API note:', err.message);
+    }
     return true;
   }, [setMessages, showToast]);
 
   // ============================================================
   // Newsletter
   // ============================================================
-  const handleNewsletter = useCallback((email) => {
-    const newSubMsg = {
+  const handleNewsletter = useCallback(async (email) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      showToast('Please enter a valid email address.', 'alert-circle');
+      return false;
+    }
+
+    const newSub = {
       id: `sub_${Date.now()}`,
-      name: 'Newsletter Subscriber',
-      email: email,
-      subject: 'Newsletter Subscription',
-      message: `Client subscribed to newsletter updates & VIP offers (${email}).`,
-      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      type: 'newsletter'
+      email: cleanEmail,
+      status: 'Active',
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     };
-    setMessages(prev => {
-      const list = prev || [];
-      if (list.some(m => m.email?.toLowerCase() === email.toLowerCase() && m.type === 'newsletter')) {
-        return list;
-      }
-      return [newSubMsg, ...list];
-    });
+
     setSubscribers(prev => {
       const list = prev || [];
-      if (list.some(s => s.email?.toLowerCase() === email.toLowerCase())) return list;
-      return [{ id: `s_${Date.now()}`, email, date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), status: 'Active' }, ...list];
+      if (list.some(s => s.email?.toLowerCase() === cleanEmail)) return list;
+      return [newSub, ...list];
     });
+
     showToast('Thank you for joining the Circle!', 'check');
+
+    try {
+      await apiFetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail })
+      });
+    } catch (err) {
+      console.warn('⚠️ Newsletter subscribe API note:', err.message);
+    }
     return true;
-  }, [setMessages, setSubscribers, showToast]);
+  }, [setSubscribers, showToast]);
 
   // ============================================================
   // Place order
@@ -1550,11 +1599,32 @@ export function StoreProvider({ children }) {
   }, [settings, setSettings, showToast]);
 
 
-  const deleteSubscriber = useCallback((idOrEmail) => {
+  const deleteSubscriber = useCallback(async (idOrEmail) => {
     setSubscribers(prev => (prev || []).filter(s => s.id !== idOrEmail && s.email !== idOrEmail));
     setMessages(prev => (prev || []).filter(m => m.id !== idOrEmail && m.email !== idOrEmail));
     showToast('Subscriber removed', 'check');
+
+    try {
+      await apiFetch(`/api/newsletter/subscribers/${encodeURIComponent(idOrEmail)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.warn('⚠️ Delete subscriber API note:', err.message);
+    }
   }, [setSubscribers, setMessages, showToast]);
+
+  const deleteMessage = useCallback(async (id) => {
+    setMessages(prev => (prev || []).filter(m => m.id !== id));
+    showToast('Message deleted', 'check');
+
+    try {
+      await apiFetch(`/api/contact/messages/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.warn('⚠️ Delete message API note:', err.message);
+    }
+  }, [setMessages, showToast]);
 
   const addReview = useCallback(async (reviewData) => {
     const existingUserReviews = (reviews || []).filter(r => 
@@ -1680,7 +1750,7 @@ export function StoreProvider({ children }) {
     loginWithEmail, registerUser, loginWithGoogle, logoutUser, saveUserAddress,
     requestPasswordReset, resetUserPassword,
     adminLogin, adminLogout,
-    handleContactForm, handleNewsletter, deleteSubscriber, addReview,
+    handleContactForm, handleNewsletter, deleteSubscriber, deleteMessage, addReview,
     placeOrder, applyCoupon,
     // Admin CRUD
     saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,

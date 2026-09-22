@@ -146,6 +146,39 @@ async function runMigrations(connection) {
     } catch (cartTableErr) {
       console.warn('⚠️ User carts table migration note:', cartTableErr.message);
     }
+
+    // 8. Check contact_messages table
+    try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS contact_messages (
+          id VARCHAR(100) PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          subject VARCHAR(255) NOT NULL,
+          message TEXT NOT NULL,
+          status VARCHAR(50) DEFAULT 'unread',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      console.log('Migrated: Ensured contact_messages table exists.');
+    } catch (contactTableErr) {
+      console.warn('⚠️ Contact messages table migration note:', contactTableErr.message);
+    }
+
+    // 9. Check newsletter_subscribers table
+    try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+          id VARCHAR(100) PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          status VARCHAR(50) DEFAULT 'Active',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      console.log('Migrated: Ensured newsletter_subscribers table exists.');
+    } catch (subTableErr) {
+      console.warn('⚠️ Newsletter table migration note:', subTableErr.message);
+    }
   } catch (err) {
     console.error('⚠️ Database migration warning (tables may not exist yet):', err.message);
   }

@@ -16,7 +16,7 @@ export default function AdminPage() {
     setProducts, setCategories, setOrders, setCustomers, setCoupons, setReviews, setStockHistory, setCMS, setMessages,
     formatMoney, saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,
     saveCategory, deleteCategory, updateOrderStatus, cycleOrderStatus, deleteOrder,
-    saveCustomer, deleteCustomer, deleteSubscriber, saveCoupon, deleteCoupon,
+    saveCustomer, deleteCustomer, deleteSubscriber, deleteMessage, setSubscribers, saveCoupon, deleteCoupon,
     saveGlobalCMS, saveHeroSlide, deleteHeroSlide, moveHeroSlide, reorderHeroSlides, showToast
   } = useStore();
 
@@ -1889,9 +1889,37 @@ export default function AdminPage() {
 
             return (
               <div>
-                <div style={{ marginBottom: 20 }}>
-                  <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 26px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Client Communications & Inquiries</h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Manage client contact form messages and newsletter subscriptions separately.</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 26px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Client Communications & Inquiries</h2>
+                    <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Manage client contact form messages and newsletter subscriptions synchronized with database.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const [msgRes, subRes] = await Promise.all([
+                          apiFetch(`/api/contact/messages?t=${Date.now()}`),
+                          apiFetch(`/api/newsletter/subscribers?t=${Date.now()}`)
+                        ]);
+                        if (msgRes.ok) {
+                          const msgData = await msgRes.json();
+                          if (msgData.success && Array.isArray(msgData.messages)) setMessages(msgData.messages);
+                        }
+                        if (subRes.ok) {
+                          const subData = await subRes.json();
+                          if (subData.success && Array.isArray(subData.subscribers)) setSubscribers(subData.subscribers);
+                        }
+                        showToast('Communications refreshed from database!', 'check');
+                      } catch {
+                        showToast('Failed to refresh communications', 'alert-circle');
+                      }
+                    }}
+                    className="btn-secondary"
+                    style={{ padding: '8px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <RefreshCw style={{ width: 14, height: 14 }} /> Refresh from DB
+                  </button>
                 </div>
 
                 {/* Sub-tab pills */}
@@ -1964,7 +1992,18 @@ export default function AdminPage() {
                                   </button>
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
-                                  <a href={`mailto:${m.email}`} className="btn-secondary" style={{ padding: '4px 12px', fontSize: 11 }}>Reply</a>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                    <a href={`mailto:${m.email}`} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 11 }}>Reply</a>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteMessage(m.id)}
+                                      className="btn-secondary"
+                                      style={{ color: 'var(--danger)', padding: '4px 8px' }}
+                                      title="Delete message"
+                                    >
+                                      <Trash2 style={{ width: 14, height: 14 }} />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             ))
@@ -2007,7 +2046,7 @@ export default function AdminPage() {
                                     </div>
                                   </td>
                                   <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -2015,9 +2054,18 @@ export default function AdminPage() {
                                           showToast('Subscriber email copied to clipboard!', 'check');
                                         }}
                                         className="btn-secondary"
-                                        style={{ padding: '6px 16px', fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: 0 }}
+                                        style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: 0 }}
                                       >
                                         Copy Email
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteSubscriber(sub.id || sub.email)}
+                                        className="btn-secondary"
+                                        style={{ color: 'var(--danger)', padding: '6px 8px', display: 'inline-flex', alignItems: 'center' }}
+                                        title="Delete subscriber"
+                                      >
+                                        <Trash2 style={{ width: 14, height: 14 }} />
                                       </button>
                                     </div>
                                   </td>
