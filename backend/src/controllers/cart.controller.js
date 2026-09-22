@@ -1,66 +1,85 @@
 const db = require('../config/database');
 
-const getCart = async (req, res, next) => {
+const ensureCartTable = async () => {
   try {
-    const userId = req.user.id;
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_carts (
+        user_email VARCHAR(255) PRIMARY KEY,
+        user_id INT NULL,
+        cart_json LONGTEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+  } catch (err) {
+    console.warn('⚠️ User carts table migration note:', err.message);
+  }
+};
 
-    // Fetch or create user cart
-    let [carts] = await db.query('SELECT * FROM carts WHERE user_id = ?', [userId]);
-    let cartId;
+/**
+ * Get User Cart (Fetched from MySQL database)
+ */
+const getCart = async (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
 
-    if (carts.length === 0) {
-      const [insertResult] = await db.query('INSERT INTO carts (user_id) VALUES (?)', [userId]);
-      cartId = insertResult.insertId;
-    } else {
-      cartId = carts[0].id;
+  try {
+    const userEmail = (req.user?.email || req.query?.email || '').trim().toLowerCase();
+    if (!userEmail) {
+      return res.status(200).json({ success: true, items: [] });
     }
 
-    // Fetch items with variant and product details
-    const [items] = await db.query(
-      `SELECT ci.id, ci.quantity, ci.variant_id, pv.sku, pv.price, pv.compare_at_price, pv.stock_quantity, pv.attributes, p.name as product_name, p.slug as product_slug, pi.secure_url as image_url
-       FROM cart_items ci
-       JOIN product_variants pv ON ci.variant_id = pv.id
-       JOIN products p ON pv.product_id = p.id
-       LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = TRUE
-       WHERE ci.cart_id = ?`,
-      [cartId]
+    await ensureCartTable();
+
+    const [rows] = await db.query(
+      'SELECT cart_json FROM user_carts WHERE LOWER(user_email) = ?',
+      [userEmail]
     );
 
-    res.status(200).json({ success: true, cart: { id: cartId, items } });
+    if (rows && rows.length > 0 && rows[0].cart_json) {
+      try {
+        const items = JSON.parse(rows[0].cart_json);
+        if (Array.isArray(items)) {
+          return res.status(200).json({ success: true, items });
+        }
+      } catch (_) {}
+    }
+
+    return res.status(200).json({ success: true, items: [] });
   } catch (error) {
     next(error);
   }
 };
 
+/**
+ * Sync User Cart (Persisted in MySQL database)
+ */
 const syncCart = async (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   try {
-    const userId = req.user.id;
-    const { items } = req.body; // Array of { variantId, quantity }
+    const userEmail = (req.user?.email || req.body?.email || '').trim().toLowerCase();
+    const items = Array.isArray(req.body?.items) ? req.body.items : (Array.isArray(req.body?.cart) ? req.body.cart : []);
 
-    // Fetch user cart
-    let [carts] = await db.query('SELECT * FROM carts WHERE user_id = ?', [userId]);
-    let cartId;
-
-    if (carts.length === 0) {
-      const [insertResult] = await db.query('INSERT INTO carts (user_id) VALUES (?)', [userId]);
-      cartId = insertResult.insertId;
-    } else {
-      cartId = carts[0].id;
+    if (!userEmail) {
+      return res.status(200).json({ success: true, message: 'Cart received (guest).' });
     }
 
-    // Clear existing cart items
-    await db.query('DELETE FROM cart_items WHERE cart_id = ?', [cartId]);
+    await ensureCartTable();
 
-    // Re-insert synced items
-    if (items && items.length > 0) {
-      const insertParams = items.map((item) => [cartId, item.variantId, item.quantity]);
-      await db.query(
-        'INSERT INTO cart_items (cart_id, variant_id, quantity) VALUES ?',
-        [insertParams]
-      );
-    }
+    const cartJson = JSON.stringify(items);
+    const userId = req.user?.id || null;
 
-    res.status(200).json({ success: true, message: 'Cart synced successfully.' });
+    await db.query(
+      `INSERT INTO user_carts (user_email, user_id, cart_json)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE user_id = COALESCE(?, user_id), cart_json = ?, updated_at = CURRENT_TIMESTAMP`,
+      [userEmail, userId, cartJson, userId, cartJson]
+    );
+
+    return res.status(200).json({ success: true, message: 'Cart synced to database.', items });
   } catch (error) {
     next(error);
   }

@@ -17,8 +17,11 @@ export default function Header() {
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const wishlistCount = wishlist.length;
 
-  const announcements = (cms?.announcement || 'FREE AUSTRALIA-WIDE SHIPPING $60+ · ANTI-TARNISH GOLD-PLATED JEWELLERY · AFFORDABLE LUXURY · WATERPROOF EVERYDAY PIECES')
-    .split('·').map(a => a.trim()).filter(Boolean);
+  const rawAnnouncement = cms?.announcement || 'FREE AUSTRALIA-WIDE SHIPPING $60+ · ANTI-TARNISH GOLD-PLATED JEWELLERY · AFFORDABLE LUXURY · WATERPROOF EVERYDAY PIECES';
+  const announcements = rawAnnouncement
+    .split(/\s*(?:[·•|~]|\s+\.\s*|\.\s+|\n|\r\n)\s*/)
+    .map(a => a.trim().replace(/^[\s.·•|~-]+|[\s.·•|~-]+$/g, ''))
+    .filter(Boolean);
 
   useEffect(() => {
     if (announcements.length <= 1) return;
