@@ -1,10 +1,13 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'abels_jwt_access_secret_production_key_2026_xyz';
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'abels_jwt_refresh_secret_production_key_2026_xyz';
+
 const generateAccessToken = (user) => {
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role },
-    process.env.JWT_ACCESS_SECRET,
+    ACCESS_SECRET,
     { expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m' }
   );
 };
@@ -12,17 +15,17 @@ const generateAccessToken = (user) => {
 const generateRefreshToken = (user) => {
   return jwt.sign(
     { id: user.id },
-    process.env.JWT_REFRESH_SECRET,
+    REFRESH_SECRET,
     { expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d' }
   );
 };
 
 const verifyAccessToken = (token) => {
-  return jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+  return jwt.verify(token, ACCESS_SECRET);
 };
 
 const verifyRefreshToken = (token) => {
-  return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+  return jwt.verify(token, REFRESH_SECRET);
 };
 
 module.exports = {

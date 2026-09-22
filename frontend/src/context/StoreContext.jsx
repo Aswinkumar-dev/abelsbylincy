@@ -347,8 +347,8 @@ export function StoreProvider({ children }) {
     }
 
     try {
-      // 4. Fetch CMS Settings & Announcement Banner from Server / Database
-      const cmsRes = await apiFetch('/api/cms');
+      // 4. Fetch CMS Settings & Announcement Banner from Server / Database (Authoritative sync across all browsers)
+      const cmsRes = await apiFetch(`/api/cms?t=${Date.now()}`);
       if (cmsRes.ok) {
         const data = await cmsRes.json();
         if (data.success && data.cms && typeof data.cms === 'object') {
@@ -1326,10 +1326,26 @@ export function StoreProvider({ children }) {
     showToast('Coupon deleted', 'check');
   }, [coupons, setCoupons, showToast]);
 
-  const saveGlobalCMS = useCallback((updates) => {
-    setCMS(prev => ({ ...prev, ...updates }));
-    showToast('CMS settings updated!', 'check');
-  }, [setCMS, showToast]);
+  const saveGlobalCMS = useCallback(async (updates) => {
+    let nextState;
+    setCMSRaw(prev => {
+      nextState = { ...(prev || DEFAULT_CMS), ...updates };
+      writeLS('abl_cms_v5', nextState);
+      return nextState;
+    });
+    try {
+      const cur = readLS('abl_cms_v5', DEFAULT_CMS);
+      const merged = { ...cur, ...updates };
+      await apiFetch('/api/cms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cms: merged })
+      });
+      showToast('Announcement & CMS saved to database!', 'check');
+    } catch (err) {
+      console.warn('⚠️ CMS save note:', err.message);
+    }
+  }, [showToast]);
 
   const saveHeroSlide = useCallback((idxOrData, slideData) => {
     setCMS(prev => {

@@ -1,7 +1,9 @@
 const db = require('../config/database');
 
 const findUserByEmail = async (email) => {
-  const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+  if (!email) return null;
+  const cleanEmail = String(email).trim().toLowerCase();
+  const [rows] = await db.query('SELECT * FROM users WHERE LOWER(email) = ?', [cleanEmail]);
   return rows[0];
 };
 
@@ -16,10 +18,11 @@ const findUserByUuid = async (uuid) => {
 };
 
 const createUser = async (uuid, email, passwordHash, firstName, lastName, role = 'customer') => {
+  const cleanEmail = String(email).trim().toLowerCase();
   const [result] = await db.query(
-    `INSERT INTO users (uuid, email, password_hash, first_name, last_name, role) 
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [uuid, email, passwordHash, firstName, lastName, role]
+    `INSERT INTO users (uuid, email, password_hash, first_name, last_name, role, status, email_verified) 
+     VALUES (?, ?, ?, ?, ?, ?, 'active', TRUE)`,
+    [uuid, cleanEmail, passwordHash, firstName, lastName, role]
   );
   return result.insertId;
 };

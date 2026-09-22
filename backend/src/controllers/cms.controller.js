@@ -5,6 +5,10 @@ const { getStoredCms, saveStoredCms } = require('../utils/fileStore');
  * Get CMS Content (Announcement bar, Hero slides, Featured collections, etc.)
  */
 const getCms = async (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   try {
     // 1. Try fetching from MySQL site_settings table
     try {
@@ -48,6 +52,10 @@ const getCms = async (req, res, next) => {
  * Update / Save CMS Content
  */
 const updateCms = async (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   try {
     const { cms } = req.body;
 
