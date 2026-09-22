@@ -213,6 +213,7 @@ export default function Header() {
                         onClick={() => {
                           logoutUser();
                           setLogoutModalOpen(false);
+                          navigate('/', { replace: true });
                         }}
                         style={{
                           flex: 1,
@@ -318,6 +319,31 @@ export default function Header() {
               <Link to="/collections" className="mobile-nav-link" onClick={() => setMobileOpen(false)}>Collections</Link>
               <Link to="/about" className="mobile-nav-link" onClick={() => setMobileOpen(false)}>About Us</Link>
               <Link to="/contact" className="mobile-nav-link" onClick={() => setMobileOpen(false)}>Contact</Link>
+              {currentUser ? (
+                <button
+                  type="button"
+                  className="mobile-nav-link"
+                  onClick={() => {
+                    logoutUser();
+                    setMobileOpen(false);
+                    navigate('/', { replace: true });
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    textAlign: 'left',
+                    color: '#C5221F',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    padding: '12px 0',
+                    width: '100%'
+                  }}
+                >
+                  Logout ({currentUser.name})
+                </button>
+              ) : (
+                <Link to="/account" className="mobile-nav-link" onClick={() => setMobileOpen(false)}>Sign In</Link>
+              )}
             </nav>
           </div>
         )}

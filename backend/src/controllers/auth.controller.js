@@ -198,11 +198,14 @@ const login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
-    if (user.status !== 'active') {
-      if (user.status === 'inactive') {
-        return res.status(403).json({ success: false, message: 'Please verify your email address before logging in.' });
-      }
+    if (user.status === 'banned' || user.status === 'suspended') {
       return res.status(403).json({ success: false, message: `Your account is currently ${user.status}.` });
+    }
+
+    if (user.status !== 'active') {
+      try {
+        await db.query("UPDATE users SET status = 'active', email_verified = TRUE WHERE id = ?", [user.id]);
+      } catch (_) {}
     }
 
     await updateUserLastLogin(user.id);
@@ -355,9 +358,9 @@ const resetPassword = async (req, res, next) => {
           const resetRecord = tokens[0];
           const passwordHash = await hashPassword(newPassword);
 
-          // Update password
+          // Update password and activate user
           await connection.query(
-            'UPDATE users SET password_hash = ? WHERE id = ?',
+            "UPDATE users SET password_hash = ?, status = 'active', email_verified = TRUE WHERE id = ?",
             [passwordHash, resetRecord.user_id]
           );
 
@@ -378,7 +381,7 @@ const resetPassword = async (req, res, next) => {
           if (userRows.length > 0) {
             const passwordHash = await hashPassword(newPassword);
             await connection.query(
-              'UPDATE users SET password_hash = ? WHERE id = ?',
+              "UPDATE users SET password_hash = ?, status = 'active', email_verified = TRUE WHERE id = ?",
               [passwordHash, userRows[0].id]
             );
             await connection.commit();

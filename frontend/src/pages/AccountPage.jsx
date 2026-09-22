@@ -79,7 +79,7 @@ export default function AccountPage() {
     return null;
   };
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setEmailError('');
     setPasswordError('');
@@ -100,12 +100,12 @@ export default function AccountPage() {
       return;
     }
 
-    const success = loginWithEmail(loginEmail, loginPassword);
+    const success = await loginWithEmail(loginEmail, loginPassword);
     if (!success) {
       setPasswordError('Invalid email or password credentials.');
       triggerShake();
     } else {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   };
 
@@ -139,7 +139,7 @@ export default function AccountPage() {
     }
   };
 
-  const handleRegisterSubmit = (e) => {
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setNameError('');
     setEmailError('');
@@ -165,12 +165,12 @@ export default function AccountPage() {
       return;
     }
 
-    const success = registerUser(regName.trim(), regEmail.trim(), regPassword);
+    const success = await registerUser(regName.trim(), regEmail.trim(), regPassword);
     if (!success) {
       setEmailError('An account with this email address already exists.');
       triggerShake();
     } else {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   };
 

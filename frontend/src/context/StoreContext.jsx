@@ -582,21 +582,60 @@ export function StoreProvider({ children }) {
   // ============================================================
   // Auth actions
   // ============================================================
-  const loginWithEmail = useCallback((email, password) => {
-    const found = customers.find(c => c.email.toLowerCase() === email.toLowerCase());
-    if (!found) {
+  const loginWithEmail = useCallback(async (email, password) => {
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const res = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.success) {
+        const u = data.user || {};
+        const userName = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.name || cleanEmail.split('@')[0];
+        const userObj = {
+          id: u.uuid || u.id || `c_${Date.now()}`,
+          name: userName,
+          email: u.email || cleanEmail,
+          role: u.role || 'customer',
+          status: 'active'
+        };
+
+        if (data.accessToken) {
+          localStorage.setItem('abl_access_token', data.accessToken);
+        }
+        setCurrentUser(userObj);
+        writeLS('abl_current_user', userObj);
+        writeLS('abl_user_token', { ...userObj, password });
+        showToast(`Welcome back, ${userName}!`, 'check');
+        return true;
+      } else {
+        const errorMsg = data.message || 'Invalid email or password credentials.';
+        showToast(errorMsg, 'alert-circle');
+        return false;
+      }
+    } catch (err) {
+      // Local fallback if offline
+      const found = customers.find(c => c.email.toLowerCase() === cleanEmail);
+      if (found) {
+        setCurrentUser({ ...found });
+        writeLS('abl_current_user', { ...found });
+        showToast(`Welcome back, ${found.name}!`, 'check');
+        return true;
+      }
       const stored = readLS('abl_user_token', null);
-      if (stored && stored.email.toLowerCase() === email.toLowerCase()) {
+      if (stored && stored.email?.toLowerCase() === cleanEmail && stored.password === password) {
         setCurrentUser(stored);
+        writeLS('abl_current_user', stored);
         showToast(`Welcome back, ${stored.name}!`, 'check');
         return true;
       }
-      showToast('No account found with that email', 'alert-circle');
+      showToast('Invalid email or password credentials', 'alert-circle');
       return false;
     }
-    setCurrentUser({ ...found });
-    showToast(`Welcome back, ${found.name}!`, 'check');
-    return true;
   }, [customers, setCurrentUser, showToast]);
 
   const registerUser = useCallback((name, email, password) => {
@@ -842,7 +881,14 @@ export function StoreProvider({ children }) {
   const logoutUser = useCallback(() => {
     setCurrentUser(null);
     writeLS('abl_current_user', null);
+    try {
+      localStorage.removeItem('abl_access_token');
+      localStorage.removeItem('abl_user_token');
+    } catch (_) {}
     showToast('Signed out successfully', 'check');
+    if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+      window.location.href = '/';
+    }
   }, [setCurrentUser, showToast]);
 
   const saveUserAddress = useCallback((addressData) => {
