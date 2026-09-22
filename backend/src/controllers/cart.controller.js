@@ -8,7 +8,7 @@ const ensureCartTable = async () => {
         user_id INT NULL,
         cart_json LONGTEXT NOT NULL,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
   } catch (err) {
     console.warn('⚠️ User carts table migration note:', err.message);
@@ -32,13 +32,13 @@ const getCart = async (req, res, next) => {
     await ensureCartTable();
 
     const [rows] = await db.query(
-      'SELECT cart_json FROM user_carts WHERE LOWER(user_email) = ?',
+      'SELECT cart_json FROM user_carts WHERE LOWER(TRIM(user_email)) = ?',
       [userEmail]
     );
 
     if (rows && rows.length > 0 && rows[0].cart_json) {
       try {
-        const items = JSON.parse(rows[0].cart_json);
+        const items = typeof rows[0].cart_json === 'string' ? JSON.parse(rows[0].cart_json) : rows[0].cart_json;
         if (Array.isArray(items)) {
           return res.status(200).json({ success: true, items });
         }
@@ -47,7 +47,8 @@ const getCart = async (req, res, next) => {
 
     return res.status(200).json({ success: true, items: [] });
   } catch (error) {
-    next(error);
+    console.error('⚠️ getCart DB error:', error.message);
+    return res.status(200).json({ success: true, items: [] });
   }
 };
 
@@ -60,7 +61,7 @@ const syncCart = async (req, res, next) => {
   res.set('Expires', '0');
 
   try {
-    const userEmail = (req.user?.email || req.body?.email || '').trim().toLowerCase();
+    const userEmail = (req.user?.email || req.body?.email || req.query?.email || '').trim().toLowerCase();
     const items = Array.isArray(req.body?.items) ? req.body.items : (Array.isArray(req.body?.cart) ? req.body.cart : []);
 
     if (!userEmail) {
@@ -81,7 +82,8 @@ const syncCart = async (req, res, next) => {
 
     return res.status(200).json({ success: true, message: 'Cart synced to database.', items });
   } catch (error) {
-    next(error);
+    console.error('⚠️ syncCart DB error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to sync cart: ' + error.message });
   }
 };
 

@@ -478,28 +478,33 @@ export function StoreProvider({ children }) {
     });
   }, []);
   const setCart = useCallback((updaterOrValue) => {
+    let nextItems;
     setCartRaw(prev => {
-      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
-      writeLS('abl_cart', next);
-      const user = readLS('abl_current_user', null);
-      if (user?.email) {
-        const email = user.email.toLowerCase();
-        writeLS(`abl_cart_${email}`, next);
-        try {
-          const token = localStorage.getItem('abl_access_token');
-          apiFetch('/api/cart/sync', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            },
-            body: JSON.stringify({ email, items: next })
-          }).catch(() => {});
-        } catch {}
-      }
-      return next;
+      nextItems = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      writeLS('abl_cart', nextItems);
+      return nextItems;
     });
-  }, []);
+
+    // Reliable MySQL DB cart sync for authenticated user (executed outside setState updater)
+    const user = readLS('abl_current_user', null) || currentUser;
+    if (user?.email && Array.isArray(nextItems)) {
+      const email = user.email.trim().toLowerCase();
+      writeLS(`abl_cart_${email}`, nextItems);
+      try {
+        const token = localStorage.getItem('abl_access_token');
+        apiFetch('/api/cart/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ email, items: nextItems })
+        }).catch(err => console.warn('⚠️ Cart sync note:', err.message));
+      } catch (err) {
+        console.warn('⚠️ Cart sync exception:', err.message);
+      }
+    }
+  }, [currentUser]);
   const setWishlist = useCallback((v) => { setWishlistRaw(v); writeLS('abl_wishlist', v); }, []);
   const setCurrentUser = useCallback((v) => { setCurrentUserRaw(v); writeLS('abl_current_user', v); }, []);
   const setAdminUser = useCallback((v) => { setAdminUserRaw(v); writeLS('abl_admin_user', v); }, []);
@@ -513,11 +518,12 @@ export function StoreProvider({ children }) {
 
   // Long-term multi-device & Incognito Cart preservation: sync account cart from MySQL DB
   useEffect(() => {
-    const userEmail = currentUser?.email?.toLowerCase();
+    const userEmail = currentUser?.email?.trim().toLowerCase();
     if (!userEmail) return;
 
-    // Fetch user's cart from DB asynchronously in background (slight delay so login UI finishes first)
-    const timer = setTimeout(async () => {
+    let isMounted = true;
+
+    const syncUserCartFromDB = async () => {
       try {
         const token = localStorage.getItem('abl_access_token');
         const res = await apiFetch(`/api/cart?email=${encodeURIComponent(userEmail)}&t=${Date.now()}`, {
@@ -528,7 +534,7 @@ export function StoreProvider({ children }) {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success && Array.isArray(data.items)) {
+          if (data.success && Array.isArray(data.items) && isMounted) {
             setCartRaw(currentLocalCart => {
               const localList = Array.isArray(currentLocalCart) ? currentLocalCart : [];
               const dbList = data.items;
@@ -567,9 +573,13 @@ export function StoreProvider({ children }) {
       } catch (err) {
         console.warn('⚠️ User cart sync error:', err.message);
       }
-    }, 800);
+    };
 
-    return () => clearTimeout(timer);
+    syncUserCartFromDB();
+
+    return () => {
+      isMounted = false;
+    };
   }, [currentUser?.email]);
 
   // ============================================================

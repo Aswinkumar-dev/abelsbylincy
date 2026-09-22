@@ -131,6 +131,21 @@ async function runMigrations(connection) {
     } catch (tokenTableErr) {
       console.warn('⚠️ Password reset tokens migration note:', tokenTableErr.message);
     }
+
+    // 7. Check user_carts table for persistent multi-device cart
+    try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS user_carts (
+          user_email VARCHAR(255) PRIMARY KEY,
+          user_id INT NULL,
+          cart_json LONGTEXT NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      console.log('Migrated: Ensured user_carts table exists.');
+    } catch (cartTableErr) {
+      console.warn('⚠️ User carts table migration note:', cartTableErr.message);
+    }
   } catch (err) {
     console.error('⚠️ Database migration warning (tables may not exist yet):', err.message);
   }
