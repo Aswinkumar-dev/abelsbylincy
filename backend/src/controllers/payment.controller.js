@@ -371,12 +371,9 @@ const sendConfirmationEmail = async (req, res, next) => {
     const { orderData } = req.body;
     if (!orderData) return res.status(400).json({ success: false, message: 'orderData is required' });
 
-    // Asynchronous background dispatch (non-blocking)
-    setTimeout(async () => {
-      await sendOrderConfirmationEmail(orderData);
-    }, 1000);
-
-    res.status(200).json({ success: true, message: 'Order confirmation email queued for dispatch.' });
+    // Directly await email dispatch for reliable delivery in serverless environment
+    const result = await sendOrderConfirmationEmail(orderData);
+    res.status(200).json({ success: true, message: 'Order confirmation email processed.', result });
   } catch (error) {
     next(error);
   }
@@ -387,10 +384,8 @@ const sendNewsletterEmail = async (req, res, next) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
 
-    setTimeout(async () => {
-      await sendNewsletterWelcomeEmail(email);
-    }, 500);
-
+    const result = await sendNewsletterWelcomeEmail(email);
+    res.status(200).json({ success: true, message: 'Newsletter email processed.', result });
   } catch (error) {
     next(error);
   }
@@ -498,19 +493,22 @@ const recordStripeOrder = async (req, res, next) => {
         }
       }
 
-      // Record items
+      // Record items & deduct stock in MySQL
       if (Array.isArray(order.items) && order.items.length > 0) {
         await db.query('DELETE FROM order_items WHERE order_id = ?', [orderId]);
         for (const item of order.items) {
           const qty = parseInt(item.quantity || 1, 10);
           const unitPrice = parseFloat(item.price || item.unitPrice || 0);
+          const cleanId = item.id || item.productId;
+          const cleanSku = item.sku;
+
           await db.query(
             `INSERT INTO order_items (order_id, product_id, sku, product_name, variant_name, quantity, unit_price, total_amount, product_image_url) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               orderId,
-              item.id || item.productId || null,
-              item.sku || 'ABL-JEW',
+              cleanId || null,
+              cleanSku || 'ABL-JEW',
               item.name || item.productName || 'Fine Jewellery Selection',
               item.size || item.color || item.variantName || null,
               qty,
@@ -519,6 +517,24 @@ const recordStripeOrder = async (req, res, next) => {
               item.image || item.productImageUrl || null
             ]
           );
+
+          // Deduct stock in DB
+          if (cleanId || cleanSku) {
+            try {
+              await db.query(
+                `UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) 
+                 WHERE product_id IN (SELECT id FROM products WHERE id = ? OR sku = ? OR uuid = ?) OR sku = ?`,
+                [qty, cleanId || null, cleanSku || null, cleanId || null, cleanSku || null]
+              );
+              await db.query(
+                `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) 
+                 WHERE id = ? OR sku = ? OR uuid = ?`,
+                [qty, cleanId || null, cleanSku || null, cleanId || null]
+              );
+            } catch (stockDbErr) {
+              console.warn('DB stock update note:', stockDbErr.message);
+            }
+          }
         }
       }
 
@@ -549,9 +565,11 @@ const recordStripeOrder = async (req, res, next) => {
       console.warn('⚠️ Order DB record note:', dbErr.message);
     }
 
-    // Always persist to server-side fileStore
+    // Always persist to server-side fileStore and deduct stock
     try {
-      const { getStoredOrders, saveStoredOrders } = require('../utils/fileStore');
+      const { getStoredOrders, saveStoredOrders, getStoredProducts, saveStoredProducts } = require('../utils/fileStore');
+      
+      // Save order
       const currentOrders = getStoredOrders() || [];
       const orderMap = new Map();
       currentOrders.forEach(o => {
@@ -561,11 +579,57 @@ const recordStripeOrder = async (req, res, next) => {
       const orderKey = order.id || order.order_number || `ABL-${Date.now()}`;
       orderMap.set(String(orderKey), { ...(orderMap.get(String(orderKey)) || {}), ...order, id: orderKey });
       saveStoredOrders(Array.from(orderMap.values()));
+
+      // Deduct stock in stored products
+      if (Array.isArray(order.items) && order.items.length > 0) {
+        const currentProducts = getStoredProducts() || [];
+        if (currentProducts.length > 0) {
+          const updatedProds = currentProducts.map(prod => {
+            const matched = order.items.find(i => 
+              String(i.id || i.productId) === String(prod.id) || 
+              (i.sku && prod.sku && String(i.sku).toUpperCase() === String(prod.sku).toUpperCase())
+            );
+            if (matched) {
+              const currentStock = Number(prod.stockQty ?? prod.stock_quantity ?? 10);
+              const newStock = Math.max(0, currentStock - (Number(matched.quantity) || 1));
+              return { ...prod, stockQty: newStock, inStock: newStock > 0 };
+            }
+            return prod;
+          });
+          saveStoredProducts(updatedProds);
+        }
+      }
     } catch (fsErr) {
-      console.error('FileStore order save error:', fsErr.message);
+      console.error('FileStore order & stock update error:', fsErr.message);
     }
 
-    res.status(200).json({ success: true, message: 'Stripe order recorded successfully.' });
+    // Dispatch order confirmation email reliably
+    try {
+      await sendOrderConfirmationEmail({
+        orderNumber: orderNumber,
+        customerName: order.customer || 'Valued Customer',
+        customerEmail: guestEmail,
+        customerPhone: order.phone || '',
+        streetAddress: order.address || '',
+        suburb: order.city || '',
+        state: order.state || '',
+        postcode: order.postcode || '',
+        estimatedDeliveryDate: order.deliveryEstimate || 'In 3-5 business days',
+        purchasedItems: order.items || [],
+        subtotal: subtotal,
+        orderTotal: order.total || `$${totalAmount.toFixed(2)} AUD`,
+        discountAmount: discountAmount,
+        couponCode: order.couponCode || null,
+        shippingFee: shippingAmount,
+        shippingMethod: order.shippingMethod || 'Standard Shipping (Australia Post)',
+        rawAmount: totalAmount,
+        orderDate: order.date || 'Today'
+      });
+    } catch (emailErr) {
+      console.warn('Order confirmation email trigger note:', emailErr.message);
+    }
+
+    res.status(200).json({ success: true, message: 'Stripe order recorded and confirmation processed.' });
   } catch (error) {
     next(error);
   }

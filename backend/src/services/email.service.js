@@ -31,7 +31,7 @@ const sendEmail = async ({ to, subject, templateName, variables, userId = null }
     const templatePath = path.join(__dirname, '../templates/emails', `${templateName}.html`);
     let htmlContent = fs.readFileSync(templatePath, 'utf8');
 
-    // Replace template variables
+    // Replace template variables safely using a replacer function to avoid JavaScript $ token corruption
     const varsWithDefaults = {
       currentYear: new Date().getFullYear(),
       ...(variables || {})
@@ -39,7 +39,7 @@ const sendEmail = async ({ to, subject, templateName, variables, userId = null }
 
     Object.keys(varsWithDefaults).forEach((key) => {
       const placeholder = new RegExp(`{{${key}}}`, 'g');
-      htmlContent = htmlContent.replace(placeholder, varsWithDefaults[key]);
+      htmlContent = htmlContent.replace(placeholder, () => String(varsWithDefaults[key] ?? ''));
     });
 
     // 1. Try sending via Nodemailer if SMTP configured
@@ -136,75 +136,98 @@ const sendOrderConfirmationEmail = async (orderData) => {
       .trim();
     if (!cleanCustomerName) cleanCustomerName = 'Valued Customer';
 
-    // Prioritize authoritative order total passed from Stripe / Checkout
-    let finalTotalStr = '';
-    if (orderTotal) {
-      finalTotalStr = String(orderTotal).trim();
-      if (!finalTotalStr.startsWith('$')) finalTotalStr = `$${finalTotalStr}`;
-      if (!finalTotalStr.toUpperCase().includes('AUD')) finalTotalStr = `${finalTotalStr} AUD`;
-    } else if (orderData.rawAmount || orderData.finalPaidAmount) {
-      const amt = parseFloat(orderData.rawAmount || orderData.finalPaidAmount || 0);
-      finalTotalStr = `$${amt.toFixed(2)} AUD`;
-    } else {
-      let calculatedTotal = 0;
-      if (Array.isArray(purchasedItems) && purchasedItems.length > 0) {
-        calculatedTotal = purchasedItems.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (parseInt(item.quantity || 1))), 0);
-      }
-      if (calculatedTotal > 0) {
-        finalTotalStr = `$${calculatedTotal.toFixed(2)} AUD`;
-      } else {
-        finalTotalStr = '$0.00 AUD';
-      }
+    // Normalize items array
+    const rawItems = Array.isArray(purchasedItems) ? purchasedItems : (Array.isArray(orderData.items) ? orderData.items : (Array.isArray(orderData.orderItems) ? orderData.orderItems : []));
+
+    // Calculate subtotal
+    let subtotal = 0;
+    if (orderData.subtotal !== undefined && !isNaN(parseFloat(orderData.subtotal))) {
+      subtotal = parseFloat(orderData.subtotal);
+    } else if (rawItems.length > 0) {
+      subtotal = rawItems.reduce((sum, item) => {
+        const p = parseFloat(item.price || item.unit_price || item.unitPrice || item.salePrice || 0);
+        const q = parseInt(item.quantity || item.qty || 1, 10);
+        return sum + (p * q);
+      }, 0);
     }
+
+    const discountAmount = parseFloat(orderData.discountAmount || orderData.discount || 0) || 0;
+    const couponCode = (orderData.couponCode || orderData.coupon || '').trim().toUpperCase();
+    const shippingFee = parseFloat(orderData.shippingFee || orderData.shippingAmount || (orderData.shippingMethod === 'express' ? 15 : 0)) || 0;
+    const shippingMethod = orderData.shippingMethod || (shippingFee > 0 ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)');
+
+    // Prioritize authoritative order total
+    let totalPaid = 0;
+    if (orderData.rawAmount !== undefined && !isNaN(parseFloat(orderData.rawAmount))) {
+      totalPaid = parseFloat(orderData.rawAmount);
+    } else if (orderData.finalPaidAmount !== undefined && !isNaN(parseFloat(orderData.finalPaidAmount))) {
+      totalPaid = parseFloat(orderData.finalPaidAmount);
+    } else if (orderTotal) {
+      const parsedNum = parseFloat(String(orderTotal).replace(/[^0-9.]/g, ''));
+      if (!isNaN(parsedNum) && parsedNum > 0) totalPaid = parsedNum;
+    }
+    if (totalPaid <= 0) {
+      totalPaid = Math.max(0, subtotal - discountAmount + shippingFee);
+    }
+
+    const finalTotalStr = `$${totalPaid.toFixed(2)} AUD`;
 
     // Format purchased items table rows with Poppins font
     let itemsHtml = '';
-    if (Array.isArray(purchasedItems) && purchasedItems.length > 0) {
-      itemsHtml = purchasedItems.map(item => `
-        <tr style="font-family: 'Poppins', sans-serif !important;">
-          <td style="font-family: 'Poppins', sans-serif !important;">
-            <strong style="color: #1A1A1A;">${item.name || 'Fine Jewellery Piece'}</strong><br>
-            <span style="font-size: 11px; color: #989A92;">Fine 18K Gold Plated · SKU: ${item.sku || 'ABL-JEW-001'}</span>
-          </td>
-          <td style="text-align: center; font-family: 'Poppins', sans-serif !important;">${item.quantity || 1}</td>
-          <td style="text-align: right; font-weight: 600; font-family: 'Poppins', sans-serif !important;">$${(parseFloat(item.price || 0) * (parseInt(item.quantity || 1))).toFixed(2)} AUD</td>
-        </tr>
-      `).join('');
+    if (rawItems.length > 0) {
+      itemsHtml = rawItems.map(item => {
+        const name = item.name || item.product_name || item.productName || item.title || 'Fine Jewellery Piece';
+        const variant = item.variantName || item.variant_name || item.size || item.selectedSize || item.color || 'Fine Gold-Plated Jewellery';
+        const qty = parseInt(item.quantity || item.qty || 1, 10);
+        const unitPrice = parseFloat(item.price || item.unit_price || item.unitPrice || item.salePrice || 0);
+        const lineTotal = unitPrice * qty;
+
+        return `
+          <tr style="border-bottom: 1px dashed #ECECEC; font-family: 'Poppins', sans-serif !important;">
+            <td style="padding: 14px 0; font-family: 'Poppins', sans-serif !important;">
+              <strong style="color: #1A1A1A; font-size: 13.5px; display: block; margin-bottom: 2px;">${name}</strong>
+              <span style="font-size: 11.5px; color: #989A92;">Qty: ${qty} · ${variant}</span>
+            </td>
+            <td style="text-align: center; padding: 14px 0; font-size: 13.5px; color: #5A5C56; font-family: 'Poppins', sans-serif !important;">${qty}</td>
+            <td style="text-align: right; font-weight: 600; padding: 14px 0; font-size: 14px; color: #1A1A1A; font-family: 'Poppins', sans-serif !important;">$${lineTotal.toFixed(2)} AUD</td>
+          </tr>
+        `;
+      }).join('');
     } else {
       itemsHtml = `
-        <tr style="font-family: 'Poppins', sans-serif !important;">
-          <td style="font-family: 'Poppins', sans-serif !important;"><strong style="color: #1A1A1A;">Fine Gold-Plated Jewellery Collection</strong></td>
-          <td style="text-align: center; font-family: 'Poppins', sans-serif !important;">1</td>
-          <td style="text-align: right; font-weight: 600; font-family: 'Poppins', sans-serif !important;">${finalTotalStr}</td>
+        <tr style="border-bottom: 1px dashed #ECECEC; font-family: 'Poppins', sans-serif !important;">
+          <td style="padding: 14px 0; font-family: 'Poppins', sans-serif !important;"><strong style="color: #1A1A1A; font-size: 13.5px;">Fine Gold-Plated Jewellery Collection</strong></td>
+          <td style="text-align: center; padding: 14px 0; font-size: 13.5px; color: #5A5C56; font-family: 'Poppins', sans-serif !important;">1</td>
+          <td style="text-align: right; font-weight: 600; padding: 14px 0; font-size: 14px; color: #1A1A1A; font-family: 'Poppins', sans-serif !important;">${finalTotalStr}</td>
         </tr>
       `;
     }
 
-    // Append discount and shipping breakdown rows if applicable
-    const emailDiscount = parseFloat(orderData.discountAmount || orderData.discount || 0);
-    const emailShipping = parseFloat(orderData.shippingFee || (orderData.shippingMethod === 'express' ? 15 : 0));
-    
-    if (emailDiscount > 0) {
-      itemsHtml += `
-        <tr style="font-family: 'Poppins', sans-serif !important; color: #047857;">
-          <td colspan="2" style="font-family: 'Poppins', sans-serif !important; padding: 10px 0;">
-            <strong style="color: #047857;">Coupon Discount ${orderData.couponCode ? `(${orderData.couponCode})` : ''}</strong>
+    // Build subtotal, coupon discount, and shipping breakdown rows
+    let summaryBreakdownHtml = `
+      <tr style="border-bottom: 1px solid #F0F0F0; font-family: 'Poppins', sans-serif !important;">
+        <td colspan="2" style="padding: 12px 0 6px 0; font-size: 13px; color: #5A5C56; font-family: 'Poppins', sans-serif !important;">Items Subtotal</td>
+        <td style="text-align: right; padding: 12px 0 6px 0; font-size: 13.5px; font-weight: 600; color: #1A1A1A; font-family: 'Poppins', sans-serif !important;">$${subtotal.toFixed(2)} AUD</td>
+      </tr>
+    `;
+
+    if (discountAmount > 0) {
+      summaryBreakdownHtml += `
+        <tr style="border-bottom: 1px solid #F0F0F0; font-family: 'Poppins', sans-serif !important;">
+          <td colspan="2" style="padding: 6px 0; font-size: 13px; color: #047857; font-family: 'Poppins', sans-serif !important;">
+            <strong style="color: #047857;">Coupon Discount ${couponCode ? `(${couponCode})` : ''}</strong>
           </td>
-          <td style="text-align: right; font-weight: 700; font-family: 'Poppins', sans-serif !important; color: #047857; padding: 10px 0;">-$${emailDiscount.toFixed(2)} AUD</td>
+          <td style="text-align: right; padding: 6px 0; font-size: 13.5px; font-weight: 700; color: #047857; font-family: 'Poppins', sans-serif !important;">-$${discountAmount.toFixed(2)} AUD</td>
         </tr>
       `;
     }
 
-    if (emailShipping > 0) {
-      itemsHtml += `
-        <tr style="font-family: 'Poppins', sans-serif !important; color: #4A4D45;">
-          <td colspan="2" style="font-family: 'Poppins', sans-serif !important; padding: 10px 0;">
-            <strong style="color: #1A1A1A;">Express Shipping (Australia Post)</strong>
-          </td>
-          <td style="text-align: right; font-weight: 600; font-family: 'Poppins', sans-serif !important; color: #1A1A1A; padding: 10px 0;">+$${emailShipping.toFixed(2)} AUD</td>
-        </tr>
-      `;
-    }
+    summaryBreakdownHtml += `
+      <tr style="border-bottom: 1px solid #F0F0F0; font-family: 'Poppins', sans-serif !important;">
+        <td colspan="2" style="padding: 6px 0 12px 0; font-size: 13px; color: #5A5C56; font-family: 'Poppins', sans-serif !important;">${shippingMethod}</td>
+        <td style="text-align: right; padding: 6px 0 12px 0; font-size: 13.5px; font-weight: 600; color: ${shippingFee > 0 ? '#1A1A1A' : '#047857'}; font-family: 'Poppins', sans-serif !important;">${shippingFee > 0 ? `+$${shippingFee.toFixed(2)} AUD` : 'FREE'}</td>
+      </tr>
+    `;
 
     const variables = {
       orderNumber: orderNumber || '#ABL-2026-8842',
@@ -215,8 +238,9 @@ const sendOrderConfirmationEmail = async (orderData) => {
       suburb: suburb || 'Brisbane City',
       state: state || 'Queensland (QLD)',
       postcode: postcode || '4061',
-      estimatedDeliveryDate: estimatedDeliveryDate || 'Friday, 5 September 2026',
+      estimatedDeliveryDate: estimatedDeliveryDate || 'In 3-5 business days',
       itemsHtml: itemsHtml,
+      summaryBreakdownHtml: summaryBreakdownHtml,
       orderTotal: finalTotalStr,
       orderDate: orderDate || new Date().toLocaleDateString('en-GB')
     };

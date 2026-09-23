@@ -165,7 +165,11 @@ const handleWebhookEvent = async (event) => {
                 customerName: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'Valued Customer',
                 customerEmail: customerEmail || order.guest_email,
                 purchasedItems: orderItems,
-                orderTotal: `$${order.total_amount}`
+                subtotal: order.subtotal,
+                discountAmount: order.discount_amount,
+                shippingFee: order.shipping_amount,
+                orderTotal: `$${order.total_amount} AUD`,
+                rawAmount: order.total_amount
               });
             } catch (emailErr) {
               console.error('⚠️ Webhook email trigger note:', emailErr.message);

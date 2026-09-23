@@ -14,7 +14,7 @@ import {
 const STEPS = ['Shipping', 'Payment', 'Review & Place'];
 
 export default function CheckoutPage() {
-  const { cart, setCart, currentUser, formatMoney, placeOrder, saveUserAddress, showToast, orders, setOrders, customers, setCustomers, coupons } = useStore();
+  const { cart, setCart, currentUser, formatMoney, placeOrder, saveUserAddress, showToast, orders, setOrders, customers, setCustomers, coupons, products, setProducts } = useStore();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [paymentTab, setPaymentTab] = useState('card');
@@ -42,9 +42,27 @@ export default function CheckoutPage() {
 
   const [saveAddress, setSaveAddress] = useState(!!(savedAddress || draftForm));
 
+  // Helper to extract first and last name cleanly from any user representation
+  const extractUserNames = (user) => {
+    if (!user) return { firstName: '', lastName: '' };
+    let first = user.firstName || '';
+    let last = user.lastName || '';
+    const full = (user.name || user.fullName || '').replace(/\bClient\b/gi, '').trim();
+    if (!first && full) {
+      const parts = full.split(/\s+/);
+      first = parts[0] || '';
+      if (!last && parts.length > 1) {
+        last = parts.slice(1).join(' ');
+      }
+    }
+    return { firstName: first, lastName: last };
+  };
+
+  const initialNames = extractUserNames(currentUser);
+
   const [formData, setFormData] = useState({
-    firstName: draftForm?.firstName || savedAddress?.firstName || currentUser?.name?.split(' ')[0] || '',
-    lastName: draftForm?.lastName || savedAddress?.lastName || currentUser?.name?.split(' ').slice(1).join(' ') || '',
+    firstName: draftForm?.firstName || savedAddress?.firstName || initialNames.firstName || '',
+    lastName: draftForm?.lastName || savedAddress?.lastName || initialNames.lastName || '',
     email: draftForm?.email || savedAddress?.email || currentUser?.email || '',
     phone: draftForm?.phone ? formatAustralianPhone(draftForm.phone) : (savedAddress?.phone ? formatAustralianPhone(savedAddress.phone) : ''),
     address: draftForm?.address || savedAddress?.address || '',
@@ -52,6 +70,73 @@ export default function CheckoutPage() {
     state: draftForm?.state || savedAddress?.state || '',
     postcode: draftForm?.postcode || savedAddress?.postcode || '',
   });
+
+  // Reactive auto-fill: Whenever currentUser, customer profile, or previous order records load,
+  // automatically prefill First Name, Last Name, Email, and Address if fields are unpopulated
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const userEmail = (currentUser.email || '').trim().toLowerCase();
+    const existingCustomer = (customers || []).find(c => c.email?.toLowerCase() === userEmail);
+    const priorOrder = (orders || []).find(o => o.email?.toLowerCase() === userEmail);
+
+    const { firstName: uFirst, lastName: uLast } = extractUserNames(currentUser);
+    const { firstName: cFirst, lastName: cLast } = extractUserNames(existingCustomer);
+    const { firstName: oFirst, lastName: oLast } = extractUserNames(priorOrder ? { name: priorOrder.customer } : null);
+
+    const resolvedFirst = uFirst || cFirst || oFirst || '';
+    const resolvedLast = uLast || cLast || oLast || '';
+
+    setFormData(prev => {
+      const next = { ...prev };
+      let changed = false;
+
+      if (!next.firstName && resolvedFirst) {
+        next.firstName = resolvedFirst;
+        changed = true;
+      }
+      if (!next.lastName && resolvedLast) {
+        next.lastName = resolvedLast;
+        changed = true;
+      }
+      if (!next.email && userEmail) {
+        next.email = userEmail;
+        changed = true;
+      }
+
+      const priorPhone = currentUser.phone || existingCustomer?.phone || priorOrder?.phone || savedAddress?.phone;
+      if (!next.phone && priorPhone) {
+        next.phone = formatAustralianPhone(priorPhone);
+        changed = true;
+      }
+
+      const priorAddress = currentUser.savedAddress?.address || existingCustomer?.savedAddress?.address || priorOrder?.address || savedAddress?.address;
+      if (!next.address && priorAddress) {
+        next.address = priorAddress;
+        changed = true;
+      }
+
+      const priorCity = currentUser.savedAddress?.city || existingCustomer?.savedAddress?.city || priorOrder?.city || savedAddress?.city;
+      if (!next.city && priorCity) {
+        next.city = priorCity;
+        changed = true;
+      }
+
+      const priorState = currentUser.savedAddress?.state || existingCustomer?.savedAddress?.state || priorOrder?.state || savedAddress?.state;
+      if (!next.state && priorState) {
+        next.state = priorState;
+        changed = true;
+      }
+
+      const priorPostcode = currentUser.savedAddress?.postcode || existingCustomer?.savedAddress?.postcode || priorOrder?.postcode || savedAddress?.postcode;
+      if (!next.postcode && priorPostcode) {
+        next.postcode = priorPostcode;
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [currentUser, customers, orders, savedAddress]);
 
   const [shippingMethod, setShippingMethod] = useState(draftShipping);
   const [couponInput, setCouponInput] = useState('');
@@ -339,10 +424,14 @@ export default function CheckoutPage() {
       estDelivery.setDate(estDelivery.getDate() + 4);
       const deliveryDateStr = estDelivery.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+      // Generate a guaranteed unique high-entropy Order ID (combining timestamp milliseconds + random entropy)
+      const orderEntropy = `${Date.now().toString().slice(-4)}${Math.floor(100 + Math.random() * 900)}`;
+      const uniqueOrderId = `#ABL-2026-${orderEntropy}`;
+
       const confirmedOrder = {
-        id: `#ABL-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        customer: `${savedFormData?.firstName || formData.firstName || 'Valued'} ${savedFormData?.lastName || formData.lastName || 'Client'}`.trim(),
-        email: savedFormData?.email || formData.email || currentUser?.email || 'client@abelsbylincy.com',
+        id: uniqueOrderId,
+        customer: `${savedFormData?.firstName || formData.firstName || 'Valued'} ${savedFormData?.lastName || formData.lastName || 'Customer'}`.replace(/\bClient\b/gi, '').replace(/\s+/g, ' ').trim() || 'Valued Customer',
+        email: savedFormData?.email || formData.email || currentUser?.email || 'customer@abelsbylincy.com',
         phone: savedFormData?.phone || formData.phone || '',
         address: savedFormData?.address || formData.address || '189 Brompton Road',
         city: savedFormData?.city || formData.city || 'Brisbane City',
@@ -350,14 +439,16 @@ export default function CheckoutPage() {
         postcode: savedFormData?.postcode || formData.postcode || '4061',
         product: purchasedItems.length > 1 ? `${purchasedItems[0]?.name || 'Fine Jewellery'} (+${purchasedItems.length - 1} items)` : (purchasedItems[0]?.name || 'Fine Jewellery Selection'),
         items: purchasedItems.length > 0 ? purchasedItems : [{ id: 'p1', name: 'Fine Gold-Plated Jewellery Collection', price: 129, quantity: 1, image: '/assets/logo.svg' }],
+        subtotal: itemsSum,
         date: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
         deliveryEstimate: deliveryDateStr,
         status: 'Confirmed',
         total: formattedTotal,
         rawAmount: finalPaidAmount,
         discount: returnDiscount > 0 ? `$${returnDiscount.toFixed(2)}` : null,
+        discountAmount: returnDiscount,
         couponCode: savedDiscountInfo.couponCode || savedMeta.couponCode || null,
-        shippingMethod: shippingMethodChoice,
+        shippingMethod: shippingMethodChoice === 'express' ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)',
         shippingFee: returnShipping,
         paymentMethod: 'Stripe Encrypted Payment (Verified)',
         sessionId: sessionId
@@ -374,7 +465,7 @@ export default function CheckoutPage() {
       localStorage.removeItem('abl_checkout_shipping_method');
 
       // Fetch authoritative session details directly from Stripe to ensure exact match
-      fetch(`/api/payments/session-details/${sessionId}`)
+      apiFetch(`/api/payments/session-details/${sessionId}`)
         .then(res => res.ok ? res.json() : null)
         .then(sessionData => {
           if (sessionData && sessionData.success && typeof sessionData.amountTotal === 'number' && sessionData.amountTotal > 0) {
@@ -389,15 +480,43 @@ export default function CheckoutPage() {
         })
         .catch(err => console.warn('Stripe session retrieval note:', err));
 
-      // Persist Stripe order into StoreContext orders & customers for Dashboard & Analytics visibility
+      // 1. Deduct Product Stock in real-time from inventory
+      if (setProducts && purchasedItems.length > 0) {
+        setProducts(prevProds => {
+          const current = Array.isArray(prevProds) ? prevProds : [];
+          const updated = current.map(prod => {
+            const purchased = purchasedItems.find(pi => 
+              String(pi.id || pi.productId) === String(prod.id) || 
+              (pi.sku && prod.sku && String(pi.sku).toUpperCase() === String(prod.sku).toUpperCase())
+            );
+            if (purchased) {
+              const currentStock = Number(prod.stockQty ?? prod.stock_quantity ?? 10);
+              const newStock = Math.max(0, currentStock - (Number(purchased.quantity) || 1));
+              return { ...prod, stockQty: newStock, inStock: newStock > 0 };
+            }
+            return prod;
+          });
+          try {
+            localStorage.setItem('abl_products_v12', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+      }
+
+      // 2. Persist Stripe order into StoreContext orders & localStorage for Admin Dashboard & Analytics visibility
       if (setOrders) {
         setOrders(prevOrders => {
           const currentOrders = Array.isArray(prevOrders) ? prevOrders : [];
           const exists = currentOrders.some(o => o.sessionId === sessionId || o.id === confirmedOrder.id);
-          return exists ? currentOrders : [confirmedOrder, ...currentOrders];
+          const updated = exists ? currentOrders : [confirmedOrder, ...currentOrders];
+          try {
+            localStorage.setItem('abl_orders_v9', JSON.stringify(updated));
+          } catch {}
+          return updated;
         });
       }
 
+      // 3. Persist Customer & update spending in Admin Panel
       if (setCustomers && confirmedOrder.email) {
         setCustomers(prevCusts => {
           const currentCusts = Array.isArray(prevCusts) ? prevCusts : [];
@@ -421,45 +540,21 @@ export default function CheckoutPage() {
               status: 'Active'
             });
           }
+          try {
+            localStorage.setItem('abl_customers_v5', JSON.stringify(updatedCusts));
+          } catch {}
           return updatedCusts;
         });
       }
 
       window.history.replaceState(null, '', window.location.pathname);
 
-      // Record Stripe order to backend API & DB (non-blocking)
+      // Record Stripe order to backend API, DB & dispatch single authoritative confirmation email
       apiFetch('/api/payments/record-stripe-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: confirmedOrder })
       }).catch(e => console.warn('Backend order record note:', e));
-
-      // Asynchronous background email dispatch (non-blocking) with exact paid total
-      apiFetch('/api/payments/send-order-confirmation-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderData: {
-            orderNumber: confirmedOrder.id,
-            customerName: confirmedOrder.customer,
-            customerEmail: confirmedOrder.email,
-            customerPhone: confirmedOrder.phone,
-            streetAddress: confirmedOrder.address,
-            suburb: confirmedOrder.city,
-            state: confirmedOrder.state,
-            postcode: confirmedOrder.postcode,
-            estimatedDeliveryDate: deliveryDateStr,
-            purchasedItems: purchasedItems,
-            orderTotal: formattedTotal,
-            discountAmount: returnDiscount,
-            couponCode: savedDiscountInfo.couponCode || savedMeta.couponCode || null,
-            shippingFee: returnShipping,
-            shippingMethod: shippingMethodChoice,
-            rawAmount: finalPaidAmount,
-            orderDate: confirmedOrder.date
-          }
-        })
-      }).catch(e => console.warn('Background email trigger note:', e));
     }
   }, []);
 

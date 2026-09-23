@@ -992,13 +992,18 @@ export function StoreProvider({ children }) {
       return false;
     }
 
-    const { name, email, picture, sub } = profile;
+    const { name, email, picture, sub, given_name, family_name } = profile;
     const lowerEmail = email.trim().toLowerCase();
     const existing = customers.find(c => c.email?.toLowerCase() === lowerEmail);
 
+    const firstName = given_name || (name ? name.split(' ')[0] : '') || existing?.firstName || '';
+    const lastName = family_name || (name ? name.split(' ').slice(1).join(' ') : '') || existing?.lastName || '';
+
     const userObj = {
       id: existing ? existing.id : `c_google_${sub || Date.now()}`,
-      name: name || existing?.name || email.split('@')[0],
+      name: name || (firstName ? `${firstName} ${lastName}`.trim() : '') || existing?.name || email.split('@')[0],
+      firstName: firstName,
+      lastName: lastName,
       email: lowerEmail,
       avatar: picture || existing?.avatar || '',
       provider: 'google',
