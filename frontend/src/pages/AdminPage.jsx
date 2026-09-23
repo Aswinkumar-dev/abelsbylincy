@@ -2472,9 +2472,9 @@ export default function AdminPage() {
                     </div>
 
                     {/* Financial Reconciliation Breakdown Summary */}
-                    <div style={{ background: '#FFFFFF', padding: 22, borderRadius: 12, border: '1px solid var(--border)', marginBottom: 24 }}>
+                    <div style={{ background: '#FFFFFF', padding: 22, borderRadius: 12, border: '1px solid var(--border)' }}>
                       <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 14px 0', color: 'var(--onyx)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span>📊 Stripe Financial Settlement Summary</span>
+                        <span>Stripe Financial Settlement Summary</span>
                       </h3>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
                         <div style={{ background: '#F8FAFC', padding: 14, borderRadius: 8, border: '1px solid #E2E8F0' }}>
@@ -2493,35 +2493,6 @@ export default function AdminPage() {
                           <span style={{ fontSize: 11, color: '#166534' }}>100% accurate net earnings</span>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Top Selling Products */}
-                    <div style={{ background: '#FFFFFF', padding: 24, borderRadius: 12, border: '1px solid var(--border)' }}>
-                      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Best Selling Jewellery Pieces</h3>
-                      {orderCnt === 0 ? (
-                        <p style={{ color: 'var(--slate)', fontSize: 14, margin: 0, padding: '12px 0' }}>
-                          No sales recorded yet. Top selling products will automatically rank here as customers place orders!
-                        </p>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          {products.slice(0, 4).map((p, idx) => (
-                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--cream)', borderRadius: 8 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--gold-dark)', width: 24 }}>#{idx + 1}</span>
-                                <img src={p.image} alt={p.name} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6 }} />
-                                <div>
-                                  <strong>{p.name}</strong>
-                                  <span style={{ display: 'block', fontSize: 12, color: 'var(--slate)' }}>SKU: {p.sku || 'ABL-JEW'}</span>
-                                </div>
-                              </div>
-                              <div style={{ textAlign: 'right' }}>
-                                <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--onyx)' }}>{formatMoney(p.price)}</span>
-                                <span style={{ display: 'block', fontSize: 12, color: 'var(--slate)' }}>Live Product</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </>
                 );

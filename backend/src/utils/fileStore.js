@@ -277,6 +277,89 @@ function saveStoredCart(email, items) {
   return saved;
 }
 
+const COUPONS_FILE = path.join(DATA_DIR, 'coupons.json');
+const TMP_COUPONS_FILE = path.join(TMP_DIR, 'coupons.json');
+let memoryCoupons = null;
+
+function getStoredCoupons() {
+  if (memoryCoupons && Array.isArray(memoryCoupons)) return memoryCoupons;
+  try {
+    if (fs.existsSync(TMP_COUPONS_FILE)) {
+      const data = fs.readFileSync(TMP_COUPONS_FILE, 'utf8');
+      memoryCoupons = JSON.parse(data || '[]');
+      return memoryCoupons;
+    }
+    if (fs.existsSync(COUPONS_FILE)) {
+      const data = fs.readFileSync(COUPONS_FILE, 'utf8');
+      memoryCoupons = JSON.parse(data || '[]');
+      return memoryCoupons;
+    }
+    return [];
+  } catch (err) {
+    return memoryCoupons || [];
+  }
+}
+
+function saveStoredCoupons(coupons) {
+  memoryCoupons = coupons;
+  let saved = false;
+  try {
+    ensureDir(DATA_DIR);
+    fs.writeFileSync(COUPONS_FILE, JSON.stringify(coupons, null, 2), 'utf8');
+    saved = true;
+  } catch {}
+
+  try {
+    ensureDir(TMP_DIR);
+    fs.writeFileSync(TMP_COUPONS_FILE, JSON.stringify(coupons, null, 2), 'utf8');
+    saved = true;
+  } catch {}
+
+  return saved;
+}
+
+const DELETED_COUPONS_FILE = path.join(DATA_DIR, 'deleted_coupons.json');
+const TMP_DELETED_COUPONS_FILE = path.join(TMP_DIR, 'deleted_coupons.json');
+let memoryDeletedCoupons = null;
+
+function getDeletedCouponCodes() {
+  if (memoryDeletedCoupons && Array.isArray(memoryDeletedCoupons)) return memoryDeletedCoupons;
+  try {
+    if (fs.existsSync(TMP_DELETED_COUPONS_FILE)) {
+      const data = fs.readFileSync(TMP_DELETED_COUPONS_FILE, 'utf8');
+      memoryDeletedCoupons = JSON.parse(data || '[]');
+      return memoryDeletedCoupons;
+    }
+    if (fs.existsSync(DELETED_COUPONS_FILE)) {
+      const data = fs.readFileSync(DELETED_COUPONS_FILE, 'utf8');
+      memoryDeletedCoupons = JSON.parse(data || '[]');
+      return memoryDeletedCoupons;
+    }
+    return [];
+  } catch (err) {
+    return memoryDeletedCoupons || [];
+  }
+}
+
+function addDeletedCouponCode(code) {
+  if (!code) return;
+  const current = getDeletedCouponCodes();
+  const updated = Array.from(new Set([...current, String(code).trim().toUpperCase()]));
+  memoryDeletedCoupons = updated;
+
+  try {
+    ensureDir(DATA_DIR);
+    fs.writeFileSync(DELETED_COUPONS_FILE, JSON.stringify(updated, null, 2), 'utf8');
+  } catch {}
+
+  try {
+    ensureDir(TMP_DIR);
+    fs.writeFileSync(TMP_DELETED_COUPONS_FILE, JSON.stringify(updated, null, 2), 'utf8');
+  } catch {}
+
+  return updated;
+}
+
 module.exports = {
   getStoredOrders,
   saveStoredOrders,
@@ -290,7 +373,11 @@ module.exports = {
   addDeletedReviewId,
   getStoredCarts,
   getStoredCart,
-  saveStoredCart
+  saveStoredCart,
+  getStoredCoupons,
+  saveStoredCoupons,
+  getDeletedCouponCodes,
+  addDeletedCouponCode
 };
 
 

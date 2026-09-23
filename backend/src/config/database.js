@@ -226,6 +226,56 @@ async function runMigrations(connection) {
     } catch (revTableErr) {
       console.warn('⚠️ Reviews table migration note:', revTableErr.message);
     }
+
+    // 11. Check deleted_reviews table
+    try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS deleted_reviews (
+          id VARCHAR(100) PRIMARY KEY,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      console.log('Migrated: Ensured deleted_reviews table exists.');
+    } catch (delRevErr) {
+      console.warn('⚠️ Deleted reviews table migration note:', delRevErr.message);
+    }
+
+    // 12. Check coupons table
+    try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS coupons (
+          id VARCHAR(100) PRIMARY KEY,
+          code VARCHAR(100) UNIQUE NOT NULL,
+          label VARCHAR(255) NULL,
+          discount_type VARCHAR(50) DEFAULT 'percentage',
+          value DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          min_order DECIMAL(10, 2) DEFAULT 0,
+          max_discount DECIMAL(10, 2) NULL,
+          expiry VARCHAR(50) NULL,
+          active TINYINT(1) DEFAULT 1,
+          usage_limit INT DEFAULT 100,
+          per_customer_limit INT DEFAULT 1,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      console.log('Migrated: Ensured coupons table exists.');
+    } catch (couponErr) {
+      console.warn('⚠️ Coupons table migration note:', couponErr.message);
+    }
+
+    // 13. Check deleted_coupons table
+    try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS deleted_coupons (
+          code VARCHAR(100) PRIMARY KEY,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      console.log('Migrated: Ensured deleted_coupons table exists.');
+    } catch (delCpErr) {
+      console.warn('⚠️ Deleted coupons table migration note:', delCpErr.message);
+    }
   } catch (err) {
     console.error('⚠️ Database migration warning (tables may not exist yet):', err.message);
   }

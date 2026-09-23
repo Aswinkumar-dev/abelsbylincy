@@ -23,7 +23,14 @@ export default function ProductPage() {
   const [reviewText, setReviewText] = useState('');
   const [reviewRating, setReviewRating] = useState(1);
 
-  const productReviews = (globalReviews || []).filter(r => String(r.productId) === String(productId) && r.status !== 'hidden');
+  const productReviews = (globalReviews || []).filter(r => {
+    if (r.status === 'hidden') return false;
+    const rProd = String(r.productId || '').trim().toLowerCase();
+    const urlId = String(productId || '').trim().toLowerCase();
+    const prodId = String(product?.id || '').trim().toLowerCase();
+    const prodSku = String(product?.sku || '').trim().toLowerCase();
+    return rProd === urlId || rProd === prodId || (prodSku && rProd === prodSku);
+  });
 
   const userReviewCount = (currentUser && productReviews)
     ? productReviews.filter(r => (

@@ -6,6 +6,17 @@ const { getStoredReviews, saveStoredReviews, getStoredProducts, getDeletedReview
  */
 const fetchAllCombinedReviews = async () => {
   const deletedIds = new Set((getDeletedReviewIds() || []).map(String));
+
+  // Also fetch any deleted review IDs recorded in MySQL
+  try {
+    const [delRows] = await db.query('SELECT id FROM deleted_reviews');
+    if (Array.isArray(delRows)) {
+      delRows.forEach(r => {
+        if (r.id) deletedIds.add(String(r.id));
+      });
+    }
+  } catch (_) {}
+
   let dbReviews = [];
 
   try {
@@ -300,9 +311,10 @@ const deleteReview = async (req, res, next) => {
     // 1. Add to permanent deleted review blacklist
     addDeletedReviewId(id);
 
-    // 2. Delete from MySQL
+    // 2. Delete and record in MySQL
     try {
       await db.query('DELETE FROM reviews WHERE id = ?', [id]);
+      await db.query('INSERT IGNORE INTO deleted_reviews (id) VALUES (?)', [String(id)]);
     } catch (dbErr) {
       console.warn('⚠️ Delete review DB note:', dbErr.message);
     }

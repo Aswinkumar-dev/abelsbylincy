@@ -304,7 +304,12 @@ export function StoreProvider({ children }) {
 
   const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
   const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v7', DEFAULT_CUSTOMERS));
-  const [coupons, setCouponsRaw] = useState(() => readLS('abl_coupons_v6', DEFAULT_COUPONS));
+  const [coupons, setCouponsRaw] = useState(() => {
+    const saved = readLS('abl_coupons_v6', null);
+    const deletedCodes = (readLS('abl_deleted_coupon_codes', []) || []).map(c => String(c).trim().toUpperCase());
+    if (Array.isArray(saved)) return saved.filter(c => !deletedCodes.includes(String(c.code).trim().toUpperCase()));
+    return DEFAULT_COUPONS.filter(c => !deletedCodes.includes(String(c.code).trim().toUpperCase()));
+  });
   const [reviews, setReviewsRaw] = useState(() => {
     const saved = readLS('abl_reviews_v7', null);
     const deletedIds = (readLS('abl_deleted_review_ids', []) || []).map(String);
@@ -324,7 +329,7 @@ export function StoreProvider({ children }) {
   const [messages, setMessagesRaw] = useState(() => readLS('abl_messages_v2', DEFAULT_MESSAGES));
   const [subscribers, setSubscribersRaw] = useState(() => readLS('abl_subscribers_v2', DEFAULT_SUBSCRIBERS));
 
-  // Authoritative sync with backend API (Orders & Products directly from Server/DB)
+  // Authoritative sync with backend API (Orders, Products, Reviews, Coupons directly from Server/DB)
   const syncBackendData = useCallback(async () => {
     try {
       // 1. Fetch Orders from Server / Database
@@ -428,6 +433,22 @@ export function StoreProvider({ children }) {
         if (data.success && Array.isArray(data.subscribers)) {
           setSubscribersRaw(data.subscribers);
           writeLS('abl_subscribers_v2', data.subscribers);
+        }
+      }
+    } catch (err) {
+      // Offline fallback
+    }
+
+    try {
+      // 7. Fetch Coupons from Server / Database (Authoritative sync across all browsers)
+      const cpRes = await apiFetch(`/api/coupons?t=${Date.now()}`);
+      if (cpRes.ok) {
+        const data = await cpRes.json();
+        if (data.success && Array.isArray(data.coupons)) {
+          const deletedCodes = (readLS('abl_deleted_coupon_codes', []) || []).map(c => String(c).trim().toUpperCase());
+          const cleanCoupons = data.coupons.filter(c => !deletedCodes.includes(String(c.code).trim().toUpperCase()));
+          setCouponsRaw(cleanCoupons);
+          writeLS('abl_coupons_v6', cleanCoupons);
         }
       }
     } catch (err) {
@@ -1567,22 +1588,74 @@ export function StoreProvider({ children }) {
     showToast('Customer deleted', 'check');
   }, [customers, setCustomers, showToast]);
 
-  const saveCoupon = useCallback((cpData) => {
-    const existingIdx = coupons.findIndex(c => (cpData.id && c.id === cpData.id) || c.code === cpData.code);
-    if (existingIdx !== -1) {
-      const updated = [...coupons];
-      updated[existingIdx] = { ...updated[existingIdx], ...cpData };
-      setCoupons(updated);
-    } else {
-      setCoupons([...coupons, cpData]);
-    }
-    showToast(`Coupon "${cpData.code}" saved!`, 'check');
-  }, [coupons, setCoupons, showToast]);
+  const saveCoupon = useCallback(async (cpData) => {
+    if (!cpData || !cpData.code) return;
+    const cleanCode = String(cpData.code).trim().toUpperCase();
+    const formattedCp = {
+      ...cpData,
+      code: cleanCode,
+      id: cpData.id || `cp_${cleanCode}`
+    };
 
-  const deleteCoupon = useCallback((codeOrId) => {
-    setCoupons(coupons.filter(c => c.code !== codeOrId && c.id !== codeOrId));
+    // 1. Remove from local deleted codes blacklist
+    const curDeleted = readLS('abl_deleted_coupon_codes', []);
+    const updatedDeleted = curDeleted.filter(c => String(c).trim().toUpperCase() !== cleanCode);
+    writeLS('abl_deleted_coupon_codes', updatedDeleted);
+
+    // 2. Update React state & localStorage
+    setCouponsRaw(prev => {
+      const currentList = Array.isArray(prev) ? prev : [];
+      const existingIdx = currentList.findIndex(c => (formattedCp.id && c.id === formattedCp.id) || String(c.code).trim().toUpperCase() === cleanCode);
+      let next;
+      if (existingIdx !== -1) {
+        next = [...currentList];
+        next[existingIdx] = { ...next[existingIdx], ...formattedCp };
+      } else {
+        next = [...currentList, formattedCp];
+      }
+      writeLS('abl_coupons_v6', next);
+      return next;
+    });
+    showToast(`Coupon "${cleanCode}" saved!`, 'check');
+
+    // 3. Persist to MySQL DB & server
+    try {
+      await apiFetch('/api/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formattedCp)
+      });
+    } catch (err) {
+      console.warn('⚠️ Save coupon API note:', err.message);
+    }
+  }, [showToast]);
+
+  const deleteCoupon = useCallback(async (codeOrId) => {
+    if (!codeOrId) return;
+    const clean = String(codeOrId).trim().toUpperCase();
+
+    // 1. Add to local deleted blacklist
+    const curDeleted = readLS('abl_deleted_coupon_codes', []);
+    const updatedDeleted = Array.from(new Set([...curDeleted, clean]));
+    writeLS('abl_deleted_coupon_codes', updatedDeleted);
+
+    // 2. Remove immediately from React state and localStorage
+    setCouponsRaw(prev => {
+      const updated = (prev || []).filter(c => String(c.code).trim().toUpperCase() !== clean && String(c.id) !== String(codeOrId));
+      writeLS('abl_coupons_v6', updated);
+      return updated;
+    });
     showToast('Coupon deleted', 'check');
-  }, [coupons, setCoupons, showToast]);
+
+    // 3. Delete permanently from MySQL DB & server
+    try {
+      await apiFetch(`/api/coupons/${encodeURIComponent(codeOrId)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.warn('⚠️ Delete coupon API note:', err.message);
+    }
+  }, [showToast]);
 
   const saveGlobalCMS = useCallback(async (updates) => {
     let nextState;

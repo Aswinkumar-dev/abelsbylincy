@@ -14,6 +14,7 @@ const adminRoutes = require('./routes/admin.routes');
 const cmsRoutes = require('./routes/cms.routes');
 const contactRoutes = require('./routes/contact.routes');
 const newsletterRoutes = require('./routes/newsletter.routes');
+const couponRoutes = require('./routes/coupon.routes');
 
 const app = express();
 
@@ -101,6 +102,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/cms', cmsRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/coupons', couponRoutes);
 
 // Base route handler
 app.use((req, res) => {
