@@ -7,7 +7,8 @@ import {
   AUSTRALIAN_SUBURBS,
   formatAustralianPhone,
   isValidAustralianPhone,
-  getStateFromPostcode
+  getStateFromPostcode,
+  isValidAustralianPostcode
 } from '../utils/australiaAddress';
 
 const STEPS = ['Shipping', 'Payment', 'Review & Place'];
@@ -20,6 +21,7 @@ export default function CheckoutPage() {
   const [completedOrder, setCompletedOrder] = useState(null);
   const [isRedirectingToPayment, setIsRedirectingToPayment] = useState(false);
   const [phoneError, setPhoneError] = useState('');
+  const [postcodeError, setPostcodeError] = useState('');
 
   // Restore draft state across page refreshes so refreshing never loses filled form or applied coupon
   const draftForm = (() => {
@@ -72,7 +74,7 @@ export default function CheckoutPage() {
 
   const handlePhoneBlur = () => {
     if (formData.phone && !isValidAustralianPhone(formData.phone)) {
-      setPhoneError('Please enter a valid Australian number (e.g. 0412 345 678 or (02) 9876 5432)');
+      setPhoneError('Please enter a valid Australian number (e.g. 455 586 102 or 0455 586 102)');
     } else {
       setPhoneError('');
     }
@@ -88,6 +90,7 @@ export default function CheckoutPage() {
         state: matched.state,
         postcode: f.postcode || matched.postcode
       }));
+      if (postcodeError) setPostcodeError('');
     } else {
       setFormData(f => ({ ...f, city: val }));
     }
@@ -100,12 +103,21 @@ export default function CheckoutPage() {
 
   const handlePostcodeChange = (e) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+    if (postcodeError) setPostcodeError('');
     const detectedState = getStateFromPostcode(val);
     setFormData(f => ({
       ...f,
       postcode: val,
       state: detectedState ? detectedState : f.state
     }));
+  };
+
+  const handlePostcodeBlur = () => {
+    if (formData.postcode && !isValidAustralianPostcode(formData.postcode)) {
+      setPostcodeError('Please enter a valid 4-digit Australian postcode');
+    } else {
+      setPostcodeError('');
+    }
   };
 
   // Auto-persist draft form, shipping method & applied coupon so refreshing page preserves entire session state
@@ -504,8 +516,15 @@ export default function CheckoutPage() {
     }
 
     if (!isValidAustralianPhone(phone)) {
-      setPhoneError('Please enter a valid 10-digit Australian phone number (e.g. 0412 345 678 or (02) 9876 5432)');
-      showToast('Only Australian phone numbers are accepted (e.g. 0412 345 678)', 'alert-circle');
+      setPhoneError('Please enter a valid Australian phone number (e.g. 455 586 102 or 0455 586 102)');
+      showToast('Please enter a valid Australian phone number', 'alert-circle');
+      setStep(0);
+      return;
+    }
+
+    if (!isValidAustralianPostcode(postcode)) {
+      setPostcodeError('Please enter a valid 4-digit Australian postcode');
+      showToast('Please enter a valid Australian postcode (e.g. 2000, 3000, 4000)', 'alert-circle');
       setStep(0);
       return;
     }
@@ -545,7 +564,10 @@ export default function CheckoutPage() {
     const payload = JSON.stringify({
       items: checkoutItems,
       email: email,
-      shippingAddress: formData,
+      shippingAddress: {
+        ...formData,
+        phone: formData.phone.startsWith('+61') ? formData.phone : `+61 ${formData.phone.replace(/^0/, '')}`
+      },
       shippingFee: shippingFee,
       discountAmount: discountAmount,
       couponCode: appliedCoupon ? appliedCoupon.code : null,
@@ -595,8 +617,13 @@ export default function CheckoutPage() {
       return;
     }
     if (!isValidAustralianPhone(phone)) {
-      setPhoneError('Please enter a valid 10-digit Australian phone number (e.g. 0412 345 678 or (02) 9876 5432)');
-      showToast('Only Australian phone numbers are accepted (e.g. 0412 345 678)', 'alert-circle');
+      setPhoneError('Please enter a valid Australian phone number (e.g. 455 586 102 or 0455 586 102)');
+      showToast('Please enter a valid Australian phone number', 'alert-circle');
+      return;
+    }
+    if (!isValidAustralianPostcode(postcode)) {
+      setPostcodeError('Please enter a valid 4-digit Australian postcode');
+      showToast('Please enter a valid Australian postcode (e.g. 2000, 3000, 4000)', 'alert-circle');
       return;
     }
     handleRedirectToStripe(e);
@@ -831,21 +858,43 @@ export default function CheckoutPage() {
                     <label className="form-label">Email *</label>
                     <input type="email" className="form-control" value={formData.email} onChange={e => setFormData(f => ({...f, email: e.target.value}))} required />
                   </div>
+                  {/* Phone Number with +61 prefix badge */}
                   <div className="form-group">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <label className="form-label" style={{ margin: 0 }}>Phone Number *</label>
-                      <span style={{ fontSize: 11, color: 'var(--slate)', fontWeight: 600 }}>🇦🇺 Australia only (e.g. 0412 345 678)</span>
+                    <label className="form-label">Phone Number *</label>
+                    <div style={{ display: 'flex', alignItems: 'stretch', width: '100%' }}>
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '0 14px',
+                          background: 'var(--cream, #FAF8F5)',
+                          border: '1.5px solid var(--border, #E8DFD8)',
+                          borderRight: 'none',
+                          borderRadius: 'var(--radius-md, 8px) 0 0 var(--radius-md, 8px)',
+                          fontSize: 13.5,
+                          fontWeight: 600,
+                          color: 'var(--onyx, #1A1A1A)',
+                          userSelect: 'none'
+                        }}
+                      >
+                        <span>🇦🇺</span>
+                        <span>+61</span>
+                      </div>
+                      <input
+                        type="tel"
+                        className="form-control"
+                        value={formData.phone}
+                        onChange={handlePhoneChange}
+                        onBlur={handlePhoneBlur}
+                        style={{
+                          borderRadius: '0 var(--radius-md, 8px) var(--radius-md, 8px) 0',
+                          borderColor: phoneError ? '#DC2626' : undefined,
+                          flex: 1
+                        }}
+                        required
+                      />
                     </div>
-                    <input
-                      type="tel"
-                      className="form-control"
-                      placeholder="0412 345 678 or (02) 9876 5432"
-                      value={formData.phone}
-                      onChange={handlePhoneChange}
-                      onBlur={handlePhoneBlur}
-                      style={{ borderColor: phoneError ? '#DC2626' : undefined }}
-                      required
-                    />
                     {phoneError && (
                       <p style={{ color: '#DC2626', fontSize: 11.5, marginTop: 4, marginBottom: 0, fontWeight: 500 }}>
                         {phoneError}
@@ -854,23 +903,22 @@ export default function CheckoutPage() {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Street Address *</label>
-                    <input type="text" className="form-control" placeholder="e.g. 189 Queen Street, Apt 4B" value={formData.address} onChange={e => setFormData(f => ({...f, address: e.target.value}))} required />
+                    <input type="text" className="form-control" value={formData.address} onChange={e => setFormData(f => ({...f, address: e.target.value}))} required />
                   </div>
                   <div className="form-grid-2">
                     <div className="form-group">
-                      <label className="form-label">Suburb / Locality (Australia) *</label>
+                      <label className="form-label">Suburb / Locality *</label>
                       <input
                         type="text"
                         list="aus-suburbs-list"
                         className="form-control"
-                        placeholder="e.g. Sydney, Brisbane City, Melbourne"
                         value={formData.city}
                         onChange={handleSuburbChange}
                         autoComplete="address-level2"
                         required
                       />
                       <datalist id="aus-suburbs-list">
-                        {filteredSuburbs.map(s => (
+                        {AUSTRALIAN_SUBURBS.map(s => (
                           <option key={`${s.name}-${s.state}-${s.postcode}`} value={s.name}>
                             {s.name}, {s.state} ({s.postcode})
                           </option>
@@ -896,16 +944,22 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Postcode (4 digits) *</label>
+                    <label className="form-label">Postcode *</label>
                     <input
                       type="text"
                       className="form-control"
-                      placeholder="e.g. 2000, 3000, 4000"
                       maxLength={4}
                       value={formData.postcode}
                       onChange={handlePostcodeChange}
+                      onBlur={handlePostcodeBlur}
+                      style={{ borderColor: postcodeError ? '#DC2626' : undefined }}
                       required
                     />
+                    {postcodeError && (
+                      <p style={{ color: '#DC2626', fontSize: 11.5, marginTop: 4, marginBottom: 0, fontWeight: 500 }}>
+                        {postcodeError}
+                      </p>
+                    )}
                   </div>
                   {/* Delivery Options (Australia Post) */}
                   <div style={{ marginTop: 24, marginBottom: 20 }}>
