@@ -8,7 +8,7 @@ const {
 
 const DEFAULT_SEED_COUPONS = [
   { id: 'cp1', code: 'WELCOME10', label: 'Welcome 10% Off', discountType: 'percentage', value: 10, minOrder: 50, maxDiscount: 20, expiry: '2026-12-31', active: true, usageLimit: 100, perCustomerLimit: 1 },
-  { id: 'cp2', code: 'FIRSTORDER', label: 'First Order Special', discountType: 'percentage', value: 15, minOrder: 80, maxDiscount: 30, expiry: '2026-12-31', active: true, usageLimit: 50, perCustomerLimit: 1 }
+  { id: 'cp2', code: 'FIRSTORDER', label: 'First Order Special', discountType: 'percentage', value: 15, minOrder: 0, maxDiscount: 30, expiry: '2026-12-31', active: true, usageLimit: 50, perCustomerLimit: 1 }
 ];
 
 /**
@@ -39,13 +39,13 @@ const fetchAllCombinedCoupons = async () => {
           code: String(r.code).trim().toUpperCase(),
           label: r.label || r.code,
           discountType: r.discount_type || 'percentage',
-          value: Number(r.value) || 0,
-          minOrder: Number(r.min_order) || 0,
-          maxDiscount: r.max_discount !== null ? Number(r.max_discount) : null,
-          expiry: r.expiry || '',
-          active: Boolean(r.active),
-          usageLimit: Number(r.usage_limit) || 100,
-          perCustomerLimit: Number(r.per_customer_limit) || 1
+          value: Number(r.value !== undefined ? r.value : (r.discount_value !== undefined ? r.discount_value : 0)),
+          minOrder: Number(r.min_order !== undefined ? r.min_order : 0),
+          maxDiscount: r.max_discount !== null && r.max_discount !== undefined ? Number(r.max_discount) : null,
+          expiry: r.expiry || (r.expires_at ? new Date(r.expires_at).toISOString().split('T')[0] : ''),
+          active: r.active !== undefined ? Boolean(r.active) : (r.is_active !== undefined ? Boolean(r.is_active) : true),
+          usageLimit: Number(r.usage_limit || 100),
+          perCustomerLimit: Number(r.per_customer_limit || 1)
         }))
         .filter(c => !deletedCodes.has(c.code));
     }
@@ -76,7 +76,7 @@ const fetchAllCombinedCoupons = async () => {
       code,
       label: cp.label || code,
       discountType: cp.discountType || cp.discount_type || 'percentage',
-      value: Number(cp.value) || 0,
+      value: Number(cp.value !== undefined ? cp.value : (cp.discount_value !== undefined ? cp.discount_value : 0)),
       minOrder: Number(cp.minOrder !== undefined ? cp.minOrder : (cp.min_order !== undefined ? cp.min_order : 0)),
       maxDiscount: cp.maxDiscount !== undefined && cp.maxDiscount !== null ? Number(cp.maxDiscount) : (cp.max_discount !== undefined && cp.max_discount !== null ? Number(cp.max_discount) : null),
       expiry: cp.expiry || '',
@@ -121,16 +121,22 @@ const createOrUpdateCoupon = async (req, res, next) => {
 
     const cleanCode = String(code).trim().toUpperCase();
     const couponId = id || `cp_${cleanCode}`;
+    const numValue = Number(value) || 0;
+    const numMinOrder = Number(minOrder) || 0;
+    const numMaxDiscount = maxDiscount !== undefined && maxDiscount !== null && maxDiscount !== '' ? Number(maxDiscount) : null;
+    const isActive = active !== undefined ? Boolean(active) : true;
+    const cleanExpiry = expiry || '';
+
     const couponObj = {
       id: couponId,
       code: cleanCode,
       label: label || cleanCode,
       discountType: discountType || 'percentage',
-      value: Number(value) || 0,
-      minOrder: Number(minOrder) || 0,
-      maxDiscount: maxDiscount !== undefined && maxDiscount !== null && maxDiscount !== '' ? Number(maxDiscount) : null,
-      expiry: expiry || '',
-      active: active !== undefined ? Boolean(active) : true,
+      value: numValue,
+      minOrder: numMinOrder,
+      maxDiscount: numMaxDiscount,
+      expiry: cleanExpiry,
+      active: isActive,
       usageLimit: Number(usageLimit) || 100,
       perCustomerLimit: Number(perCustomerLimit) || 1
     };
@@ -144,23 +150,24 @@ const createOrUpdateCoupon = async (req, res, next) => {
     const updatedDeleted = curDeleted.filter(c => c !== cleanCode);
     try {
       const { TMP_DELETED_COUPONS_FILE, DELETED_COUPONS_FILE } = require('../utils/fileStore');
-      // Update memory & files
       saveStoredCoupons(getStoredCoupons().filter(c => String(c.code).trim().toUpperCase() !== cleanCode));
     } catch (_) {}
 
-    // 2. Upsert into MySQL
+    // 2. Upsert into MySQL with full column resilience
     try {
       await db.query(
-        `INSERT INTO coupons (id, code, label, discount_type, value, min_order, max_discount, expiry, active, usage_limit, per_customer_limit)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO coupons (id, code, label, discount_type, value, discount_value, min_order, max_discount, expiry, active, is_active, usage_limit, per_customer_limit)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            label = VALUES(label),
            discount_type = VALUES(discount_type),
            value = VALUES(value),
+           discount_value = VALUES(discount_value),
            min_order = VALUES(min_order),
            max_discount = VALUES(max_discount),
            expiry = VALUES(expiry),
            active = VALUES(active),
+           is_active = VALUES(is_active),
            usage_limit = VALUES(usage_limit),
            per_customer_limit = VALUES(per_customer_limit),
            updated_at = NOW()`,
@@ -169,17 +176,45 @@ const createOrUpdateCoupon = async (req, res, next) => {
           cleanCode,
           couponObj.label,
           couponObj.discountType,
-          couponObj.value,
-          couponObj.minOrder,
-          couponObj.maxDiscount,
-          couponObj.expiry || null,
-          couponObj.active ? 1 : 0,
+          numValue,
+          numValue,
+          numMinOrder,
+          numMaxDiscount,
+          cleanExpiry || null,
+          isActive ? 1 : 0,
+          isActive ? 1 : 0,
           couponObj.usageLimit,
           couponObj.perCustomerLimit
         ]
       );
     } catch (dbErr) {
-      console.warn('⚠️ Coupon DB upsert note:', dbErr.message);
+      console.warn('⚠️ Coupon DB upsert note (attempting fallback update):', dbErr.message);
+      try {
+        await db.query(
+          `INSERT INTO coupons (id, code, label, discount_type, value, min_order, max_discount, expiry, active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             label = VALUES(label),
+             value = VALUES(value),
+             min_order = VALUES(min_order),
+             max_discount = VALUES(max_discount),
+             expiry = VALUES(expiry),
+             active = VALUES(active)`,
+          [
+            couponId,
+            cleanCode,
+            couponObj.label,
+            couponObj.discountType,
+            numValue,
+            numMinOrder,
+            numMaxDiscount,
+            cleanExpiry || null,
+            isActive ? 1 : 0
+          ]
+        );
+      } catch (fallbackErr) {
+        console.warn('⚠️ Coupon fallback upsert note:', fallbackErr.message);
+      }
     }
 
     // 3. Upsert into fileStore
@@ -192,9 +227,12 @@ const createOrUpdateCoupon = async (req, res, next) => {
     }
     saveStoredCoupons(curStored);
 
+    const allCoupons = await fetchAllCombinedCoupons();
+
     res.status(200).json({
       success: true,
       coupon: couponObj,
+      coupons: allCoupons,
       message: `Coupon "${cleanCode}" saved successfully.`
     });
   } catch (error) {
@@ -228,7 +266,13 @@ const deleteCoupon = async (req, res, next) => {
     const updated = stored.filter(c => String(c.code).trim().toUpperCase() !== clean && c.id !== codeOrId);
     saveStoredCoupons(updated);
 
-    res.status(200).json({ success: true, message: `Coupon "${clean}" deleted successfully.` });
+    const allCoupons = await fetchAllCombinedCoupons();
+
+    res.status(200).json({
+      success: true,
+      coupons: allCoupons,
+      message: `Coupon "${clean}" deleted successfully.`
+    });
   } catch (error) {
     next(error);
   }

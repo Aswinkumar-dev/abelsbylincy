@@ -262,6 +262,13 @@ export function StoreProvider({ children }) {
       localStorage.removeItem('abl_reviews_v6');
       localStorage.removeItem('abl_reviews_v5');
       localStorage.removeItem('abl_reviews');
+      localStorage.removeItem('abl_coupons_v6');
+      localStorage.removeItem('abl_coupons_v5');
+      localStorage.removeItem('abl_coupons_v4');
+      localStorage.removeItem('abl_coupons_v3');
+      localStorage.removeItem('abl_coupons_v2');
+      localStorage.removeItem('abl_coupons');
+      localStorage.removeItem('abl_deleted_coupon_codes');
       localStorage.removeItem('abl_products_v10');
       localStorage.removeItem('abl_products_v9');
       localStorage.removeItem('abl_products_v8');
@@ -304,12 +311,7 @@ export function StoreProvider({ children }) {
 
   const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
   const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v7', DEFAULT_CUSTOMERS));
-  const [coupons, setCouponsRaw] = useState(() => {
-    const saved = readLS('abl_coupons_v6', null);
-    const deletedCodes = (readLS('abl_deleted_coupon_codes', []) || []).map(c => String(c).trim().toUpperCase());
-    if (Array.isArray(saved)) return saved.filter(c => !deletedCodes.includes(String(c.code).trim().toUpperCase()));
-    return DEFAULT_COUPONS.filter(c => !deletedCodes.includes(String(c.code).trim().toUpperCase()));
-  });
+  const [coupons, setCouponsRaw] = useState([]);
   const [reviews, setReviewsRaw] = useState(() => {
     const saved = readLS('abl_reviews_v7', null);
     const deletedIds = (readLS('abl_deleted_review_ids', []) || []).map(String);
@@ -445,10 +447,7 @@ export function StoreProvider({ children }) {
       if (cpRes.ok) {
         const data = await cpRes.json();
         if (data.success && Array.isArray(data.coupons)) {
-          const deletedCodes = (readLS('abl_deleted_coupon_codes', []) || []).map(c => String(c).trim().toUpperCase());
-          const cleanCoupons = data.coupons.filter(c => !deletedCodes.includes(String(c.code).trim().toUpperCase()));
-          setCouponsRaw(cleanCoupons);
-          writeLS('abl_coupons_v6', cleanCoupons);
+          setCouponsRaw(data.coupons);
         }
       }
     } catch (err) {
@@ -470,7 +469,6 @@ export function StoreProvider({ children }) {
         else if (e.key === 'abl_orders_v9') setOrdersRaw(val);
         else if (e.key === 'abl_categories_v5') setCategoriesRaw(val);
         else if (e.key === 'abl_customers_v7') setCustomersRaw(val);
-        else if (e.key === 'abl_coupons_v6') setCouponsRaw(val);
         else if (e.key === 'abl_reviews_v7') setReviewsRaw(val);
         else if (e.key === 'abl_stock_history_v6') setStockHistoryRaw(val);
         else if (e.key === 'abl_cms_v5') setCMSRaw(val);
@@ -525,7 +523,6 @@ export function StoreProvider({ children }) {
   const setCoupons = useCallback((updaterOrValue) => {
     setCouponsRaw(prev => {
       const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
-      writeLS('abl_coupons_v6', next);
       return next;
     });
   }, []);
@@ -1597,12 +1594,7 @@ export function StoreProvider({ children }) {
       id: cpData.id || `cp_${cleanCode}`
     };
 
-    // 1. Remove from local deleted codes blacklist
-    const curDeleted = readLS('abl_deleted_coupon_codes', []);
-    const updatedDeleted = curDeleted.filter(c => String(c).trim().toUpperCase() !== cleanCode);
-    writeLS('abl_deleted_coupon_codes', updatedDeleted);
-
-    // 2. Update React state & localStorage
+    // 1. Optimistic React state update
     setCouponsRaw(prev => {
       const currentList = Array.isArray(prev) ? prev : [];
       const existingIdx = currentList.findIndex(c => (formattedCp.id && c.id === formattedCp.id) || String(c.code).trim().toUpperCase() === cleanCode);
@@ -1613,18 +1605,23 @@ export function StoreProvider({ children }) {
       } else {
         next = [...currentList, formattedCp];
       }
-      writeLS('abl_coupons_v6', next);
       return next;
     });
     showToast(`Coupon "${cleanCode}" saved!`, 'check');
 
-    // 3. Persist to MySQL DB & server
+    // 2. Persist to MySQL DB & server, sync authoritative coupon list
     try {
-      await apiFetch('/api/coupons', {
+      const res = await apiFetch('/api/coupons', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formattedCp)
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.coupons)) {
+          setCouponsRaw(data.coupons);
+        }
+      }
     } catch (err) {
       console.warn('⚠️ Save coupon API note:', err.message);
     }
@@ -1634,24 +1631,23 @@ export function StoreProvider({ children }) {
     if (!codeOrId) return;
     const clean = String(codeOrId).trim().toUpperCase();
 
-    // 1. Add to local deleted blacklist
-    const curDeleted = readLS('abl_deleted_coupon_codes', []);
-    const updatedDeleted = Array.from(new Set([...curDeleted, clean]));
-    writeLS('abl_deleted_coupon_codes', updatedDeleted);
-
-    // 2. Remove immediately from React state and localStorage
+    // 1. Remove immediately from React state
     setCouponsRaw(prev => {
-      const updated = (prev || []).filter(c => String(c.code).trim().toUpperCase() !== clean && String(c.id) !== String(codeOrId));
-      writeLS('abl_coupons_v6', updated);
-      return updated;
+      return (prev || []).filter(c => String(c.code).trim().toUpperCase() !== clean && String(c.id) !== String(codeOrId));
     });
     showToast('Coupon deleted', 'check');
 
-    // 3. Delete permanently from MySQL DB & server
+    // 2. Delete permanently from MySQL DB & server, sync authoritative coupon list
     try {
-      await apiFetch(`/api/coupons/${encodeURIComponent(codeOrId)}`, {
+      const res = await apiFetch(`/api/coupons/${encodeURIComponent(codeOrId)}`, {
         method: 'DELETE'
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.coupons)) {
+          setCouponsRaw(data.coupons);
+        }
+      }
     } catch (err) {
       console.warn('⚠️ Delete coupon API note:', err.message);
     }

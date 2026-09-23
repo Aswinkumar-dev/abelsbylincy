@@ -249,17 +249,61 @@ async function runMigrations(connection) {
           label VARCHAR(255) NULL,
           discount_type VARCHAR(50) DEFAULT 'percentage',
           value DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          discount_value DECIMAL(10, 2) NOT NULL DEFAULT 0,
           min_order DECIMAL(10, 2) DEFAULT 0,
           max_discount DECIMAL(10, 2) NULL,
           expiry VARCHAR(50) NULL,
+          expires_at DATETIME NULL,
           active TINYINT(1) DEFAULT 1,
+          is_active TINYINT(1) DEFAULT 1,
           usage_limit INT DEFAULT 100,
           per_customer_limit INT DEFAULT 1,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
-      console.log('Migrated: Ensured coupons table exists.');
+
+      const [cpCols] = await connection.query('SHOW COLUMNS FROM coupons');
+      const cpColNames = cpCols.map(c => c.Field);
+
+      if (!cpColNames.includes('label')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN label VARCHAR(255) NULL AFTER code');
+      }
+      if (!cpColNames.includes('discount_type')) {
+        await connection.query("ALTER TABLE coupons ADD COLUMN discount_type VARCHAR(50) DEFAULT 'percentage' AFTER label");
+      }
+      if (!cpColNames.includes('value')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN value DECIMAL(10, 2) NOT NULL DEFAULT 0 AFTER discount_type');
+      }
+      if (!cpColNames.includes('discount_value')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN discount_value DECIMAL(10, 2) NOT NULL DEFAULT 0 AFTER value');
+      }
+      if (!cpColNames.includes('min_order')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN min_order DECIMAL(10, 2) DEFAULT 0 AFTER discount_value');
+      }
+      if (!cpColNames.includes('max_discount')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN max_discount DECIMAL(10, 2) NULL AFTER min_order');
+      }
+      if (!cpColNames.includes('expiry')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN expiry VARCHAR(50) NULL AFTER max_discount');
+      }
+      if (!cpColNames.includes('expires_at')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN expires_at DATETIME NULL AFTER expiry');
+      }
+      if (!cpColNames.includes('active')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN active TINYINT(1) DEFAULT 1 AFTER expires_at');
+      }
+      if (!cpColNames.includes('is_active')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN is_active TINYINT(1) DEFAULT 1 AFTER active');
+      }
+      if (!cpColNames.includes('usage_limit')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN usage_limit INT DEFAULT 100 AFTER is_active');
+      }
+      if (!cpColNames.includes('per_customer_limit')) {
+        await connection.query('ALTER TABLE coupons ADD COLUMN per_customer_limit INT DEFAULT 1 AFTER usage_limit');
+      }
+
+      console.log('Migrated: Ensured coupons table and all columns exist.');
     } catch (couponErr) {
       console.warn('⚠️ Coupons table migration note:', couponErr.message);
     }
