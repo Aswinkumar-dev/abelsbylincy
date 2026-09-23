@@ -3759,7 +3759,6 @@ export default function AdminPage() {
                   usageLimit: parseInt(couponForm.usageLimit, 10) || 100,
                   perCustomerLimit: parseInt(couponForm.perCustomerLimit, 10) || 1
                 });
-                showToast(`Coupon "${cleanCode}" saved successfully!`, 'check');
                 setEditingCoupon(null);
               }}>
                 <style>{`

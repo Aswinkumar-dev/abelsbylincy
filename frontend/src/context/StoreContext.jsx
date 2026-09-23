@@ -1607,7 +1607,6 @@ export function StoreProvider({ children }) {
       }
       return next;
     });
-    showToast(`Coupon "${cleanCode}" saved!`, 'check');
 
     // 2. Persist to MySQL DB & server, sync authoritative coupon list
     try {
@@ -1620,10 +1619,16 @@ export function StoreProvider({ children }) {
         const data = await res.json();
         if (data.success && Array.isArray(data.coupons)) {
           setCouponsRaw(data.coupons);
+          showToast(`Coupon "${cleanCode}" saved successfully!`, 'check');
+          return true;
         }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        showToast(errData.message || 'Failed to save coupon to database', 'alert-circle');
       }
     } catch (err) {
       console.warn('⚠️ Save coupon API note:', err.message);
+      showToast('Network error saving coupon to server', 'alert-circle');
     }
   }, [showToast]);
 
@@ -1635,7 +1640,6 @@ export function StoreProvider({ children }) {
     setCouponsRaw(prev => {
       return (prev || []).filter(c => String(c.code).trim().toUpperCase() !== clean && String(c.id) !== String(codeOrId));
     });
-    showToast('Coupon deleted', 'check');
 
     // 2. Delete permanently from MySQL DB & server, sync authoritative coupon list
     try {
@@ -1646,10 +1650,16 @@ export function StoreProvider({ children }) {
         const data = await res.json();
         if (data.success && Array.isArray(data.coupons)) {
           setCouponsRaw(data.coupons);
+          showToast(`Coupon "${clean}" deleted successfully!`, 'check');
+          return true;
         }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        showToast(errData.message || 'Failed to delete coupon from database', 'alert-circle');
       }
     } catch (err) {
       console.warn('⚠️ Delete coupon API note:', err.message);
+      showToast('Network error deleting coupon from server', 'alert-circle');
     }
   }, [showToast]);
 
