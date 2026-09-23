@@ -1,7 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Check, Truck, Lock, ShieldCheck, CreditCard, Smartphone, ArrowRight, Ticket, ChevronUp, ChevronDown, Copy } from 'lucide-react';
+import { ShoppingBag, Check, Truck, Lock, ShieldCheck, CreditCard, Smartphone, ArrowRight, Ticket, ChevronUp, ChevronDown, Copy, Loader2 } from 'lucide-react';
 import { useStore, apiFetch } from '../context/StoreContext';
+import {
+  AUSTRALIAN_STATES,
+  AUSTRALIAN_SUBURBS,
+  formatAustralianPhone,
+  isValidAustralianPhone,
+  getStateFromPostcode
+} from '../utils/australiaAddress';
 
 const STEPS = ['Shipping', 'Payment', 'Review & Place'];
 
@@ -11,6 +18,8 @@ export default function CheckoutPage() {
   const [step, setStep] = useState(0);
   const [paymentTab, setPaymentTab] = useState('card');
   const [completedOrder, setCompletedOrder] = useState(null);
+  const [isRedirectingToPayment, setIsRedirectingToPayment] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
 
   // Restore draft state across page refreshes so refreshing never loses filled form or applied coupon
   const draftForm = (() => {
@@ -35,7 +44,7 @@ export default function CheckoutPage() {
     firstName: draftForm?.firstName || savedAddress?.firstName || currentUser?.name?.split(' ')[0] || '',
     lastName: draftForm?.lastName || savedAddress?.lastName || currentUser?.name?.split(' ').slice(1).join(' ') || '',
     email: draftForm?.email || savedAddress?.email || currentUser?.email || '',
-    phone: draftForm?.phone || savedAddress?.phone || '',
+    phone: draftForm?.phone ? formatAustralianPhone(draftForm.phone) : (savedAddress?.phone ? formatAustralianPhone(savedAddress.phone) : ''),
     address: draftForm?.address || savedAddress?.address || '',
     city: draftForm?.city || savedAddress?.city || '',
     state: draftForm?.state || savedAddress?.state || '',
@@ -48,6 +57,56 @@ export default function CheckoutPage() {
   const [couponError, setCouponError] = useState('');
   const [copiedCode, setCopiedCode] = useState('');
   const [showOffersDropdown, setShowOffersDropdown] = useState(true);
+
+  // Suburb suggestions filtered by selected state (or all Australian suburbs if no state chosen)
+  const filteredSuburbs = useMemo(() => {
+    if (!formData.state) return AUSTRALIAN_SUBURBS;
+    return AUSTRALIAN_SUBURBS.filter(s => s.state.toUpperCase() === formData.state.toUpperCase());
+  }, [formData.state]);
+
+  const handlePhoneChange = (e) => {
+    const formatted = formatAustralianPhone(e.target.value);
+    setFormData(f => ({ ...f, phone: formatted }));
+    if (phoneError) setPhoneError('');
+  };
+
+  const handlePhoneBlur = () => {
+    if (formData.phone && !isValidAustralianPhone(formData.phone)) {
+      setPhoneError('Please enter a valid Australian number (e.g. 0412 345 678 or (02) 9876 5432)');
+    } else {
+      setPhoneError('');
+    }
+  };
+
+  const handleSuburbChange = (e) => {
+    const val = e.target.value;
+    const matched = AUSTRALIAN_SUBURBS.find(s => s.name.toLowerCase() === val.trim().toLowerCase());
+    if (matched) {
+      setFormData(f => ({
+        ...f,
+        city: matched.name,
+        state: matched.state,
+        postcode: f.postcode || matched.postcode
+      }));
+    } else {
+      setFormData(f => ({ ...f, city: val }));
+    }
+  };
+
+  const handleStateChange = (e) => {
+    const selectedState = e.target.value;
+    setFormData(f => ({ ...f, state: selectedState }));
+  };
+
+  const handlePostcodeChange = (e) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+    const detectedState = getStateFromPostcode(val);
+    setFormData(f => ({
+      ...f,
+      postcode: val,
+      state: detectedState ? detectedState : f.state
+    }));
+  };
 
   // Auto-persist draft form, shipping method & applied coupon so refreshing page preserves entire session state
   useEffect(() => {
@@ -435,12 +494,24 @@ export default function CheckoutPage() {
 
   const handleRedirectToStripe = async (e) => {
     if (e) e.preventDefault();
+    if (isRedirectingToPayment) return;
+
     const { firstName, lastName, email, phone, address, city, state, postcode } = formData;
     if (!firstName || !lastName || !email || !phone || !address || !city || !state || !postcode) {
       showToast('Please fill in all required shipping fields', 'alert-circle');
       setStep(0);
       return;
     }
+
+    if (!isValidAustralianPhone(phone)) {
+      setPhoneError('Please enter a valid 10-digit Australian phone number (e.g. 0412 345 678 or (02) 9876 5432)');
+      showToast('Only Australian phone numbers are accepted (e.g. 0412 345 678)', 'alert-circle');
+      setStep(0);
+      return;
+    }
+
+    setIsRedirectingToPayment(true);
+    showToast('Connecting to Stripe Secure Payment Gateway...', 'loader');
 
     if (saveAddress) {
       saveUserAddress(formData);
@@ -511,6 +582,9 @@ export default function CheckoutPage() {
       window.location.href = data.url;
       return;
     }
+
+    setIsRedirectingToPayment(false);
+    showToast(data?.error || 'Unable to connect to Stripe payment gateway. Please try again.', 'alert-circle');
   };
 
   const handleShippingSubmit = (e) => {
@@ -518,6 +592,11 @@ export default function CheckoutPage() {
     const { firstName, lastName, email, phone, address, city, state, postcode } = formData;
     if (!firstName || !lastName || !email || !phone || !address || !city || !state || !postcode) {
       showToast('Please fill in all required shipping fields', 'alert-circle');
+      return;
+    }
+    if (!isValidAustralianPhone(phone)) {
+      setPhoneError('Please enter a valid 10-digit Australian phone number (e.g. 0412 345 678 or (02) 9876 5432)');
+      showToast('Only Australian phone numbers are accepted (e.g. 0412 345 678)', 'alert-circle');
       return;
     }
     handleRedirectToStripe(e);
@@ -753,26 +832,80 @@ export default function CheckoutPage() {
                     <input type="email" className="form-control" value={formData.email} onChange={e => setFormData(f => ({...f, email: e.target.value}))} required />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Phone number *</label>
-                    <input type="tel" className="form-control" value={formData.phone} onChange={e => setFormData(f => ({...f, phone: e.target.value}))} required />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0 }}>Phone Number *</label>
+                      <span style={{ fontSize: 11, color: 'var(--slate)', fontWeight: 600 }}>🇦🇺 Australia only (e.g. 0412 345 678)</span>
+                    </div>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      placeholder="0412 345 678 or (02) 9876 5432"
+                      value={formData.phone}
+                      onChange={handlePhoneChange}
+                      onBlur={handlePhoneBlur}
+                      style={{ borderColor: phoneError ? '#DC2626' : undefined }}
+                      required
+                    />
+                    {phoneError && (
+                      <p style={{ color: '#DC2626', fontSize: 11.5, marginTop: 4, marginBottom: 0, fontWeight: 500 }}>
+                        {phoneError}
+                      </p>
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Street Address *</label>
-                    <input type="text" className="form-control" value={formData.address} onChange={e => setFormData(f => ({...f, address: e.target.value}))} required />
+                    <input type="text" className="form-control" placeholder="e.g. 189 Queen Street, Apt 4B" value={formData.address} onChange={e => setFormData(f => ({...f, address: e.target.value}))} required />
                   </div>
                   <div className="form-grid-2">
                     <div className="form-group">
-                      <label className="form-label">Suburb *</label>
-                      <input type="text" className="form-control" value={formData.city} onChange={e => setFormData(f => ({...f, city: e.target.value}))} required />
+                      <label className="form-label">Suburb / Locality (Australia) *</label>
+                      <input
+                        type="text"
+                        list="aus-suburbs-list"
+                        className="form-control"
+                        placeholder="e.g. Sydney, Brisbane City, Melbourne"
+                        value={formData.city}
+                        onChange={handleSuburbChange}
+                        autoComplete="address-level2"
+                        required
+                      />
+                      <datalist id="aus-suburbs-list">
+                        {filteredSuburbs.map(s => (
+                          <option key={`${s.name}-${s.state}-${s.postcode}`} value={s.name}>
+                            {s.name}, {s.state} ({s.postcode})
+                          </option>
+                        ))}
+                      </datalist>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">State *</label>
-                      <input type="text" className="form-control" value={formData.state} onChange={e => setFormData(f => ({...f, state: e.target.value}))} required />
+                      <label className="form-label">State / Territory *</label>
+                      <select
+                        className="form-control"
+                        value={formData.state}
+                        onChange={handleStateChange}
+                        required
+                        style={{ cursor: 'pointer', background: '#fff' }}
+                      >
+                        <option value="">Select State / Territory</option>
+                        {AUSTRALIAN_STATES.map(st => (
+                          <option key={st.code} value={st.code}>
+                            {st.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Postcode *</label>
-                    <input type="text" className="form-control" value={formData.postcode} onChange={e => setFormData(f => ({...f, postcode: e.target.value}))} required />
+                    <label className="form-label">Postcode (4 digits) *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. 2000, 3000, 4000"
+                      maxLength={4}
+                      value={formData.postcode}
+                      onChange={handlePostcodeChange}
+                      required
+                    />
                   </div>
                   {/* Delivery Options (Australia Post) */}
                   <div style={{ marginTop: 24, marginBottom: 20 }}>
@@ -818,8 +951,34 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  <button type="submit" className="btn-primary" style={{ width: '100%', height: 48, fontSize: 14, marginTop: savedAddress ? 20 : 0 }}>
-                    Proceed to Payment <Lock style={{ width: 14, height: 14, marginLeft: 4 }} />
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={isRedirectingToPayment}
+                    style={{
+                      width: '100%',
+                      height: 48,
+                      fontSize: 14,
+                      marginTop: savedAddress ? 20 : 0,
+                      opacity: isRedirectingToPayment ? 0.75 : 1,
+                      cursor: isRedirectingToPayment ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8
+                    }}
+                  >
+                    {isRedirectingToPayment ? (
+                      <>
+                        <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
+                        <span>Redirecting to Stripe Gateway...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Proceed to Payment</span>
+                        <Lock style={{ width: 14, height: 14 }} />
+                      </>
+                    )}
                   </button>
                 </form>
               )}
