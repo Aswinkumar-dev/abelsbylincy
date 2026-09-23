@@ -208,14 +208,14 @@ function readLS(key, fallback) {
 
 function writeLS(key, val) {
   try {
-    const toStore = (key === 'abl_products_v11' && Array.isArray(val)) ? sanitizeProducts(val) : val;
+    const toStore = (key === 'abl_products_v12' && Array.isArray(val)) ? sanitizeProducts(val) : val;
     localStorage.setItem(key, JSON.stringify(toStore));
   } catch (err) {
     try {
-      ['abl_products_v10', 'abl_products_v9', 'abl_products_v8', 'abl_products_v7', 'abl_products', 'abl_orders_v8', 'abl_orders'].forEach(k => {
+      ['abl_products_v11', 'abl_products_v10', 'abl_products_v9', 'abl_products_v8', 'abl_products_v7', 'abl_products', 'abl_orders_v8', 'abl_orders'].forEach(k => {
         try { localStorage.removeItem(k); } catch {}
       });
-      const toStore = (key === 'abl_products_v11' && Array.isArray(val)) ? sanitizeProducts(val) : val;
+      const toStore = (key === 'abl_products_v12' && Array.isArray(val)) ? sanitizeProducts(val) : val;
       localStorage.setItem(key, JSON.stringify(toStore));
     } catch {}
   }
@@ -352,6 +352,51 @@ export function StoreProvider({ children }) {
         if (data.success && Array.isArray(data.orders)) {
           setOrdersRaw(data.orders);
           writeLS('abl_orders_v9', data.orders);
+
+          // Authoritative synchronization of unique client directory from orders
+          const customerMap = new Map();
+          const existingCusts = readLS('abl_customers_v7', DEFAULT_CUSTOMERS) || [];
+          existingCusts.forEach(c => {
+            if (c.email) customerMap.set(c.email.trim().toLowerCase(), c);
+          });
+          data.orders.forEach(o => {
+            const email = (o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '').trim().toLowerCase();
+            if (email) {
+              const name = (o.customer && typeof o.customer === 'string' && o.customer !== 'Valued Customer')
+                ? o.customer
+                : (o.shippingAddress ? `${o.shippingAddress.first_name || ''} ${o.shippingAddress.last_name || ''}`.trim() : 'Valued Customer');
+              const spentNum = o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0;
+              const dateStr = o.date || 'Recent';
+
+              if (customerMap.has(email)) {
+                const existing = customerMap.get(email);
+                const currentSpent = parseFloat(String(existing.spent || '0').replace(/[^0-9.]/g, '')) || 0;
+                customerMap.set(email, {
+                  ...existing,
+                  name: (existing.name && existing.name !== 'Valued Customer') ? existing.name : name,
+                  orders: Math.max(existing.orders || 1, (existing.orders || 1) + 1),
+                  spent: `$${(currentSpent + spentNum).toFixed(2)}`,
+                  status: 'Active'
+                });
+              } else {
+                customerMap.set(email, {
+                  id: `cust_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+                  name: name || 'Valued Customer',
+                  email: email,
+                  phone: o.phone || '',
+                  orders: 1,
+                  spent: `$${spentNum.toFixed(2)}`,
+                  joined: dateStr,
+                  status: 'Active'
+                });
+              }
+            }
+          });
+          const mergedCustomers = Array.from(customerMap.values());
+          if (mergedCustomers.length > 0) {
+            setCustomersRaw(mergedCustomers);
+            writeLS('abl_customers_v7', mergedCustomers);
+          }
         }
       }
     } catch (err) {
@@ -476,7 +521,7 @@ export function StoreProvider({ children }) {
       if (!e.key || !e.newValue) return;
       try {
         const val = JSON.parse(e.newValue);
-        if (e.key === 'abl_products_v11') setProductsRaw(val);
+        if (e.key === 'abl_products_v12') setProductsRaw(val);
         else if (e.key === 'abl_orders_v9') setOrdersRaw(val);
         else if (e.key === 'abl_categories_v5') setCategoriesRaw(val);
         else if (e.key === 'abl_customers_v7') setCustomersRaw(val);
@@ -506,7 +551,7 @@ export function StoreProvider({ children }) {
   const setProducts = useCallback((updaterOrValue) => {
     setProductsRaw(prev => {
       const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
-      writeLS('abl_products_v11', next);
+      writeLS('abl_products_v12', next);
       return next;
     });
   }, []);

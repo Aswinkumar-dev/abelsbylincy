@@ -487,7 +487,9 @@ export default function CheckoutPage() {
           const updated = current.map(prod => {
             const purchased = purchasedItems.find(pi => 
               String(pi.id || pi.productId) === String(prod.id) || 
-              (pi.sku && prod.sku && String(pi.sku).toUpperCase() === String(prod.sku).toUpperCase())
+              (pi.sku && prod.sku && String(pi.sku).trim().toUpperCase() === String(prod.sku).trim().toUpperCase()) ||
+              (pi.name && prod.name && String(pi.name).trim().toLowerCase() === String(prod.name).trim().toLowerCase()) ||
+              (pi.slug && prod.slug && String(pi.slug).trim().toLowerCase() === String(prod.slug).trim().toLowerCase())
             );
             if (purchased) {
               const currentStock = Number(prod.stockQty ?? prod.stock_quantity ?? 10);
@@ -541,7 +543,7 @@ export default function CheckoutPage() {
             });
           }
           try {
-            localStorage.setItem('abl_customers_v5', JSON.stringify(updatedCusts));
+            localStorage.setItem('abl_customers_v7', JSON.stringify(updatedCusts));
           } catch {}
           return updatedCusts;
         });

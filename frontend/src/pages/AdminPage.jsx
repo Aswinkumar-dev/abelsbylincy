@@ -950,6 +950,14 @@ export default function AdminPage() {
             const activeDashOrders = filteredDashOrders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
             const dashItemsCount = activeDashOrders.reduce((sum, o) => sum + (o.itemsCount || o.items?.length || 1), 0);
 
+            const uniqueClientEmails = new Set();
+            (customers || []).forEach(c => { if (c.email) uniqueClientEmails.add(String(c.email).trim().toLowerCase()); });
+            (orders || []).forEach(o => {
+              const email = (o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '');
+              if (email && typeof email === 'string') uniqueClientEmails.add(email.trim().toLowerCase());
+            });
+            const totalClientsCount = Math.max((customers || []).length, uniqueClientEmails.size);
+
             const dashConfirmed = filteredDashOrders.filter(o => o.status === 'Confirmed' || o.status === 'New Order' || !o.status).length;
             const dashPacked = filteredDashOrders.filter(o => o.status === 'Packed').length;
             const dashShipped = filteredDashOrders.filter(o => o.status === 'Shipped').length;
@@ -1008,7 +1016,7 @@ export default function AdminPage() {
                   </div>
                   <div className="kpi-card">
                     <span className="kpi-title">Registered Clients</span>
-                    <span className="kpi-value">{customers.length} Clients</span>
+                    <span className="kpi-value">{totalClientsCount} Clients</span>
                     <span className="kpi-trend trend-up">Live Customer Directory</span>
                   </div>
                 </div>
@@ -4311,15 +4319,7 @@ export default function AdminPage() {
             </div>
 
             {/* Modal Footer */}
-            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FFFFFF' }}>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="btn-secondary"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13 }}
-              >
-                <Printer style={{ width: 15, height: 15 }} /> Print Dispatch Note
-              </button>
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', background: '#FFFFFF' }}>
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}

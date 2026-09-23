@@ -519,17 +519,17 @@ const recordStripeOrder = async (req, res, next) => {
           );
 
           // Deduct stock in DB
-          if (cleanId || cleanSku) {
+          if (cleanId || cleanSku || cleanName) {
             try {
               await db.query(
-                `UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) 
-                 WHERE product_id IN (SELECT id FROM products WHERE id = ? OR sku = ? OR uuid = ?) OR sku = ?`,
-                [qty, cleanId || null, cleanSku || null, cleanId || null, cleanSku || null]
+                `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) 
+                 WHERE id = ? OR uuid = ? OR slug = ? OR (name = ? AND name != '')`,
+                [qty, cleanId || null, cleanId || null, cleanId || null, cleanName || null]
               );
               await db.query(
-                `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) 
-                 WHERE id = ? OR sku = ? OR uuid = ?`,
-                [qty, cleanId || null, cleanSku || null, cleanId || null]
+                `UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) 
+                 WHERE product_id IN (SELECT id FROM products WHERE id = ? OR uuid = ? OR slug = ? OR (name = ? AND name != '')) OR sku = ?`,
+                [qty, cleanId || null, cleanId || null, cleanId || null, cleanName || null, cleanSku || null]
               );
             } catch (stockDbErr) {
               console.warn('DB stock update note:', stockDbErr.message);
@@ -587,7 +587,9 @@ const recordStripeOrder = async (req, res, next) => {
           const updatedProds = currentProducts.map(prod => {
             const matched = order.items.find(i => 
               String(i.id || i.productId) === String(prod.id) || 
-              (i.sku && prod.sku && String(i.sku).toUpperCase() === String(prod.sku).toUpperCase())
+              (i.sku && prod.sku && String(i.sku).trim().toUpperCase() === String(prod.sku).trim().toUpperCase()) ||
+              (i.name && prod.name && String(i.name).trim().toLowerCase() === String(prod.name).trim().toLowerCase()) ||
+              (i.slug && prod.slug && String(i.slug).trim().toLowerCase() === String(prod.slug).trim().toLowerCase())
             );
             if (matched) {
               const currentStock = Number(prod.stockQty ?? prod.stock_quantity ?? 10);
