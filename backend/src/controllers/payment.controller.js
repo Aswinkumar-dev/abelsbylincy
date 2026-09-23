@@ -381,59 +381,117 @@ const recordStripeOrder = async (req, res, next) => {
     const { order } = req.body;
     if (!order) return res.status(400).json({ success: false, message: 'Order data is required.' });
 
+    const orderNumber = String(order.id || order.orderNumber || order.order_number || `ABL-${Date.now()}`).trim();
+    const orderUuid = order.uuid || require('crypto').randomUUID();
+    const guestEmail = order.email || order.guest_email || 'guest@abelsbylincy.com';
+    const totalAmount = parseFloat(order.rawAmount !== undefined ? order.rawAmount : String(order.total || '0').replace(/[^0-9.]/g, '')) || 0;
+    const subtotal = parseFloat(order.subtotal || totalAmount) || totalAmount;
+    const discountAmount = parseFloat(order.discountAmount || 0) || 0;
+    const shippingAmount = parseFloat(order.shippingFee || order.shippingAmount || 0) || 0;
+    const statusVal = order.status || 'Confirmed';
+
     try {
-      const orderUuid = require('crypto').randomUUID();
-      const [orderResult] = await db.query(
-        `INSERT INTO orders 
-          (uuid, order_number, guest_email, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status) 
-         VALUES (?, ?, ?, ?, 0, 0, 0, ?, 'confirmed', 'paid', 'dispatching')`,
-        [orderUuid, order.id || `ABL-${Date.now()}`, order.email || 'guest@abelsbylincy.com', order.rawAmount || 0, order.rawAmount || 0]
-      );
+      let orderId = null;
 
-      const orderId = orderResult.insertId;
-
-      if (order.address) {
+      const [existing] = await db.query('SELECT id FROM orders WHERE order_number = ?', [orderNumber]);
+      if (existing.length > 0) {
+        orderId = existing[0].id;
         await db.query(
-          `INSERT INTO order_addresses (order_id, address_type, first_name, last_name, address_line_1, suburb, state, postcode, country, phone) 
-           VALUES (?, 'shipping', ?, ?, ?, ?, ?, ?, 'Australia', ?)`,
-          [
-            orderId,
-            (order.customer || '').split(' ')[0] || 'Valued',
-            (order.customer || '').split(' ').slice(1).join(' ') || 'Client',
-            order.address || '',
-            order.city || '',
-            order.state || '',
-            order.postcode || '',
-            order.phone || ''
-          ]
+          `UPDATE orders SET 
+             guest_email = ?,
+             subtotal = ?,
+             discount_amount = ?,
+             shipping_amount = ?,
+             total_amount = ?,
+             status = ?,
+             payment_status = 'paid',
+             tracking_number = COALESCE(?, tracking_number),
+             updated_at = NOW()
+           WHERE id = ?`,
+          [guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null, orderId]
         );
+      } else {
+        const [orderResult] = await db.query(
+          `INSERT INTO orders 
+            (uuid, order_number, guest_email, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, placed_at) 
+           VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'paid', 'dispatching', ?, NOW())`,
+          [orderUuid, orderNumber, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null]
+        );
+        orderId = orderResult.insertId;
       }
 
-      if (Array.isArray(order.items)) {
-        for (const item of order.items) {
+      // Record / update shipping address
+      if (order.address || order.city || order.state) {
+        const custName = String(order.customer || order.name || '').trim();
+        const firstName = custName.split(' ')[0] || 'Valued';
+        const lastName = custName.split(' ').slice(1).join(' ') || 'Customer';
+
+        const [existingAddr] = await db.query('SELECT id FROM order_addresses WHERE order_id = ? AND address_type = "shipping"', [orderId]);
+        if (existingAddr.length > 0) {
           await db.query(
-            `INSERT INTO order_items (order_id, sku, product_name, quantity, unit_price, total_amount) 
-             VALUES (?, ?, ?, ?, ?, ?)`,
+            `UPDATE order_addresses SET
+               first_name = ?, last_name = ?, address_line_1 = ?, suburb = ?, state = ?, postcode = ?, phone = ?
+             WHERE id = ?`,
+            [firstName, lastName, order.address || '', order.city || '', order.state || '', order.postcode || '', order.phone || '', existingAddr[0].id]
+          );
+        } else {
+          await db.query(
+            `INSERT INTO order_addresses (order_id, address_type, first_name, last_name, address_line_1, suburb, state, postcode, country, phone) 
+             VALUES (?, 'shipping', ?, ?, ?, ?, ?, ?, 'Australia', ?)`,
+            [orderId, firstName, lastName, order.address || '', order.city || '', order.state || '', order.postcode || '', order.phone || '']
+          );
+        }
+      }
+
+      // Record items
+      if (Array.isArray(order.items) && order.items.length > 0) {
+        await db.query('DELETE FROM order_items WHERE order_id = ?', [orderId]);
+        for (const item of order.items) {
+          const qty = parseInt(item.quantity || 1, 10);
+          const unitPrice = parseFloat(item.price || item.unitPrice || 0);
+          await db.query(
+            `INSERT INTO order_items (order_id, product_id, sku, product_name, variant_name, quantity, unit_price, total_amount, product_image_url) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               orderId,
+              item.id || item.productId || null,
               item.sku || 'ABL-JEW',
-              item.name || 'Fine Jewellery Selection',
-              item.quantity || 1,
-              item.price || 0,
-              (item.price || 0) * (item.quantity || 1)
+              item.name || item.productName || 'Fine Jewellery Selection',
+              item.size || item.color || item.variantName || null,
+              qty,
+              unitPrice,
+              unitPrice * qty,
+              item.image || item.productImageUrl || null
             ]
           );
         }
       }
 
-      await db.query(
-        `INSERT INTO payments (order_id, stripe_payment_intent_id, amount, currency, status) 
-         VALUES (?, ?, ?, 'aud', 'succeeded')`,
-        [orderId, order.sessionId || `pi_stripe_${Date.now()}`, order.rawAmount || 0]
-      );
+      // Record payment
+      const paymentIntentId = order.sessionId || order.stripePaymentIntentId || order.paymentIntentId || `pi_stripe_${Date.now()}`;
+      const [existingPay] = await db.query('SELECT id FROM payments WHERE order_id = ? OR stripe_payment_intent_id = ?', [orderId, paymentIntentId]);
+
+      if (existingPay.length > 0) {
+        await db.query(
+          `UPDATE payments SET
+             amount = ?,
+             currency = 'AUD',
+             status = 'succeeded',
+             stripe_payment_intent_id = ?,
+             paid_at = NOW()
+           WHERE id = ?`,
+          [totalAmount, paymentIntentId, existingPay[0].id]
+        );
+      } else {
+        await db.query(
+          `INSERT INTO payments (order_id, stripe_payment_intent_id, amount, currency, status, paid_at) 
+           VALUES (?, ?, ?, 'AUD', 'succeeded', NOW())`,
+          [orderId, paymentIntentId, totalAmount]
+        );
+      }
 
     } catch (dbErr) {
-      console.log('Database note (order logged locally):', dbErr.message);
+      console.warn('⚠️ Order DB record note:', dbErr.message);
     }
 
     // Always persist to server-side fileStore

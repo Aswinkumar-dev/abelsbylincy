@@ -125,18 +125,63 @@ const getAllOrders = async (req, res, next) => {
         try {
           const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
           const [addresses] = await db.query('SELECT * FROM order_addresses WHERE order_id = ?', [order.id]);
-          order.items = items;
-          order.addresses = addresses;
+          const [payments] = await db.query('SELECT * FROM payments WHERE order_id = ?', [order.id]);
+
+          const shipAddr = addresses.find(a => a.address_type === 'shipping') || addresses[0] || {};
+          const custName = `${shipAddr.first_name || ''} ${shipAddr.last_name || ''}`.trim() || 'Valued Customer';
+          const dateStr = order.placed_at 
+            ? new Date(order.placed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+            : new Date(order.created_at || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+          const formattedItems = (items || []).map(i => ({
+            id: i.product_id,
+            name: i.product_name,
+            sku: i.sku,
+            quantity: Number(i.quantity) || 1,
+            price: Number(i.unit_price) || 0,
+            image: i.product_image_url || null
+          }));
+
+          const primaryProdName = formattedItems.length > 0 
+            ? (formattedItems.length > 1 ? `${formattedItems[0].name} (+${formattedItems.length - 1} items)` : formattedItems[0].name)
+            : 'Fine Jewellery Selection';
+
+          dbOrders.push({
+            id: order.order_number || String(order.id),
+            order_number: order.order_number,
+            dbId: order.id,
+            uuid: order.uuid,
+            customer: custName,
+            email: order.guest_email || '',
+            phone: shipAddr.phone || '',
+            address: shipAddr.address_line_1 || '',
+            city: shipAddr.suburb || '',
+            state: shipAddr.state || '',
+            postcode: shipAddr.postcode || '',
+            product: primaryProdName,
+            items: formattedItems,
+            date: dateStr,
+            status: order.status || 'Confirmed',
+            payment_status: order.payment_status || 'paid',
+            fulfillment_status: order.fulfillment_status || 'unfulfilled',
+            total: `$${parseFloat(order.total_amount || 0).toFixed(2)}`,
+            rawAmount: parseFloat(order.total_amount || 0),
+            subtotal: parseFloat(order.subtotal || 0),
+            discountAmount: parseFloat(order.discount_amount || 0),
+            shippingFee: parseFloat(order.shipping_amount || 0),
+            trackingNumber: order.tracking_number || null,
+            sessionId: payments?.[0]?.stripe_payment_intent_id || null,
+            paymentMethod: payments?.[0]?.payment_method_type || 'Stripe Encrypted Payment'
+          });
         } catch {}
       }
-      dbOrders = rows;
     } catch (e) {
       // DB offline fallback
     }
 
     const fileOrders = getStoredOrders() || [];
     
-    // Merge unique orders by ID or order_number
+    // Merge unique orders by order number / ID
     const orderMap = new Map();
     [...fileOrders, ...dbOrders].forEach(o => {
       const key = o.id || o.order_number || o.uuid;
@@ -165,7 +210,10 @@ const syncOrders = async (req, res, next) => {
     if (deleteId) {
       currentOrders = currentOrders.filter(o => o.id !== deleteId && o.order_number !== deleteId);
       saveStoredOrders(currentOrders);
-      return res.status(200).json({ success: true, message: 'Order deleted from server.', orders: currentOrders });
+      try {
+        await db.query('DELETE FROM orders WHERE order_number = ? OR id = ?', [deleteId, deleteId]);
+      } catch (_) {}
+      return res.status(200).json({ success: true, message: 'Order deleted.', orders: currentOrders });
     }
 
     if (order) {
@@ -177,6 +225,21 @@ const syncOrders = async (req, res, next) => {
         currentOrders.unshift({ ...order, id: key });
       }
       saveStoredOrders(currentOrders);
+
+      // Persist status or tracking updates directly into MySQL
+      try {
+        await db.query(
+          `UPDATE orders SET 
+             status = COALESCE(?, status),
+             tracking_number = COALESCE(?, tracking_number),
+             updated_at = NOW()
+           WHERE order_number = ? OR id = ?`,
+          [order.status || null, order.trackingNumber || null, key, key]
+        );
+      } catch (dbErr) {
+        console.warn('⚠️ Order sync DB note:', dbErr.message);
+      }
+
       return res.status(200).json({ success: true, message: 'Order saved.', orders: currentOrders });
     }
 

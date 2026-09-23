@@ -59,8 +59,122 @@ async function runMigrations(connection) {
       console.log('Migrated: Added color column to product_images table.');
     }
 
-    // 3. Check payments columns for Stripe integration
+    // 3. Ensure orders, order_addresses, order_items, payments, refunds, and stripe_webhook_events tables exist
     try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS orders (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          uuid VARCHAR(100) NULL,
+          order_number VARCHAR(100) UNIQUE NOT NULL,
+          user_id INT NULL,
+          guest_email VARCHAR(255) NULL,
+          subtotal DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          discount_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          tax_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          shipping_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          status VARCHAR(50) DEFAULT 'confirmed',
+          payment_status VARCHAR(50) DEFAULT 'paid',
+          fulfillment_status VARCHAR(50) DEFAULT 'unfulfilled',
+          shipping_method_id INT NULL,
+          tracking_number VARCHAR(100) NULL,
+          placed_at DATETIME NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_orders_user (user_id),
+          INDEX idx_orders_email (guest_email),
+          INDEX idx_orders_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS order_addresses (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          order_id INT NOT NULL,
+          address_type VARCHAR(20) DEFAULT 'shipping',
+          first_name VARCHAR(100) NULL,
+          last_name VARCHAR(100) NULL,
+          company VARCHAR(255) NULL,
+          address_line_1 VARCHAR(255) NULL,
+          address_line_2 VARCHAR(255) NULL,
+          suburb VARCHAR(100) NULL,
+          state VARCHAR(100) NULL,
+          postcode VARCHAR(20) NULL,
+          country VARCHAR(100) DEFAULT 'Australia',
+          country_code VARCHAR(10) DEFAULT 'AU',
+          phone VARCHAR(50) NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_order_addr (order_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS order_items (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          order_id INT NOT NULL,
+          product_id VARCHAR(100) NULL,
+          variant_id INT NULL,
+          sku VARCHAR(100) NULL,
+          product_name VARCHAR(255) NOT NULL,
+          variant_name VARCHAR(100) NULL,
+          quantity INT NOT NULL DEFAULT 1,
+          unit_price DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          discount_amount DECIMAL(10, 2) DEFAULT 0,
+          tax_amount DECIMAL(10, 2) DEFAULT 0,
+          total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          product_image_url TEXT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_order_items (order_id),
+          INDEX idx_product (product_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS payments (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          order_id INT NULL,
+          stripe_payment_intent_id VARCHAR(255) NULL,
+          idempotency_key VARCHAR(255) NULL,
+          payment_method_type VARCHAR(50) DEFAULT 'card',
+          card_brand VARCHAR(30) NULL,
+          card_last4 CHAR(4) NULL,
+          amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          currency VARCHAR(10) DEFAULT 'AUD',
+          status VARCHAR(50) DEFAULT 'succeeded',
+          failure_code VARCHAR(100) NULL,
+          failure_message TEXT NULL,
+          paid_at DATETIME NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_payments_order (order_id),
+          INDEX idx_payments_intent (stripe_payment_intent_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS refunds (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          order_id INT NOT NULL,
+          payment_id INT NULL,
+          stripe_refund_id VARCHAR(255) NULL,
+          amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+          status VARCHAR(50) DEFAULT 'succeeded',
+          reason VARCHAR(255) NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_refunds_order (order_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          stripe_event_id VARCHAR(255) UNIQUE NOT NULL,
+          event_type VARCHAR(100) NOT NULL,
+          payload LONGTEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       const [payCols] = await connection.query('SHOW COLUMNS FROM payments');
       const payColNames = payCols.map(c => c.Field);
       
@@ -77,7 +191,7 @@ async function runMigrations(connection) {
         console.log('Migrated: Added card_last4 column to payments table.');
       }
     } catch (payErr) {
-      console.warn('⚠️ Payments table migration note:', payErr.message);
+      console.warn('⚠️ Payments & orders table migration note:', payErr.message);
     }
 
     // 4. Check users columns for stripe_customer_id
