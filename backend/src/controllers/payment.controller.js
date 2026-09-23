@@ -34,14 +34,22 @@ const createStripeIntent = async (req, res, next) => {
       const verifiedItems = [];
 
       for (const item of items) {
-        let unitPrice = parseFloat(item.price || item.unitPrice || 0);
+        let unitPrice = parseFloat(item.price || item.salePrice || item.unitPrice || 0);
+        const cleanId = String(item.productId || item.id || '').trim();
+        const cleanSku = String(item.sku || '').trim().toUpperCase();
         
-        // If product_id / variant_id present, fetch authoritative price from DB
-        if (item.variantId || item.productId) {
-          const [prods] = await db.query('SELECT price FROM products WHERE id = ?', [item.productId || item.id]);
-          if (prods.length > 0) {
-            unitPrice = parseFloat(prods[0].price);
-          }
+        // If product_id / variant_id / sku present, fetch authoritative price from DB
+        if (cleanId || cleanSku) {
+          try {
+            const [prods] = await db.query(
+              'SELECT price, sale_price FROM products WHERE id = ? OR sku = ? OR uuid = ? LIMIT 1',
+              [cleanId || null, cleanSku || null, cleanId || null]
+            );
+            if (prods.length > 0) {
+              const dbP = parseFloat(prods[0].sale_price || prods[0].price || 0);
+              if (dbP > 0) unitPrice = dbP;
+            }
+          } catch {}
         }
 
         const quantity = parseInt(item.quantity || 1, 10);
@@ -182,14 +190,9 @@ const createCheckoutSession = async (req, res, next) => {
 
     const origin = req.headers.origin || process.env.FRONTEND_URL || 'http://localhost:5173';
 
-    // SERVER-SIDE PRICE SECURITY: Fetch authoritative prices from DB or Server Catalog
-    const CATALOG = [
-      { id: 'p_na1', price: 179 }, { id: 'p_na2', price: 149 }, { id: 'p_na3', price: 129 },
-      { id: 'p_na4', price: 119 }, { id: 'p_na5', price: 169 }, { id: 'p_na6', price: 139 },
-      { id: 'p_bs1', price: 219 }, { id: 'p_bs2', price: 159 }, { id: 'p_bs3', price: 149 },
-      { id: 'p_bs4', price: 179 }, { id: 'p_bs5', price: 189 }, { id: 'p_bs6', price: 169 },
-      { id: 'p1', price: 179 }, { id: 'p2', price: 149 }, { id: 'p3', price: 129 }
-    ];
+    // Fetch all stored products from fileStore to support custom products seamlessly
+    const { getStoredProducts } = require('../utils/fileStore');
+    const storedProducts = getStoredProducts() || [];
 
     const lineItems = [];
     for (const item of items) {
@@ -205,30 +208,54 @@ const createCheckoutSession = async (req, res, next) => {
       }
 
       // Requirement 50: SQL & Input Sanitization
-      const cleanItemId = String(item.id || '').replace(/['";<>\\]/g, '').trim();
+      const cleanItemId = String(item.id || item.productId || '').replace(/['";<>\\]/g, '').trim();
+      const cleanSku = String(item.sku || '').trim().toUpperCase();
       let authoritativePrice = 0;
-      let authoritativeName = String(item.name || 'Fine Jewellery').replace(/<[^>]*>/g, '').trim();
+      let authoritativeName = String(item.name || item.productName || 'Fine Jewellery').replace(/<[^>]*>/g, '').trim();
 
       // 1. Authoritative DB Lookup via Parameterized Query
-      if (cleanItemId) {
+      if (cleanItemId || cleanSku) {
         try {
-          const [dbProducts] = await db.query('SELECT title, price FROM products WHERE id = ?', [cleanItemId]);
+          const [dbProducts] = await db.query(
+            'SELECT name, price, sale_price FROM products WHERE id = ? OR sku = ? OR uuid = ? LIMIT 1',
+            [cleanItemId || null, cleanSku || null, cleanItemId || null]
+          );
           if (dbProducts && dbProducts.length > 0) {
-            authoritativePrice = parseFloat(dbProducts[0].price);
-            authoritativeName = dbProducts[0].title || authoritativeName;
+            const p = dbProducts[0];
+            const pPrice = parseFloat(p.sale_price || p.price || 0);
+            if (pPrice > 0) {
+              authoritativePrice = pPrice;
+            }
+            if (p.name) {
+              authoritativeName = p.name;
+            }
           }
         } catch {
           // DB connection fallback
         }
       }
 
-      // 2. Authoritative Server Catalog Lookup
+      // 2. Authoritative FileStore Product Lookup
+      if (!authoritativePrice && storedProducts.length > 0) {
+        const stored = storedProducts.find(
+          p => String(p.id) === cleanItemId || String(p.sku).toUpperCase() === cleanSku || (p.name && p.name.toLowerCase() === authoritativeName.toLowerCase())
+        );
+        if (stored) {
+          const sPrice = parseFloat(stored.salePrice || stored.price || 0);
+          if (sPrice > 0) {
+            authoritativePrice = sPrice;
+          }
+          if (stored.name) {
+            authoritativeName = stored.name;
+          }
+        }
+      }
+
+      // 3. Fallback to client item price if valid positive number
       if (!authoritativePrice) {
-        const catItem = CATALOG.find(c => c.id === cleanItemId || cleanItemId.includes(c.id));
-        if (catItem) {
-          authoritativePrice = catItem.price;
-        } else {
-          authoritativePrice = 119.00;
+        const clientPrice = parseFloat(item.price || item.salePrice || item.unitPrice || 0);
+        if (clientPrice > 0) {
+          authoritativePrice = clientPrice;
         }
       }
 
