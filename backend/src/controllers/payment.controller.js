@@ -259,14 +259,21 @@ const createCheckoutSession = async (req, res, next) => {
         }
       }
 
+      // Stripe strictly requires images in product_data to be valid absolute HTTP/HTTPS URLs
+      const validImages = (item.image && typeof item.image === 'string' && /^https?:\/\//i.test(item.image))
+        ? [item.image]
+        : [];
+
+      const unitCents = Math.max(50, Math.round(authoritativePrice * 100));
+
       lineItems.push({
         price_data: {
           currency: 'aud',
           product_data: {
             name: authoritativeName,
-            images: item.image ? [item.image] : [],
+            ...(validImages.length > 0 ? { images: validImages } : {})
           },
-          unit_amount: Math.round(authoritativePrice * 100),
+          unit_amount: unitCents,
         },
         quantity: parsedQty,
       });
@@ -293,32 +300,52 @@ const createCheckoutSession = async (req, res, next) => {
     const rawCoupon = req.body.couponCode;
     const sanitizedCouponCode = typeof rawCoupon === 'string' ? rawCoupon.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 30) : null;
 
-    if (discountAmount > 0) {
-      try {
-        const stripeCoupon = await stripe.coupons.create({
-          amount_off: Math.round(discountAmount * 100),
-          currency: 'aud',
-          duration: 'once',
-          name: sanitizedCouponCode ? `Coupon: ${sanitizedCouponCode}` : 'Promotional Discount'
-        });
-        discounts.push({ coupon: stripeCoupon.id });
-      } catch (couponErr) {
-        console.warn('Stripe coupon creation note:', couponErr.message);
+    const totalCents = lineItems.reduce((s, li) => s + (li.price_data.unit_amount * li.quantity), 0);
+
+    if (discountAmount > 0 && totalCents > 100) {
+      const discountCents = Math.min(Math.round(discountAmount * 100), totalCents - 100);
+      if (discountCents > 0) {
+        try {
+          const stripeCoupon = await stripe.coupons.create({
+            amount_off: discountCents,
+            currency: 'aud',
+            duration: 'once',
+            name: sanitizedCouponCode ? `Coupon: ${sanitizedCouponCode}` : 'Promotional Discount'
+          });
+          discounts.push({ coupon: stripeCoupon.id });
+        } catch (couponErr) {
+          console.warn('Stripe coupon creation note:', couponErr.message);
+        }
       }
     }
 
     const crypto = require('crypto');
     const cartFingerprint = items.map(i => `${i.id || i.name}:${i.quantity || 1}`).join('|');
-    const idempotencyKey = `cs_idemp_${crypto.createHash('md5').update(`${email || ''}:${cartFingerprint}:${discountAmount}:${sanitizedCouponCode || ''}`).digest('hex')}`;
+    const idempotencyKey = `cs_idemp_${crypto.createHash('md5').update(`${email || ''}:${cartFingerprint}:${discountAmount}:${sanitizedCouponCode || ''}:${Date.now()}`).digest('hex')}`;
+
+    const validEmail = (email && typeof email === 'string' && email.includes('@'))
+      ? email.trim().toLowerCase()
+      : (req.user && req.user.email ? req.user.email.trim().toLowerCase() : undefined);
+
+    let origin = req.headers.origin || req.headers.referer;
+    if (origin) {
+      try {
+        const u = new URL(origin);
+        origin = `${u.protocol}//${u.host}`;
+      } catch {}
+    }
+    if (!origin || !origin.startsWith('http')) {
+      origin = process.env.FRONTEND_URL || 'https://abelsbylincy.com';
+    }
+    origin = origin.replace(/\/+$/, '');
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
-      discounts: discounts.length > 0 ? discounts : undefined,
+      ...(discounts.length > 0 ? { discounts } : {}),
       mode: 'payment',
       locale: 'en',
-      adaptive_pricing: { enabled: false },
-      customer_email: email || (req.user ? req.user.email : undefined),
+      ...(validEmail ? { customer_email: validEmail } : {}),
       success_url: `${origin}/checkout?session_id={CHECKOUT_SESSION_ID}&success=true`,
       cancel_url: `${origin}/checkout?canceled=true`,
     }, {
@@ -332,7 +359,10 @@ const createCheckoutSession = async (req, res, next) => {
     });
   } catch (error) {
     console.error('Stripe Checkout Session Error:', error.message);
-    next(error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Unable to create Stripe checkout session'
+    });
   }
 };
 

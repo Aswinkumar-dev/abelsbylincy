@@ -575,6 +575,7 @@ export default function CheckoutPage() {
     });
 
     let data = null;
+    let errMsg = '';
 
     try {
       const r1 = await apiFetch('/api/payments/create-checkout-session', {
@@ -582,22 +583,17 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: payload
       });
-      if (r1.ok) data = await r1.json();
-    } catch {
-      // Fallback
-    }
-
-    if (!data || !data.success) {
       try {
-        const r2 = await fetch('http://localhost:5000/api/payments/create-checkout-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload
-        });
-        if (r2.ok) data = await r2.json();
-      } catch (err) {
-        console.error('Backend payment error:', err);
+        data = await r1.json();
+      } catch {
+        data = null;
       }
+      if (!r1.ok || !data?.success) {
+        errMsg = data?.message || data?.error || `Gateway error (${r1.status})`;
+      }
+    } catch (err) {
+      console.warn('apiFetch error:', err);
+      errMsg = err.message;
     }
 
     if (data && data.success && data.url) {
@@ -606,7 +602,7 @@ export default function CheckoutPage() {
     }
 
     setIsRedirectingToPayment(false);
-    showToast(data?.error || 'Unable to connect to Stripe payment gateway. Please try again.', 'alert-circle');
+    showToast(errMsg || data?.message || data?.error || 'Unable to connect to Stripe payment gateway. Please try again.', 'alert-circle');
   };
 
   const handleShippingSubmit = (e) => {
