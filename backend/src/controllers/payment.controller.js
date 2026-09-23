@@ -188,8 +188,6 @@ const createCheckoutSession = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Cart items are required.' });
     }
 
-    const origin = req.headers.origin || process.env.FRONTEND_URL || 'http://localhost:5173';
-
     // Fetch all stored products from fileStore to support custom products seamlessly
     const { getStoredProducts } = require('../utils/fileStore');
     const storedProducts = getStoredProducts() || [];
