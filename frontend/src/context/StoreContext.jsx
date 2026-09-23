@@ -322,7 +322,18 @@ export function StoreProvider({ children }) {
   const [roles, setRolesRaw] = useState(() => readLS('abl_roles', DEFAULT_ROLES));
   const [settings, setSettingsRaw] = useState(() => readLS('abl_settings', DEFAULT_SETTINGS));
   const [cms, setCMSRaw] = useState(() => readLS('abl_cms_v5', DEFAULT_CMS));
-  const [cart, setCartRaw] = useState(() => readLS('abl_cart', []));
+  const [cart, setCartRaw] = useState(() => {
+    const guestCart = readLS('abl_cart', []);
+    const savedUser = readLS('abl_current_user', null);
+    if (savedUser?.email) {
+      const userKey = `abl_cart_${savedUser.email.trim().toLowerCase()}`;
+      const userCart = readLS(userKey, []);
+      if (Array.isArray(userCart) && userCart.length > 0) {
+        return mergeCartLists(userCart, guestCart);
+      }
+    }
+    return guestCart;
+  });
   const [cartLoading, setCartLoading] = useState(false);
   const [wishlist, setWishlistRaw] = useState(() => readLS('abl_wishlist', []));
   const [currentUser, setCurrentUserRaw] = useState(() => readLS('abl_current_user', null));
@@ -637,7 +648,10 @@ export function StoreProvider({ children }) {
           if (data.success && Array.isArray(data.items) && isMounted) {
             const dbList = data.items;
             const localList = readLS('abl_cart', []) || [];
-            const finalList = mergeCartLists(dbList, localList);
+            const userSavedList = readLS(`abl_cart_${userEmail}`, []) || [];
+
+            let finalList = mergeCartLists(dbList, userSavedList);
+            finalList = mergeCartLists(finalList, localList);
 
             setCartRaw(finalList);
             writeLS('abl_cart', finalList);
@@ -784,9 +798,10 @@ export function StoreProvider({ children }) {
 
         // Direct MySQL DB cart fetch or payload cart on login (ensures immediate cart visibility and auto-merges guest cart)
         const localItems = readLS('abl_cart', []) || [];
+        const userSavedItems = readLS(`abl_cart_${cleanEmail}`, []) || [];
         let dbItems = Array.isArray(data.cart) ? data.cart : null;
 
-        if (!dbItems) {
+        if (!dbItems || dbItems.length === 0) {
           try {
             const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(cleanEmail)}&t=${Date.now()}`, {
               headers: {
@@ -805,7 +820,8 @@ export function StoreProvider({ children }) {
           }
         }
 
-        const finalList = mergeCartLists(dbItems || [], localItems);
+        let finalList = mergeCartLists(dbItems || [], userSavedItems);
+        finalList = mergeCartLists(finalList, localItems);
         setCartRaw(finalList);
         writeLS('abl_cart', finalList);
         writeLS(`abl_cart_${cleanEmail}`, finalList);
@@ -1018,31 +1034,64 @@ export function StoreProvider({ children }) {
       setCustomers(prev => (prev || []).map(c => c.email?.toLowerCase() === lowerEmail ? { ...c, avatar: userObj.avatar || c.avatar } : c));
     }
 
-    // Direct MySQL DB cart fetch on login (ensures immediate cart visibility and auto-merges guest cart)
-    const localItems = readLS('abl_cart', []) || [];
-    let dbItems = [];
+    // 1. Authenticate with Backend Google OAuth endpoint to link account, generate JWT & fetch server cart
+    let backendCart = [];
     try {
-      const token = localStorage.getItem('abl_access_token');
-      const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
-        headers: {
-          'Cache-Control': 'no-cache',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
+      const authRes = await apiFetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: lowerEmail,
+          googleSub: sub || profile.id || `g_${Date.now()}`,
+          firstName,
+          lastName,
+          avatarUrl: picture || ''
+        })
       });
-      if (cartRes.ok) {
-        const cartData = await cartRes.json();
-        if (cartData.success && Array.isArray(cartData.items)) {
-          dbItems = cartData.items;
+      if (authRes.ok) {
+        const authData = await authRes.json();
+        if (authData.accessToken) {
+          localStorage.setItem('abl_access_token', authData.accessToken);
+        }
+        if (Array.isArray(authData.cart) && authData.cart.length > 0) {
+          backendCart = authData.cart;
         }
       }
-    } catch (_) {}
+    } catch (authErr) {
+      console.warn('⚠️ Google Auth backend sync note:', authErr.message);
+    }
 
-    const finalList = mergeCartLists(dbItems, localItems);
-    setCartRaw(finalList);
-    writeLS('abl_cart', finalList);
-    writeLS(`abl_cart_${lowerEmail}`, finalList);
+    // 2. Fetch direct MySQL DB cart fallback if not returned by auth endpoint
+    if (backendCart.length === 0) {
+      try {
+        const token = localStorage.getItem('abl_access_token');
+        const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
+        if (cartRes.ok) {
+          const cartData = await cartRes.json();
+          if (cartData.success && Array.isArray(cartData.items)) {
+            backendCart = cartData.items;
+          }
+        }
+      } catch (_) {}
+    }
 
-    if (finalList.length > 0) {
+    // 3. Multi-source Cart Restoration: Merge server cart + user's previous saved cart (from prior session/email login) + guest session cart
+    const userSavedCart = readLS(`abl_cart_${lowerEmail}`, []) || [];
+    const localGuestCart = readLS('abl_cart', []) || [];
+
+    let combinedList = mergeCartLists(backendCart, userSavedCart);
+    combinedList = mergeCartLists(combinedList, localGuestCart);
+
+    setCartRaw(combinedList);
+    writeLS('abl_cart', combinedList);
+    writeLS(`abl_cart_${lowerEmail}`, combinedList);
+
+    if (combinedList.length > 0) {
       const token = localStorage.getItem('abl_access_token');
       apiFetch('/api/cart/sync', {
         method: 'POST',
@@ -1050,7 +1099,7 @@ export function StoreProvider({ children }) {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ email: lowerEmail, items: finalList })
+        body: JSON.stringify({ email: lowerEmail, items: combinedList })
       }).catch(() => {});
     }
 
