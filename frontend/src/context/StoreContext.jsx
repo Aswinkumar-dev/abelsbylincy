@@ -1028,86 +1028,106 @@ export function StoreProvider({ children }) {
       orders: existing ? existing.orders : 0
     };
 
+    // Immediately set currentUser & write localStorage so authentication takes effect with zero delay
+    setCurrentUser(userObj);
+    writeLS('abl_current_user', userObj);
+    writeLS('abl_user_token', { email: lowerEmail, name: userObj.name, provider: 'google' });
+
     if (!existing) {
       setCustomers(prev => [userObj, ...(prev || [])]);
     } else {
       setCustomers(prev => (prev || []).map(c => c.email?.toLowerCase() === lowerEmail ? { ...c, avatar: userObj.avatar || c.avatar } : c));
     }
 
-    // 1. Authenticate with Backend Google OAuth endpoint to link account, generate JWT & fetch server cart
-    let backendCart = [];
-    try {
-      const authRes = await apiFetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: lowerEmail,
-          googleSub: sub || profile.id || `g_${Date.now()}`,
-          firstName,
-          lastName,
-          avatarUrl: picture || ''
-        })
-      });
-      if (authRes.ok) {
-        const authData = await authRes.json();
-        if (authData.accessToken) {
-          localStorage.setItem('abl_access_token', authData.accessToken);
-        }
-        if (Array.isArray(authData.cart) && authData.cart.length > 0) {
-          backendCart = authData.cart;
-        }
-      }
-    } catch (authErr) {
-      console.warn('⚠️ Google Auth backend sync note:', authErr.message);
-    }
-
-    // 2. Fetch direct MySQL DB cart fallback if not returned by auth endpoint
-    if (backendCart.length === 0) {
-      try {
-        const token = localStorage.getItem('abl_access_token');
-        const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
-          headers: {
-            'Cache-Control': 'no-cache',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          }
-        });
-        if (cartRes.ok) {
-          const cartData = await cartRes.json();
-          if (cartData.success && Array.isArray(cartData.items)) {
-            backendCart = cartData.items;
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 3. Multi-source Cart Restoration: Merge server cart + user's previous saved cart (from prior session/email login) + guest session cart
+    // Immediately restore user's saved cart & guest items into state
     const userSavedCart = readLS(`abl_cart_${lowerEmail}`, []) || [];
     const localGuestCart = readLS('abl_cart', []) || [];
-
-    let combinedList = mergeCartLists(backendCart, userSavedCart);
-    combinedList = mergeCartLists(combinedList, localGuestCart);
-
-    setCartRaw(combinedList);
-    writeLS('abl_cart', combinedList);
-    writeLS(`abl_cart_${lowerEmail}`, combinedList);
-
-    if (combinedList.length > 0) {
-      const token = localStorage.getItem('abl_access_token');
-      apiFetch('/api/cart/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ email: lowerEmail, items: combinedList })
-      }).catch(() => {});
+    let immediateList = mergeCartLists(userSavedCart, localGuestCart);
+    if (immediateList.length > 0) {
+      setCartRaw(immediateList);
+      writeLS('abl_cart', immediateList);
+      writeLS(`abl_cart_${lowerEmail}`, immediateList);
     }
 
-    setCurrentUser(userObj);
-    writeLS('abl_current_user', userObj);
-    writeLS('abl_user_token', { email: lowerEmail, name: userObj.name, provider: 'google' });
-
     showToast(`Welcome back, ${userObj.name}!`, 'check');
+
+    // If currently on /account, redirect immediately to target destination or home
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/account')) {
+      const params = new URLSearchParams(window.location.search);
+      const target = params.get('redirect') || '/';
+      setTimeout(() => {
+        if (window.location.pathname.startsWith('/account')) {
+          window.location.href = target;
+        }
+      }, 50);
+    }
+
+    // Background asynchronous account linking & MySQL cart sync
+    (async () => {
+      let backendCart = [];
+      try {
+        const authRes = await apiFetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: lowerEmail,
+            googleSub: sub || profile.id || `g_${Date.now()}`,
+            firstName,
+            lastName,
+            avatarUrl: picture || ''
+          })
+        });
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          if (authData.accessToken) {
+            localStorage.setItem('abl_access_token', authData.accessToken);
+          }
+          if (Array.isArray(authData.cart) && authData.cart.length > 0) {
+            backendCart = authData.cart;
+          }
+        }
+      } catch (authErr) {
+        console.warn('⚠️ Google Auth backend sync note:', authErr.message);
+      }
+
+      if (backendCart.length === 0) {
+        try {
+          const token = localStorage.getItem('abl_access_token');
+          const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
+            headers: {
+              'Cache-Control': 'no-cache',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            }
+          });
+          if (cartRes.ok) {
+            const cartData = await cartRes.json();
+            if (cartData.success && Array.isArray(cartData.items)) {
+              backendCart = cartData.items;
+            }
+          }
+        } catch (_) {}
+      }
+
+      let combinedList = mergeCartLists(backendCart, userSavedCart);
+      combinedList = mergeCartLists(combinedList, localGuestCart);
+
+      if (combinedList.length > 0) {
+        setCartRaw(combinedList);
+        writeLS('abl_cart', combinedList);
+        writeLS(`abl_cart_${lowerEmail}`, combinedList);
+
+        const token = localStorage.getItem('abl_access_token');
+        apiFetch('/api/cart/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ email: lowerEmail, items: combinedList })
+        }).catch(() => {});
+      }
+    })();
+
     return true;
   }, [customers, setCustomers, setCurrentUser, showToast]);
 
