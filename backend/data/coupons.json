@@ -1,0 +1,15 @@
+[
+  {
+    "id": "cp2",
+    "code": "FIRSTORDER",
+    "label": "First Order Special",
+    "discountType": "percentage",
+    "value": 15,
+    "minOrder": 0,
+    "maxDiscount": 30,
+    "expiry": "2026-12-31",
+    "active": true,
+    "usageLimit": 50,
+    "perCustomerLimit": 1
+  }
+]

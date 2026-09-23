@@ -57,7 +57,7 @@ const fetchAllCombinedCoupons = async () => {
 
   const couponMap = new Map();
 
-  // If both DB and file are empty, seed default coupons if not deleted
+  // 1. Seed defaults if both DB and file are empty and not deleted
   if (dbCoupons.length === 0 && fileCoupons.length === 0) {
     DEFAULT_SEED_COUPONS.forEach(cp => {
       const code = String(cp.code).trim().toUpperCase();
@@ -67,33 +67,32 @@ const fetchAllCombinedCoupons = async () => {
     });
   }
 
-  // 1. Add MySQL coupons
-  dbCoupons.forEach(cp => {
-    const code = String(cp.code).trim().toUpperCase();
-    if (!deletedCodes.has(code)) {
-      couponMap.set(code, cp);
-    }
-  });
-
-  // 2. Add / merge File coupons
+  // 2. Add / merge File coupons first (base fallback)
   fileCoupons.forEach(cp => {
     const code = String(cp.code).trim().toUpperCase();
     if (deletedCodes.has(code)) return;
-    if (couponMap.has(code)) {
-      couponMap.set(code, { ...couponMap.get(code), ...cp });
-    } else {
+    couponMap.set(code, {
+      id: cp.id || `cp_${code}`,
+      code,
+      label: cp.label || code,
+      discountType: cp.discountType || cp.discount_type || 'percentage',
+      value: Number(cp.value) || 0,
+      minOrder: Number(cp.minOrder !== undefined ? cp.minOrder : (cp.min_order !== undefined ? cp.min_order : 0)),
+      maxDiscount: cp.maxDiscount !== undefined && cp.maxDiscount !== null ? Number(cp.maxDiscount) : (cp.max_discount !== undefined && cp.max_discount !== null ? Number(cp.max_discount) : null),
+      expiry: cp.expiry || '',
+      active: cp.active !== undefined ? Boolean(cp.active) : true,
+      usageLimit: Number(cp.usageLimit || cp.usage_limit) || 100,
+      perCustomerLimit: Number(cp.perCustomerLimit || cp.per_customer_limit) || 1
+    });
+  });
+
+  // 3. Add MySQL coupons LAST (MySQL database is ALWAYS authoritative and overrides file cache)
+  dbCoupons.forEach(cp => {
+    const code = String(cp.code).trim().toUpperCase();
+    if (!deletedCodes.has(code)) {
       couponMap.set(code, {
-        id: cp.id || `cp_${code}`,
-        code,
-        label: cp.label || code,
-        discountType: cp.discountType || cp.discount_type || 'percentage',
-        value: Number(cp.value) || 0,
-        minOrder: Number(cp.minOrder || cp.min_order) || 0,
-        maxDiscount: cp.maxDiscount !== undefined ? Number(cp.maxDiscount) : (cp.max_discount !== null ? Number(cp.max_discount) : null),
-        expiry: cp.expiry || '',
-        active: cp.active !== undefined ? Boolean(cp.active) : true,
-        usageLimit: Number(cp.usageLimit || cp.usage_limit) || 100,
-        perCustomerLimit: Number(cp.perCustomerLimit || cp.per_customer_limit) || 1
+        ...(couponMap.get(code) || {}),
+        ...cp
       });
     }
   });
