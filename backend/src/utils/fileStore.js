@@ -223,6 +223,60 @@ function addDeletedReviewId(id) {
   return updated;
 }
 
+const CARTS_FILE = path.join(DATA_DIR, 'carts.json');
+const TMP_CARTS_FILE = path.join(TMP_DIR, 'carts.json');
+let memoryCarts = null;
+
+function getStoredCarts() {
+  if (memoryCarts && typeof memoryCarts === 'object') return memoryCarts;
+  try {
+    if (fs.existsSync(TMP_CARTS_FILE)) {
+      const data = fs.readFileSync(TMP_CARTS_FILE, 'utf8');
+      memoryCarts = JSON.parse(data || '{}');
+      return memoryCarts;
+    }
+    if (fs.existsSync(CARTS_FILE)) {
+      const data = fs.readFileSync(CARTS_FILE, 'utf8');
+      memoryCarts = JSON.parse(data || '{}');
+      return memoryCarts;
+    }
+    return {};
+  } catch (err) {
+    return memoryCarts || {};
+  }
+}
+
+function getStoredCart(email) {
+  if (!email) return [];
+  const cleanEmail = String(email).trim().toLowerCase();
+  const allCarts = getStoredCarts();
+  const cart = allCarts[cleanEmail];
+  return Array.isArray(cart) ? cart : [];
+}
+
+function saveStoredCart(email, items) {
+  if (!email) return false;
+  const cleanEmail = String(email).trim().toLowerCase();
+  const allCarts = getStoredCarts();
+  allCarts[cleanEmail] = Array.isArray(items) ? items : [];
+  memoryCarts = allCarts;
+
+  let saved = false;
+  try {
+    ensureDir(DATA_DIR);
+    fs.writeFileSync(CARTS_FILE, JSON.stringify(allCarts, null, 2), 'utf8');
+    saved = true;
+  } catch {}
+
+  try {
+    ensureDir(TMP_DIR);
+    fs.writeFileSync(TMP_CARTS_FILE, JSON.stringify(allCarts, null, 2), 'utf8');
+    saved = true;
+  } catch {}
+
+  return saved;
+}
+
 module.exports = {
   getStoredOrders,
   saveStoredOrders,
@@ -233,8 +287,12 @@ module.exports = {
   getStoredReviews,
   saveStoredReviews,
   getDeletedReviewIds,
-  addDeletedReviewId
+  addDeletedReviewId,
+  getStoredCarts,
+  getStoredCart,
+  saveStoredCart
 };
+
 
 
 

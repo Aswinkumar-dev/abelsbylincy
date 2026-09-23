@@ -1,0 +1,12 @@
+{
+  "guest_tester@example.com": [
+    {
+      "id": "p1",
+      "name": "Gold Ring",
+      "price": 99,
+      "quantity": 2,
+      "size": "7",
+      "color": "Gold"
+    }
+  ]
+}

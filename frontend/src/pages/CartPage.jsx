@@ -4,7 +4,7 @@ import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Truck, AlertTriangle, Hea
 import { useStore } from '../context/StoreContext';
 
 export default function CartPage() {
-  const { cart, cartLoading, products, updateCartQty, removeFromCart, toggleWishlist, wishlist, formatMoney, currentUser } = useStore();
+  const { cart, cartLoading, products, updateCartQty, removeFromCart, toggleWishlist, wishlist, formatMoney, currentUser, showToast } = useStore();
   const navigate = useNavigate();
   const freeShippingThreshold = 60;
 
@@ -34,22 +34,15 @@ export default function CartPage() {
 
   const handleCheckout = () => {
     if (inStockItems.length === 0) return;
-    if (!currentUser) { navigate('/account'); return; }
+    if (!currentUser) {
+      if (typeof showToast === 'function') {
+        showToast('Please sign in or create an account to proceed to checkout', 'info');
+      }
+      navigate('/account?redirect=/checkout');
+      return;
+    }
     navigate('/checkout');
   };
-
-  if (!currentUser) {
-    return (
-      <div style={{ minHeight: '65vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 16px', textAlign: 'center' }}>
-        <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#FAF7F2', border: '1px solid #E8DFD8', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-          <ShoppingBag style={{ width: 36, height: 36, color: '#D4AF37' }} />
-        </div>
-        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 30, fontWeight: 600, margin: 0, color: 'var(--onyx, #1A1A1A)', letterSpacing: '-0.01em' }}>
-          Kindly login to see the products in your bag
-        </h2>
-      </div>
-    );
-  }
 
   if (cartLoading && cart.length === 0) {
     return (

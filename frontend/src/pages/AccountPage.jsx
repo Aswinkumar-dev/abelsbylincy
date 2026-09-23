@@ -11,12 +11,13 @@ export default function AccountPage() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
 
-  // Redirect to Home Page immediately when logged in
+  // Redirect to requested page (or Home) immediately when logged in
   useEffect(() => {
     if (currentUser) {
-      navigate('/', { replace: true });
+      const redirectPath = searchParams.get('redirect') || '/';
+      navigate(redirectPath, { replace: true });
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, navigate, searchParams]);
 
   // Form states
   const [loginEmail, setLoginEmail] = useState(() => searchParams.get('email') || '');

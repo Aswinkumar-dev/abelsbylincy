@@ -3,7 +3,9 @@ const { findUserByEmail, createUser, updateUserLastLogin, findUserById } = requi
 const { hashPassword, comparePassword } = require('../utils/password');
 const { generateAccessToken, generateRefreshToken } = require('../utils/token');
 const { sendEmail } = require('../services/email.service');
+const { getStoredCart } = require('../utils/fileStore');
 const db = require('../config/database');
+
 
 const getFrontendUrl = (req) => {
   const origin = req?.headers?.origin || (req?.headers?.referer ? (() => { try { return new URL(req.headers.referer).origin; } catch (_) { return null; } })() : null);
@@ -197,10 +199,26 @@ const login = async (req, res, next) => {
       [user.id, refreshHash, expiresAt]
     );
 
+    // Fetch user's cart from DB or fileStore
+    let userCart = [];
+    try {
+      const [cartRows] = await db.query(
+        'SELECT cart_json FROM user_carts WHERE LOWER(TRIM(user_email)) = ?',
+        [user.email.toLowerCase()]
+      );
+      if (cartRows && cartRows.length > 0 && cartRows[0].cart_json) {
+        userCart = typeof cartRows[0].cart_json === 'string' ? JSON.parse(cartRows[0].cart_json) : cartRows[0].cart_json;
+      }
+    } catch (_) {}
+    if (!Array.isArray(userCart) || userCart.length === 0) {
+      userCart = getStoredCart(user.email) || [];
+    }
+
     res.status(200).json({
       success: true,
       accessToken,
       refreshToken,
+      cart: Array.isArray(userCart) ? userCart : [],
       user: {
         uuid: user.uuid,
         email: user.email,
@@ -480,10 +498,26 @@ const googleLogin = async (req, res, next) => {
 
     await connection.commit();
 
+    // Fetch user's cart from DB or fileStore
+    let userCart = [];
+    try {
+      const [cartRows] = await db.query(
+        'SELECT cart_json FROM user_carts WHERE LOWER(TRIM(user_email)) = ?',
+        [user.email.toLowerCase()]
+      );
+      if (cartRows && cartRows.length > 0 && cartRows[0].cart_json) {
+        userCart = typeof cartRows[0].cart_json === 'string' ? JSON.parse(cartRows[0].cart_json) : cartRows[0].cart_json;
+      }
+    } catch (_) {}
+    if (!Array.isArray(userCart) || userCart.length === 0) {
+      userCart = getStoredCart(user.email) || [];
+    }
+
     res.status(200).json({
       success: true,
       accessToken,
       refreshToken,
+      cart: Array.isArray(userCart) ? userCart : [],
       user: {
         uuid: user.uuid,
         email: user.email,
