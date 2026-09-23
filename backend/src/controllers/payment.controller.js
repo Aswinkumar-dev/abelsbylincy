@@ -294,9 +294,23 @@ const createCheckoutSession = async (req, res, next) => {
 
     // Apply coupon discount if provided with strict alphanumeric sanitization
     let discounts = [];
-    const discountAmount = parseFloat(req.body.discountAmount) || 0;
+    let discountAmount = parseFloat(req.body.discountAmount) || 0;
     const rawCoupon = req.body.couponCode;
     const sanitizedCouponCode = typeof rawCoupon === 'string' ? rawCoupon.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 30) : null;
+
+    // First-order coupon restriction server-side guard
+    if (sanitizedCouponCode && /FIRST|WELCOME/i.test(sanitizedCouponCode) && email) {
+      const cleanCustomerEmail = String(email).trim().toLowerCase();
+      try {
+        const [priorOrders] = await db.query(
+          'SELECT id FROM orders WHERE LOWER(guest_email) = ? OR user_id = (SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1) LIMIT 1',
+          [cleanCustomerEmail, cleanCustomerEmail]
+        );
+        if (priorOrders && priorOrders.length > 0) {
+          discountAmount = 0;
+        }
+      } catch {}
+    }
 
     const totalCents = lineItems.reduce((s, li) => s + (li.price_data.unit_amount * li.quantity), 0);
 
@@ -500,7 +514,9 @@ const recordStripeOrder = async (req, res, next) => {
           const qty = parseInt(item.quantity || 1, 10);
           const unitPrice = parseFloat(item.price || item.unitPrice || 0);
           const cleanId = item.id || item.productId;
-          const cleanSku = item.sku;
+          const cleanSku = item.sku || null;
+          const cleanName = (item.name || item.productName || '').trim();
+          const cleanSlug = (item.slug || cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '').trim();
 
           await db.query(
             `INSERT INTO order_items (order_id, product_id, sku, product_name, variant_name, quantity, unit_price, total_amount, product_image_url) 
@@ -509,7 +525,7 @@ const recordStripeOrder = async (req, res, next) => {
               orderId,
               cleanId || null,
               cleanSku || 'ABL-JEW',
-              item.name || item.productName || 'Fine Jewellery Selection',
+              cleanName || 'Fine Jewellery Selection',
               item.size || item.color || item.variantName || null,
               qty,
               unitPrice,
@@ -519,17 +535,20 @@ const recordStripeOrder = async (req, res, next) => {
           );
 
           // Deduct stock in DB
-          if (cleanId || cleanSku || cleanName) {
+          if (cleanId || cleanSku || cleanName || cleanSlug) {
             try {
               await db.query(
-                `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) 
-                 WHERE id = ? OR uuid = ? OR slug = ? OR (name = ? AND name != '')`,
-                [qty, cleanId || null, cleanId || null, cleanId || null, cleanName || null]
+                `UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) 
+                 WHERE product_id IN (
+                   SELECT id FROM products 
+                   WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '') OR (slug = ? AND slug != '')
+                 ) OR sku = ? OR (sku = ? AND sku != '')`,
+                [qty, cleanId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null, cleanSku || null, cleanId || null]
               );
               await db.query(
-                `UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) 
-                 WHERE product_id IN (SELECT id FROM products WHERE id = ? OR uuid = ? OR slug = ? OR (name = ? AND name != '')) OR sku = ?`,
-                [qty, cleanId || null, cleanId || null, cleanId || null, cleanName || null, cleanSku || null]
+                `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) 
+                 WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '') OR (slug = ? AND slug != '')`,
+                [qty, cleanId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null]
               );
             } catch (stockDbErr) {
               console.warn('DB stock update note:', stockDbErr.message);

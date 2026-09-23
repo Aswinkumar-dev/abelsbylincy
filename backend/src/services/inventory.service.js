@@ -17,8 +17,11 @@ const adjustStock = async (connection, variantId, quantity, movementType, refere
   if (!targetVariantId && productId) {
     try {
       const [vars] = await connection.query(
-        'SELECT id FROM product_variants WHERE product_id = ? ORDER BY is_default DESC, id ASC LIMIT 1',
-        [productId]
+        `SELECT pv.id FROM product_variants pv 
+         LEFT JOIN products p ON pv.product_id = p.id 
+         WHERE pv.id = ? OR pv.sku = ? OR p.id = ? OR p.uuid = ? OR p.sku = ? OR p.slug = ? OR (p.name = ? AND p.name != '')
+         ORDER BY pv.is_default DESC, pv.id ASC LIMIT 1`,
+        [productId, productId, productId, productId, productId, productId, productId]
       );
       if (vars.length > 0) {
         targetVariantId = vars[0].id;
@@ -26,19 +29,37 @@ const adjustStock = async (connection, variantId, quantity, movementType, refere
     } catch (_) {}
   }
 
-  if (!targetVariantId) return;
+  if (targetVariantId) {
+    if (quantity < 0) {
+      const deductQty = Math.abs(quantity);
+      await connection.query(
+        'UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) WHERE id = ?',
+        [deductQty, targetVariantId]
+      );
+    } else {
+      await connection.query(
+        'UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?',
+        [quantity, targetVariantId]
+      );
+    }
+  }
 
-  if (quantity < 0) {
-    const deductQty = Math.abs(quantity);
-    await connection.query(
-      'UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) WHERE id = ?',
-      [deductQty, targetVariantId]
-    );
-  } else {
-    await connection.query(
-      'UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?',
-      [quantity, targetVariantId]
-    );
+  if (productId) {
+    try {
+      if (quantity < 0) {
+        await connection.query(
+          `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) 
+           WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '')`,
+          [Math.abs(quantity), productId, productId, productId, productId, productId]
+        );
+      } else {
+        await connection.query(
+          `UPDATE products SET stock_quantity = stock_quantity + ? 
+           WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '')`,
+          [quantity, productId, productId, productId, productId, productId]
+        );
+      }
+    } catch (_) {}
   }
 
   // Log inventory movement

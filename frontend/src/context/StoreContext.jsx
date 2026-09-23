@@ -760,8 +760,8 @@ export function StoreProvider({ children }) {
   // ============================================================
   const addToCart = useCallback((id, qty = 1, size = '', color = '') => {
     setCart(prev => {
-      const existing = prev.find(i => i.id === id && (i.size || '') === (size || '') && (i.color || '') === (color || ''));
-      const product = products.find(p => p.id === id);
+      const existing = prev.find(i => (i.id === id || i.productId === id) && (i.size || '') === (size || '') && (i.color || '') === (color || ''));
+      const product = products.find(p => p.id === id || p.sku === id || p.slug === id);
       if (!product) return prev;
       let itemImg = product.images?.[0] || product.image;
       if (color && product.colorImages?.[color]?.[0]) {
@@ -772,11 +772,23 @@ export function StoreProvider({ children }) {
         : Number(product.price);
 
       if (existing) {
-        return prev.map(i => (i.id === id && (i.size || '') === (size || '') && (i.color || '') === (color || '')) ? { ...i, quantity: i.quantity + qty } : i);
+        return prev.map(i => ((i.id === id || i.productId === id) && (i.size || '') === (size || '') && (i.color || '') === (color || '')) ? { ...i, quantity: i.quantity + qty } : i);
       }
-      return [...prev, { id, name: product.name, price: itemPrice, image: itemImg, quantity: qty, size: size || '', color: color || '' }];
+      return [...prev, {
+        id: product.id || id,
+        productId: product.id || id,
+        sku: product.sku || '',
+        slug: product.slug || '',
+        name: product.name,
+        category: product.category || '',
+        price: itemPrice,
+        image: itemImg,
+        quantity: qty,
+        size: size || '',
+        color: color || ''
+      }];
     });
-    const product = products.find(p => p.id === id);
+    const product = products.find(p => p.id === id || p.sku === id || p.slug === id);
     if (typeof window !== 'undefined' && window.gtag && product) {
       window.gtag('event', 'add_to_cart', {
         currency: 'AUD',

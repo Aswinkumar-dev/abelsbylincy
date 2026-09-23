@@ -268,8 +268,30 @@ export default function CheckoutPage() {
   const grandTotal = Math.max(0, subtotal - discountAmount + shippingFee);
 
   const userEmail = (currentUser?.email || formData.email || '').trim().toLowerCase();
-  const customerHasPriorOrders = (orders || []).some(o => (o.email || '').trim().toLowerCase() === userEmail) || (Number(currentUser?.orders) > 0);
+  
+  // Comprehensive check for prior customer orders across live orders, customers directory, and auth state
+  const customerHasPriorOrders = Boolean(
+    userEmail && (
+      (orders || []).some(o => {
+        const oEmail = (o.email || o.guest_email || o.customerEmail || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '').trim().toLowerCase();
+        return oEmail === userEmail && o.status !== 'Cancelled' && o.status !== 'Refunded';
+      }) ||
+      (customers || []).some(c => (c.email || '').trim().toLowerCase() === userEmail && ((Number(c.orders) > 0) || (c.spent && c.spent !== '$0.00' && c.spent !== '$0'))) ||
+      (Number(currentUser?.orders) > 0)
+    )
+  );
   const isFirstTimeCustomer = !customerHasPriorOrders;
+
+  // Automatically revoke and notify if a first-order coupon was applied but customer is a returning purchaser
+  useEffect(() => {
+    if (appliedCoupon && !isFirstTimeCustomer) {
+      const isFirstOrderCoupon = /FIRST|WELCOME/i.test(appliedCoupon.code) || /first order|welcome/i.test(appliedCoupon.label || '');
+      if (isFirstOrderCoupon) {
+        setAppliedCoupon(null);
+        setCouponError(`Coupon "${appliedCoupon.code}" is valid only for your first order.`);
+      }
+    }
+  }, [appliedCoupon, isFirstTimeCustomer]);
 
   // Only show first-order coupons (like FIRSTORDER, WELCOME10) for genuine first-time customers
   const activeStoreCoupons = (coupons || []).filter(c => {
