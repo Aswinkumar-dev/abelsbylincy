@@ -458,7 +458,7 @@ export function StoreProvider({ children }) {
 
   useEffect(() => {
     syncBackendData();
-  }, [syncBackendData, adminLoggedIn]);
+  }, [syncBackendData, adminLoggedIn, currentUser?.email]);
 
   // Cross-tab real-time sync via storage event (for session, cart, wishlist, products)
   useEffect(() => {
