@@ -14,7 +14,7 @@ import {
 const STEPS = ['Shipping', 'Payment', 'Review & Place'];
 
 export default function CheckoutPage() {
-  const { cart, setCart, currentUser, formatMoney, placeOrder, saveUserAddress, showToast, orders, setOrders, customers, setCustomers, coupons, products, setProducts } = useStore();
+  const { cart, setCart, currentUser, formatMoney, placeOrder, saveUserAddress, showToast, orders, setOrders, customers, setCustomers, coupons, products, setProducts, syncBackendData } = useStore();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [paymentTab, setPaymentTab] = useState('card');
@@ -442,8 +442,10 @@ export default function CheckoutPage() {
 
       let formattedTotal = formatMoney ? formatMoney(finalPaidAmount) : `$${finalPaidAmount.toFixed(2)}`;
 
+      const isExpress = shippingMethodChoice === 'express' || String(savedMeta.shippingMethod || savedFormData?.shippingMethod || '').toLowerCase().includes('express') || returnShipping >= 15;
       const estDelivery = new Date();
-      estDelivery.setDate(estDelivery.getDate() + 4);
+      const addDays = isExpress ? 2 : 4;
+      estDelivery.setDate(estDelivery.getDate() + addDays);
       const deliveryDateStr = estDelivery.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
       // Generate a guaranteed unique high-entropy Order ID (combining timestamp milliseconds + random entropy)
@@ -470,7 +472,7 @@ export default function CheckoutPage() {
         discount: returnDiscount > 0 ? `$${returnDiscount.toFixed(2)}` : null,
         discountAmount: returnDiscount,
         couponCode: savedDiscountInfo.couponCode || savedMeta.couponCode || null,
-        shippingMethod: shippingMethodChoice === 'express' ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)',
+        shippingMethod: isExpress ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)',
         shippingFee: returnShipping,
         paymentMethod: 'Stripe Encrypted Payment (Verified)',
         sessionId: sessionId
@@ -578,7 +580,13 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: confirmedOrder })
-      }).catch(e => console.warn('Backend order record note:', e));
+      })
+      .then(() => {
+        if (typeof syncBackendData === 'function') {
+          syncBackendData();
+        }
+      })
+      .catch(e => console.warn('Backend order record note:', e));
     }
   }, []);
 
@@ -1253,15 +1261,33 @@ export default function CheckoutPage() {
           <div>
             <div style={{ background: 'var(--cloud-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: 20 }}>
               <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 17, fontWeight: 600, marginBottom: 14 }}>Bag Items ({activeCartItems.length})</h4>
-              <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 16 }}>
-                {activeCartItems.map(item => (
-                  <div key={`${item.id}-${item.size}`} style={{ display: 'flex', gap: 10, marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid var(--border-light)' }}>
-                    <img src={item.image} style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover' }} alt={item.name} />
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--onyx)', margin: 0 }}>{item.name}</p>
+              <div
+                className="custom-scrollbar"
+                style={{
+                  maxHeight: activeCartItems.length > 3 ? 270 : 'none',
+                  overflowY: activeCartItems.length > 3 ? 'auto' : 'visible',
+                  marginBottom: 16,
+                  paddingRight: activeCartItems.length > 3 ? 6 : 0
+                }}
+              >
+                {activeCartItems.map((item, idx) => (
+                  <div
+                    key={`${item.id}-${item.size}-${idx}`}
+                    style={{
+                      display: 'flex',
+                      gap: 12,
+                      alignItems: 'center',
+                      marginBottom: idx === activeCartItems.length - 1 ? 0 : 10,
+                      paddingBottom: idx === activeCartItems.length - 1 ? 0 : 10,
+                      borderBottom: idx === activeCartItems.length - 1 ? 'none' : '1px solid var(--border-light)'
+                    }}
+                  >
+                    <img src={item.image} style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt={item.name} />
+                    <div style={{ flex: 1, minWidth: 0, paddingRight: 4 }}>
+                      <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--onyx)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
                       <p style={{ fontSize: 11, color: 'var(--slate)', margin: '2px 0 0 0' }}>Qty: {item.quantity} · {formatMoney(item.price)}</p>
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{formatMoney(item.price * item.quantity)}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, flexShrink: 0, color: 'var(--onyx)' }}>{formatMoney(item.price * item.quantity)}</span>
                   </div>
                 ))}
               </div>

@@ -84,12 +84,29 @@ const fetchAllProductsFromDB = async () => {
     }
   });
 
-  // 2. Add / merge file & memory products
+  // 2. Add / merge file & memory products (ensuring MySQL authoritative stockQty and price are strictly preserved)
   fileProducts.forEach(p => {
     const k = p.id || p.sku || p.slug;
     if (k && !isPurgedProduct(p)) {
-      if (prodMap.has(String(k))) {
-        prodMap.set(String(k), { ...prodMap.get(String(k)), ...p });
+      const existingKey = Array.from(prodMap.keys()).find(mapKey => {
+        const item = prodMap.get(mapKey);
+        return mapKey === String(k) ||
+          String(item.id) === String(p.id) ||
+          (p.sku && item.sku && String(item.sku).trim().toUpperCase() === String(p.sku).trim().toUpperCase()) ||
+          (p.slug && item.slug && String(item.slug).trim().toLowerCase() === String(p.slug).trim().toLowerCase()) ||
+          (p.name && item.name && String(item.name).trim().toLowerCase() === String(p.name).trim().toLowerCase());
+      });
+
+      if (existingKey) {
+        const dbProd = prodMap.get(existingKey);
+        prodMap.set(existingKey, {
+          ...p,
+          ...dbProd,
+          stockQty: dbProd.stockQty !== undefined ? dbProd.stockQty : (p.stockQty ?? 10),
+          inStock: dbProd.stockQty !== undefined ? (dbProd.stockQty > 0) : (p.inStock ?? true),
+          price: dbProd.price !== undefined ? dbProd.price : (parseFloat(p.price) || 0),
+          salePrice: dbProd.salePrice !== undefined ? dbProd.salePrice : (parseFloat(p.salePrice) || 0)
+        });
       } else {
         prodMap.set(String(k), p);
       }

@@ -229,6 +229,17 @@ const sendOrderConfirmationEmail = async (orderData) => {
       </tr>
     `;
 
+    // Estimated Delivery Date Calculation based on shipping choice:
+    // Express Shipping = within 2 days; Standard Shipping = within 3-4 days
+    const isExpress = /express/i.test(String(shippingMethod || orderData.shippingMethodChoice || '')) || shippingFee >= 15;
+    let finalDeliveryEstimate = estimatedDeliveryDate;
+    if (!finalDeliveryEstimate || finalDeliveryEstimate.includes('3-5') || finalDeliveryEstimate.includes('business days')) {
+      const addDays = isExpress ? 2 : 4;
+      const estDate = new Date();
+      estDate.setDate(estDate.getDate() + addDays);
+      finalDeliveryEstimate = estDate.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
     const variables = {
       orderNumber: orderNumber || '#ABL-2026-8842',
       customerName: cleanCustomerName,
@@ -238,7 +249,7 @@ const sendOrderConfirmationEmail = async (orderData) => {
       suburb: suburb || 'Brisbane City',
       state: state || 'Queensland (QLD)',
       postcode: postcode || '4061',
-      estimatedDeliveryDate: estimatedDeliveryDate || 'In 3-5 business days',
+      estimatedDeliveryDate: finalDeliveryEstimate,
       itemsHtml: itemsHtml,
       summaryBreakdownHtml: summaryBreakdownHtml,
       orderTotal: finalTotalStr,

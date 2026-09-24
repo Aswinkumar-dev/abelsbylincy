@@ -1427,13 +1427,25 @@ export function StoreProvider({ children }) {
     });
     setProducts(updatedProducts);
 
+    const isExpress = checkoutData.shippingMethod === 'express' || String(checkoutData.shippingMethod || '').toLowerCase().includes('express');
+    const estDelivery = new Date();
+    estDelivery.setDate(estDelivery.getDate() + (isExpress ? 2 : 4));
+    const deliveryDateStr = estDelivery.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
     const newOrder = {
       id: `#ABL-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-      customer: `${checkoutData.firstName} ${checkoutData.lastName}`.trim(),
-      email: checkoutData.email,
+      customer: `${checkoutData.firstName || ''} ${checkoutData.lastName || ''}`.trim() || 'Valued Customer',
+      email: checkoutData.email || '',
+      phone: checkoutData.phone || '',
+      address: checkoutData.address || '',
+      city: checkoutData.city || '',
+      state: checkoutData.state || '',
+      postcode: checkoutData.postcode || '',
       product: cart.length > 1 ? `${cart[0]?.name || 'Fine Jewellery'} (+${cart.length - 1} items)` : (cart[0]?.name || 'Fine Jewellery'),
       items: cart,
       date: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      deliveryEstimate: deliveryDateStr,
+      shippingMethod: isExpress ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)',
       status: 'Confirmed',
       total: formatMoney(orderSubtotal),
       rawAmount: orderSubtotal,

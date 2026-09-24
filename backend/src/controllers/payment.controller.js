@@ -624,8 +624,14 @@ const recordStripeOrder = async (req, res, next) => {
       console.error('FileStore order & stock update error:', fsErr.message);
     }
 
-    // Dispatch order confirmation email reliably
+    // Dispatch order confirmation email reliably with accurate delivery date
     try {
+      const isExpressShipping = /express/i.test(String(order.shippingMethod || '')) || shippingAmount >= 15;
+      const estDate = new Date();
+      estDate.setDate(estDate.getDate() + (isExpressShipping ? 2 : 4));
+      const autoEstDelivery = estDate.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const finalDeliveryEstimate = (order.deliveryEstimate && !order.deliveryEstimate.includes('3-5')) ? order.deliveryEstimate : autoEstDelivery;
+
       await sendOrderConfirmationEmail({
         orderNumber: orderNumber,
         customerName: order.customer || 'Valued Customer',
@@ -635,14 +641,14 @@ const recordStripeOrder = async (req, res, next) => {
         suburb: order.city || '',
         state: order.state || '',
         postcode: order.postcode || '',
-        estimatedDeliveryDate: order.deliveryEstimate || 'In 3-5 business days',
+        estimatedDeliveryDate: finalDeliveryEstimate,
         purchasedItems: order.items || [],
         subtotal: subtotal,
         orderTotal: order.total || `$${totalAmount.toFixed(2)} AUD`,
         discountAmount: discountAmount,
         couponCode: order.couponCode || null,
         shippingFee: shippingAmount,
-        shippingMethod: order.shippingMethod || 'Standard Shipping (Australia Post)',
+        shippingMethod: order.shippingMethod || (isExpressShipping ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)'),
         rawAmount: totalAmount,
         orderDate: order.date || 'Today'
       });

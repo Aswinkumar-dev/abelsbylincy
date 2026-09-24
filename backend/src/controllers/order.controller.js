@@ -217,7 +217,7 @@ const syncOrders = async (req, res, next) => {
     }
 
     if (order) {
-      const key = order.id || order.order_number || `ABL-${Date.now()}`;
+      const key = String(order.id || order.order_number || `ABL-${Date.now()}`).trim();
       const idx = currentOrders.findIndex(o => o.id === key || o.order_number === key);
       if (idx !== -1) {
         currentOrders[idx] = { ...currentOrders[idx], ...order, id: key };
@@ -226,16 +226,116 @@ const syncOrders = async (req, res, next) => {
       }
       saveStoredOrders(currentOrders);
 
-      // Persist status or tracking updates directly into MySQL
+      // Persist full order, addresses, items, and stock reduction directly into MySQL
       try {
-        await db.query(
-          `UPDATE orders SET 
-             status = COALESCE(?, status),
-             tracking_number = COALESCE(?, tracking_number),
-             updated_at = NOW()
-           WHERE order_number = ? OR id = ?`,
-          [order.status || null, order.trackingNumber || null, key, key]
-        );
+        const orderUuid = order.uuid || require('crypto').randomUUID();
+        const guestEmail = order.email || order.guest_email || 'customer@abelsbylincy.com';
+        const totalAmount = parseFloat(order.rawAmount !== undefined ? order.rawAmount : String(order.total || '0').replace(/[^0-9.]/g, '')) || 0;
+        const subtotal = parseFloat(order.subtotal || totalAmount) || totalAmount;
+        const discountAmount = parseFloat(order.discountAmount || 0) || 0;
+        const shippingAmount = parseFloat(order.shippingFee || order.shippingAmount || 0) || 0;
+        const statusVal = order.status || 'Confirmed';
+
+        let orderDbId = null;
+        const [existing] = await db.query('SELECT id FROM orders WHERE order_number = ? OR id = ?', [key, key]);
+        if (existing.length > 0) {
+          orderDbId = existing[0].id;
+          await db.query(
+            `UPDATE orders SET 
+               status = COALESCE(?, status),
+               tracking_number = COALESCE(?, tracking_number),
+               guest_email = COALESCE(?, guest_email),
+               subtotal = COALESCE(?, subtotal),
+               discount_amount = COALESCE(?, discount_amount),
+               shipping_amount = COALESCE(?, shipping_amount),
+               total_amount = COALESCE(?, total_amount),
+               payment_status = 'paid',
+               updated_at = NOW()
+             WHERE id = ?`,
+            [order.status || null, order.trackingNumber || null, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, orderDbId]
+          );
+        } else {
+          const [orderResult] = await db.query(
+            `INSERT INTO orders 
+              (uuid, order_number, guest_email, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, placed_at) 
+             VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'paid', 'dispatching', ?, NOW())`,
+            [orderUuid, key, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null]
+          );
+          orderDbId = orderResult.insertId;
+        }
+
+        // Record addresses if provided
+        if (orderDbId && (order.address || order.city || order.state)) {
+          const custName = String(order.customer || order.name || '').trim();
+          const firstName = custName.split(' ')[0] || 'Valued';
+          const lastName = custName.split(' ').slice(1).join(' ') || 'Customer';
+
+          const [existingAddr] = await db.query('SELECT id FROM order_addresses WHERE order_id = ? AND address_type = "shipping"', [orderDbId]);
+          if (existingAddr.length > 0) {
+            await db.query(
+              `UPDATE order_addresses SET
+                 first_name = ?, last_name = ?, address_line_1 = ?, suburb = ?, state = ?, postcode = ?, phone = ?
+               WHERE id = ?`,
+              [firstName, lastName, order.address || '', order.city || '', order.state || '', order.postcode || '', order.phone || '', existingAddr[0].id]
+            );
+          } else {
+            await db.query(
+              `INSERT INTO order_addresses (order_id, address_type, first_name, last_name, address_line_1, suburb, state, postcode, country, phone) 
+               VALUES (?, 'shipping', ?, ?, ?, ?, ?, ?, 'Australia', ?)`,
+              [orderDbId, firstName, lastName, order.address || '', order.city || '', order.state || '', order.postcode || '', order.phone || '']
+            );
+          }
+        }
+
+        // Record items and deduct stock in MySQL
+        if (orderDbId && Array.isArray(order.items) && order.items.length > 0) {
+          await db.query('DELETE FROM order_items WHERE order_id = ?', [orderDbId]);
+          for (const item of order.items) {
+            const qty = parseInt(item.quantity || 1, 10);
+            const unitPrice = parseFloat(item.price || item.unitPrice || 0);
+            const cleanId = item.id || item.productId;
+            const cleanSku = item.sku || null;
+            const cleanName = (item.name || item.productName || '').trim();
+            const cleanSlug = (item.slug || cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '').trim();
+
+            await db.query(
+              `INSERT INTO order_items (order_id, product_id, sku, product_name, variant_name, quantity, unit_price, total_amount, product_image_url) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                orderDbId,
+                cleanId || null,
+                cleanSku || 'ABL-JEW',
+                cleanName || 'Fine Jewellery Selection',
+                item.size || item.color || item.variantName || null,
+                qty,
+                unitPrice,
+                unitPrice * qty,
+                item.image || item.productImageUrl || null
+              ]
+            );
+
+            // Deduct stock in DB
+            if (cleanId || cleanSku || cleanName || cleanSlug) {
+              try {
+                await db.query(
+                  `UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) 
+                   WHERE product_id IN (
+                     SELECT id FROM products 
+                     WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '') OR (slug = ? AND slug != '')
+                   ) OR sku = ? OR (sku = ? AND sku != '')`,
+                  [qty, cleanId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null, cleanSku || null, cleanId || null]
+                );
+                await db.query(
+                  `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) 
+                   WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '') OR (slug = ? AND slug != '')`,
+                  [qty, cleanId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null]
+                );
+              } catch (stockDbErr) {
+                console.warn('DB stock update note:', stockDbErr.message);
+              }
+            }
+          }
+        }
       } catch (dbErr) {
         console.warn('⚠️ Order sync DB note:', dbErr.message);
       }

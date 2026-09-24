@@ -122,20 +122,44 @@ input, select, textarea {
   color: inherit;
 }
 
-/* Scrollbar */
+/* Scrollbar - Clean, subtle, modern styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #D6CEBE transparent;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--gold);
-  border-radius: 3px;
+  background: #D6CEBE;
+  border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gold-hover);
+  background: #C4B9A3;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #D6CEBE transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #D6CEBE;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--gold);
 }
 
 ::selection {
