@@ -61,8 +61,16 @@ const fetchAllProductsFromDB = async () => {
       const uuid = p.uuid ? String(p.uuid) : '';
       const stableId = uuid.startsWith('p_') ? uuid : (p.sku || uuid || String(p.id));
         const directStock = (p.stock_quantity !== undefined && p.stock_quantity !== null) ? Number(p.stock_quantity) : null;
-        const variantStock = (p.variants?.[0]?.stock_quantity !== undefined && p.variants?.[0]?.stock_quantity !== null) ? Number(p.variants[0].stock_quantity) : null;
-        const finalStock = directStock !== null ? (variantStock !== null ? Math.min(directStock, variantStock) : directStock) : (variantStock !== null ? variantStock : 10);
+        // Sum all active variant stock (real inventory source — product_variants is authoritative)
+        const totalVariantStock = Array.isArray(p.variants) && p.variants.length > 0
+          ? p.variants.reduce((sum, v) => sum + (v.stock_quantity !== null && v.stock_quantity !== undefined ? Number(v.stock_quantity) : 0), 0)
+          : null;
+        // Variants are the single source of truth for stock. Product-level stock is only a fallback
+        // when there are no variants (and only if it is > 0, since DB default is 0).
+        const finalStock = totalVariantStock !== null
+          ? totalVariantStock
+          : (directStock !== null && directStock > 0 ? directStock : 10);
+
 
         prodMap.set(String(stableId), {
           ...p,
@@ -614,15 +622,12 @@ const deductStock = async (req, res, next) => {
 
         const prodIds = prodRows.map(r => r.id);
 
-        // Deduct from products table (product-level stock)
-        const [prodResult] = await db.query(
-          `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) WHERE id IN (?)`,
-          [qty, prodIds]
-        );
-
-        // Deduct from ALL active variants of those products
+        // Deduct from product_variants ONLY — this is the authoritative stock column.
+        // products.stock_quantity is 0 by default (not set during product creation) so we skip it.
         const [varResult] = await db.query(
-          `UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) WHERE product_id IN (?) AND is_active = TRUE`,
+          `UPDATE product_variants 
+           SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - ?) 
+           WHERE product_id IN (?) AND is_active = TRUE`,
           [qty, prodIds]
         );
 
@@ -649,8 +654,8 @@ const deductStock = async (req, res, next) => {
         results.push({
           item,
           status: 'deducted',
-          prodRowsAffected: prodResult.affectedRows,
-          varRowsAffected: varResult.affectedRows
+          varRowsAffected: varResult.affectedRows,
+          prodIds
         });
       } catch (itemErr) {
         results.push({ item, status: 'error', reason: itemErr.message });

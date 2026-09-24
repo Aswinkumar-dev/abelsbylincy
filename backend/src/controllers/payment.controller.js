@@ -534,21 +534,16 @@ const recordStripeOrder = async (req, res, next) => {
             ]
           );
 
-          // Deduct stock in DB
+          // Deduct stock in DB — product_variants is the authoritative stock column
           if (cleanId || cleanSku || cleanName || cleanSlug) {
             try {
               await db.query(
-                `UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) 
+                `UPDATE product_variants SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - ?) 
                  WHERE product_id IN (
                    SELECT id FROM products 
                    WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '') OR (slug = ? AND slug != '')
-                 ) OR sku = ? OR (sku = ? AND sku != '')`,
-                [qty, cleanId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null, cleanSku || null, cleanId || null]
-              );
-              await db.query(
-                `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) 
-                 WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '') OR (slug = ? AND slug != '')`,
-                [qty, cleanId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null]
+                 ) OR (sku = ? AND sku != '')`,
+                [qty, cleanId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null, cleanSku || null]
               );
             } catch (stockDbErr) {
               console.warn('DB stock update note:', stockDbErr.message);
