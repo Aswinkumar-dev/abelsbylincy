@@ -571,11 +571,104 @@ const getProductBySlug = async (req, res, next) => {
   }
 };
 
+// Dedicated stock deduction endpoint — called immediately after a successful purchase
+// Uses name + sku + slug multi-match so ID format mismatches never block deduction
+const deductStock = async (req, res, next) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(200).json({ success: true, message: 'No items to deduct.' });
+    }
+
+    const results = [];
+    for (const item of items) {
+      const qty = parseInt(item.quantity || 1, 10);
+      const name = (item.name || item.productName || '').trim();
+      const sku = (item.sku || '').trim();
+      const slug = (item.slug || '').trim();
+
+      if (!name && !sku && !slug) {
+        results.push({ item, status: 'skipped', reason: 'no identifier' });
+        continue;
+      }
+
+      try {
+        // Find the product numeric ID(s) first using all available identifiers
+        let findClauses = [];
+        let findParams = [];
+        if (sku) { findClauses.push('p.sku = ?'); findParams.push(sku); }
+        if (slug) { findClauses.push('p.slug = ?'); findParams.push(slug); }
+        if (name) { findClauses.push('p.name = ?'); findParams.push(name); }
+
+        if (findClauses.length === 0) continue;
+
+        const [prodRows] = await db.query(
+          `SELECT p.id FROM products p WHERE ${findClauses.join(' OR ')} LIMIT 5`,
+          findParams
+        );
+
+        if (prodRows.length === 0) {
+          results.push({ item, status: 'not_found' });
+          continue;
+        }
+
+        const prodIds = prodRows.map(r => r.id);
+
+        // Deduct from products table (product-level stock)
+        const [prodResult] = await db.query(
+          `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) WHERE id IN (?)`,
+          [qty, prodIds]
+        );
+
+        // Deduct from ALL active variants of those products
+        const [varResult] = await db.query(
+          `UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) WHERE product_id IN (?) AND is_active = TRUE`,
+          [qty, prodIds]
+        );
+
+        // Also deduct from file store
+        try {
+          const { getStoredProducts, saveStoredProducts } = require('../utils/fileStore');
+          const fileProds = getStoredProducts() || [];
+          let changed = false;
+          const updatedFileProds = fileProds.map(fp => {
+            const match = (sku && fp.sku && String(fp.sku).trim().toUpperCase() === String(sku).trim().toUpperCase())
+              || (slug && fp.slug && String(fp.slug).trim().toLowerCase() === String(slug).trim().toLowerCase())
+              || (name && fp.name && String(fp.name).trim().toLowerCase() === String(name).trim().toLowerCase());
+            if (match) {
+              changed = true;
+              const cur = Number(fp.stockQty ?? fp.stock_quantity ?? 0);
+              const next = Math.max(0, cur - qty);
+              return { ...fp, stockQty: next, stock_quantity: next, inStock: next > 0 };
+            }
+            return fp;
+          });
+          if (changed) saveStoredProducts(updatedFileProds);
+        } catch (_) {}
+
+        results.push({
+          item,
+          status: 'deducted',
+          prodRowsAffected: prodResult.affectedRows,
+          varRowsAffected: varResult.affectedRows
+        });
+      } catch (itemErr) {
+        results.push({ item, status: 'error', reason: itemErr.message });
+      }
+    }
+
+    return res.status(200).json({ success: true, results });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getProducts,
   getProductBySlug,
   syncProducts,
   uploadProductImage,
-  deleteProductImage
+  deleteProductImage,
+  deductStock
 };
 
