@@ -93,6 +93,7 @@ export default function Header() {
                   <Link to="/shop?category=charms" className="dropdown-link">Charms</Link>
                   <Link to="/shop?category=silver-collections" className="dropdown-link">Silver Collections</Link>
                   <Link to="/shop?category=seasonal-collections" className="dropdown-link">Seasonal Collections</Link>
+                  <Link to="/shop?category=pair-collections" className="dropdown-link">Pair Collections</Link>
                 </div>
               </div>
 
@@ -315,6 +316,7 @@ export default function Header() {
                     <Link to="/shop?category=charms" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Charms</Link>
                     <Link to="/shop?category=silver-collections" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Silver Collections</Link>
                     <Link to="/shop?category=seasonal-collections" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Seasonal Collections</Link>
+                    <Link to="/shop?category=pair-collections" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Pair Collections</Link>
                   </div>
                 )}
               </div>

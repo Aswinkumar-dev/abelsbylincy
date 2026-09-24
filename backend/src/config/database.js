@@ -226,6 +226,13 @@ async function runMigrations(connection) {
         );
         console.log('Migrated: Seeded Seasonal Collections into categories table.');
       }
+      if (!catSlugs.includes('pair-collections')) {
+        await connection.query(
+          `INSERT INTO categories (name, slug, description, image_url, sort_order, is_active)
+           VALUES ('Pair Collections', 'pair-collections', 'Curated pair collections, matching sets, and coordinated fine jewellery.', 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png', 9, TRUE)`
+        );
+        console.log('Migrated: Seeded Pair Collections into categories table.');
+      }
     } catch (catErr) {
       // ignore if categories table is not created yet
     }

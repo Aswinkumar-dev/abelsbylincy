@@ -181,17 +181,49 @@ const getAllOrders = async (req, res, next) => {
 
     const fileOrders = getStoredOrders() || [];
     
-    // Merge unique orders by order number / ID
-    const orderMap = new Map();
-    [...fileOrders, ...dbOrders].forEach(o => {
-      const key = o.id || o.order_number || o.uuid;
-      if (key) {
-        orderMap.set(String(key), { ...(orderMap.get(String(key)) || {}), ...o });
+    // Merge unique orders by order number / ID / uuid
+    const mergedList = [];
+    const isSameOrder = (a, b) => {
+      if (!a || !b) return false;
+      const aId = a.id ? String(a.id).trim() : '';
+      const bId = b.id ? String(b.id).trim() : '';
+      const aNum = a.order_number ? String(a.order_number).trim() : '';
+      const bNum = b.order_number ? String(b.order_number).trim() : '';
+      const aUuid = a.uuid ? String(a.uuid).trim() : '';
+      const bUuid = b.uuid ? String(b.uuid).trim() : '';
+      const aDbId = (a.dbId !== undefined && a.dbId !== null) ? String(a.dbId).trim() : '';
+      const bDbId = (b.dbId !== undefined && b.dbId !== null) ? String(b.dbId).trim() : '';
+
+      if (aId && bId && aId === bId) return true;
+      if (aNum && bNum && aNum === bNum) return true;
+      if (aId && bNum && aId === bNum) return true;
+      if (aNum && bId && aNum === bId) return true;
+      if (aUuid && bUuid && aUuid === bUuid) return true;
+      if (aDbId && bDbId && aDbId === bDbId) return true;
+      return false;
+    };
+
+    // Base: MySQL DB orders
+    dbOrders.forEach(dbO => {
+      const idx = mergedList.findIndex(m => isSameOrder(m, dbO));
+      if (idx === -1) {
+        mergedList.push({ ...dbO });
+      } else {
+        mergedList[idx] = { ...mergedList[idx], ...dbO };
       }
     });
 
-    const merged = Array.from(orderMap.values());
-    res.status(200).json({ success: true, orders: merged });
+    // Merge file orders
+    fileOrders.forEach(fileO => {
+      const idx = mergedList.findIndex(m => isSameOrder(m, fileO));
+      if (idx === -1) {
+        mergedList.push({ ...fileO });
+      } else {
+        mergedList[idx] = { ...mergedList[idx], ...fileO, status: fileO.status || mergedList[idx].status };
+      }
+    });
+
+    res.status(200).json({ success: true, orders: mergedList });
   } catch (error) {
     next(error);
   }
@@ -202,31 +234,58 @@ const syncOrders = async (req, res, next) => {
     const { order, orders, deleteId } = req.body;
     let currentOrders = getStoredOrders() || [];
 
+    const isMatch = (o, targetKey, targetOrder = null) => {
+      if (!o) return false;
+      const k = targetKey ? String(targetKey).trim() : '';
+      const oId = o.id ? String(o.id).trim() : '';
+      const oNum = o.order_number ? String(o.order_number).trim() : '';
+      const oUuid = o.uuid ? String(o.uuid).trim() : '';
+      const oDbId = (o.dbId !== undefined && o.dbId !== null) ? String(o.dbId).trim() : '';
+
+      if (k) {
+        if (oId === k || oNum === k || oUuid === k || oDbId === k) return true;
+      }
+      if (targetOrder) {
+        const tUuid = targetOrder.uuid ? String(targetOrder.uuid).trim() : '';
+        const tNum = targetOrder.order_number ? String(targetOrder.order_number).trim() : '';
+        const tDbId = (targetOrder.dbId !== undefined && targetOrder.dbId !== null) ? String(targetOrder.dbId).trim() : '';
+        if (tUuid && oUuid && tUuid === oUuid) return true;
+        if (tNum && oNum && tNum === oNum) return true;
+        if (tDbId && oDbId && tDbId === oDbId) return true;
+      }
+      return false;
+    };
+
     if (Array.isArray(orders)) {
       saveStoredOrders(orders);
       return res.status(200).json({ success: true, message: 'Orders synchronized successfully.', orders });
     }
 
     if (deleteId) {
-      currentOrders = currentOrders.filter(o => o.id !== deleteId && o.order_number !== deleteId);
+      currentOrders = currentOrders.filter(o => !isMatch(o, deleteId));
       saveStoredOrders(currentOrders);
       try {
-        await db.query('DELETE FROM orders WHERE order_number = ? OR id = ?', [deleteId, deleteId]);
+        await db.query('DELETE FROM orders WHERE order_number = ? OR uuid = ? OR id = ?', [deleteId, deleteId, (!isNaN(deleteId) && Number(deleteId) > 0) ? Number(deleteId) : -1]);
       } catch (_) {}
       return res.status(200).json({ success: true, message: 'Order deleted.', orders: currentOrders });
     }
 
     if (order) {
-      const key = String(order.id || order.order_number || `ABL-${Date.now()}`).trim();
-      const idx = currentOrders.findIndex(o => o.id === key || o.order_number === key);
+      const primaryKey = String(order.id || order.order_number || order.uuid || `ABL-${Date.now()}`).trim();
+      const idx = currentOrders.findIndex(o => isMatch(o, primaryKey, order));
       if (idx !== -1) {
-        currentOrders[idx] = { ...currentOrders[idx], ...order, id: key };
+        currentOrders[idx] = { 
+          ...currentOrders[idx], 
+          ...order, 
+          id: currentOrders[idx].id || primaryKey, 
+          order_number: currentOrders[idx].order_number || order.order_number || primaryKey 
+        };
       } else {
-        currentOrders.unshift({ ...order, id: key });
+        currentOrders.unshift({ ...order, id: primaryKey, order_number: order.order_number || primaryKey });
       }
       saveStoredOrders(currentOrders);
 
-      // Persist full order, addresses, items, and stock reduction directly into MySQL
+      // Persist full order, addresses, items into MySQL
       try {
         const orderUuid = order.uuid || require('crypto').randomUUID();
         const guestEmail = order.email || order.guest_email || 'customer@abelsbylincy.com';
@@ -236,13 +295,23 @@ const syncOrders = async (req, res, next) => {
         const shippingAmount = parseFloat(order.shippingFee || order.shippingAmount || 0) || 0;
         const statusVal = order.status || 'Confirmed';
 
-        let orderDbId = null;
-        const [existing] = await db.query('SELECT id FROM orders WHERE order_number = ? OR id = ?', [key, key]);
-        if (existing.length > 0) {
-          orderDbId = existing[0].id;
+        let orderDbId = order.dbId || null;
+        let isNewOrder = false;
+
+        if (!orderDbId) {
+          const [existing] = await db.query(
+            'SELECT id FROM orders WHERE order_number = ? OR uuid = ? OR id = ?', 
+            [primaryKey, orderUuid, (!isNaN(primaryKey) && Number(primaryKey) > 0) ? Number(primaryKey) : -1]
+          );
+          if (existing.length > 0) {
+            orderDbId = existing[0].id;
+          }
+        }
+
+        if (orderDbId) {
           await db.query(
             `UPDATE orders SET 
-               status = COALESCE(?, status),
+               status = ?,
                tracking_number = COALESCE(?, tracking_number),
                guest_email = COALESCE(?, guest_email),
                subtotal = COALESCE(?, subtotal),
@@ -252,14 +321,15 @@ const syncOrders = async (req, res, next) => {
                payment_status = 'paid',
                updated_at = NOW()
              WHERE id = ?`,
-            [order.status || null, order.trackingNumber || null, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, orderDbId]
+            [statusVal, order.trackingNumber || null, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, orderDbId]
           );
         } else {
+          isNewOrder = true;
           const [orderResult] = await db.query(
             `INSERT INTO orders 
               (uuid, order_number, guest_email, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, placed_at) 
              VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'paid', 'dispatching', ?, NOW())`,
-            [orderUuid, key, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null]
+            [orderUuid, primaryKey, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null]
           );
           orderDbId = orderResult.insertId;
         }
@@ -287,8 +357,8 @@ const syncOrders = async (req, res, next) => {
           }
         }
 
-        // Record items and deduct stock in MySQL
-        if (orderDbId && Array.isArray(order.items) && order.items.length > 0) {
+        // Record items and deduct stock in MySQL ONLY on initial order creation
+        if (isNewOrder && orderDbId && Array.isArray(order.items) && order.items.length > 0) {
           await db.query('DELETE FROM order_items WHERE order_id = ?', [orderDbId]);
           for (const item of order.items) {
             const qty = parseInt(item.quantity || 1, 10);

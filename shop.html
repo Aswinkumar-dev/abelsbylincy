@@ -160,7 +160,8 @@
         { id: 'earrings', label: 'Earrings' },
         { id: 'charms', label: 'Charms' },
         { id: 'silver-collections', label: 'Silver Collections' },
-        { id: 'seasonal-collections', label: 'Seasonal Collections' }
+        { id: 'seasonal-collections', label: 'Seasonal Collections' },
+        { id: 'pair-collections', label: 'Pair Collections' }
       ];
       const catListEl = document.getElementById('category-filter-list');
       if (catListEl) {
@@ -178,6 +179,7 @@
                     if (cat === 'charms' || cat === 'charm') return pCat === 'charms' || pCat === 'charm' || (p.name && p.name.toLowerCase().includes('charm'));
                     if (cat === 'silver-collections' || cat === 'silver') return pCat === 'silver-collections' || pCat === 'silver' || (p.material && p.material.toLowerCase().includes('silver'));
                     if (cat === 'seasonal-collections' || cat === 'seasonal') return pCat === 'seasonal-collections' || pCat === 'seasonal';
+                    if (cat === 'pair-collections' || cat === 'pair-collection' || cat === 'pair' || cat === 'pairs') return pCat === 'pair-collections' || pCat === 'pair-collection' || pCat === 'pair' || pCat === 'pairs' || (p.name && p.name.toLowerCase().includes('pair'));
                     return pCat === cat;
                   }).length;
           return `
@@ -410,6 +412,8 @@
             if (pCat !== 'silver-collections' && pCat !== 'silver' && !(p.material && p.material.toLowerCase().includes('silver'))) return false;
           } else if (active === 'seasonal-collections' || active === 'seasonal') {
             if (pCat !== 'seasonal-collections' && pCat !== 'seasonal') return false;
+          } else if (active === 'pair-collections' || active === 'pair-collection' || active === 'pair' || active === 'pairs') {
+            if (pCat !== 'pair-collections' && pCat !== 'pair-collection' && pCat !== 'pair' && pCat !== 'pairs' && !(p.name && p.name.toLowerCase().includes('pair'))) return false;
           } else if (pCat !== active) {
             return false;
           }

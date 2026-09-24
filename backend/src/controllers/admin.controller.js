@@ -207,7 +207,10 @@ const updateOrderStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status, trackingNumber, carrier } = req.body;
 
-    const [orders] = await db.query('SELECT * FROM orders WHERE id = ?', [id]);
+    const [orders] = await db.query(
+      'SELECT * FROM orders WHERE id = ? OR order_number = ? OR uuid = ?', 
+      [id, id, id]
+    );
     if (orders.length === 0) {
       return res.status(404).json({ success: false, message: 'Order not found.' });
     }
@@ -255,7 +258,7 @@ const updateOrderStatus = async (req, res, next) => {
     }
 
     updateQuery += ' WHERE id = ?';
-    params.push(id);
+    params.push(order.id);
 
     await db.query(updateQuery, params);
 

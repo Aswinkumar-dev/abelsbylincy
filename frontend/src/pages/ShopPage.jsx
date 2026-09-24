@@ -11,6 +11,7 @@ const CATEGORY_LABELS = {
   rings: 'Rings', necklaces: 'Necklaces', earrings: 'Earrings',
   bracelets: 'Bracelets', bangles: 'Bangles', charms: 'Charms',
   'silver-collections': 'Silver Collections', 'seasonal-collections': 'Seasonal Collections',
+  'pair-collections': 'Pair Collections',
 };
 
 export function isProductInCat(p, catId) {
@@ -33,6 +34,7 @@ export function isProductInCat(p, catId) {
     if (c === 'charms' || c === 'charm') return 'charms';
     if (c === 'silver-collections' || c === 'silver-collection' || c === 'silver') return 'silver-collections';
     if (c === 'seasonal-collections' || c === 'seasonal-collection' || c === 'seasonal') return 'seasonal-collections';
+    if (c === 'pair-collections' || c === 'pair-collection' || c === 'pair' || c === 'pairs' || c === 'pair collections' || c === 'pair collection') return 'pair-collections';
     return c;
   };
 
@@ -55,6 +57,14 @@ export function isProductInCat(p, catId) {
     return normPCat === 'seasonal-collections' ||
       (p.collection && p.collection.toLowerCase().includes('seasonal')) ||
       (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('seasonal')));
+  }
+
+  if (normActive === 'pair-collections') {
+    return normPCat === 'pair-collections' ||
+      normPCat === 'pair collections' ||
+      (p.collection && p.collection.toLowerCase().includes('pair')) ||
+      (p.name && p.name.toLowerCase().includes('pair')) ||
+      (Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase().includes('pair')));
   }
 
   // Fallback check against product tags
@@ -92,6 +102,7 @@ export default function ShopPage() {
     { id: 'charms', label: 'Charms' },
     { id: 'silver-collections', label: 'Silver Collections' },
     { id: 'seasonal-collections', label: 'Seasonal Collections' },
+    { id: 'pair-collections', label: 'Pair Collections' },
   ];
 
   const clearFilters = () => {

@@ -37,6 +37,7 @@ const DEFAULT_CATEGORIES = [
   { id: 'charms', name: 'Charms', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp' },
   { id: 'silver-collections', name: 'Silver Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp' },
   { id: 'seasonal-collections', name: 'Seasonal Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png' },
+  { id: 'pair-collections', name: 'Pair Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png' },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -156,6 +157,8 @@ export const CAT_FALLBACK_IMAGES = {
   charms: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp',
   'silver-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp',
   'seasonal-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png',
+  'pair-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png',
+  'pair collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png',
 };
 
 export function sanitizeProduct(p) {
@@ -250,6 +253,70 @@ export function mergeCartLists(dbItems = [], localItems = []) {
   return merged;
 }
 
+export function matchesOrderId(o, targetKey) {
+  if (!o || targetKey === undefined || targetKey === null || targetKey === '') return false;
+  const target = String(targetKey).trim();
+  if (o.id && String(o.id).trim() === target) return true;
+  if (o.order_number && String(o.order_number).trim() === target) return true;
+  if (o.uuid && String(o.uuid).trim() === target) return true;
+  if (o.dbId !== undefined && o.dbId !== null && String(o.dbId).trim() === target) return true;
+  if (o.sessionId && String(o.sessionId).trim() === target) return true;
+  return false;
+}
+
+export function areSameOrder(a, b) {
+  if (!a || !b) return false;
+  const aId = a.id ? String(a.id).trim() : '';
+  const bId = b.id ? String(b.id).trim() : '';
+  const aNum = a.order_number ? String(a.order_number).trim() : '';
+  const bNum = b.order_number ? String(b.order_number).trim() : '';
+  const aUuid = a.uuid ? String(a.uuid).trim() : '';
+  const bUuid = b.uuid ? String(b.uuid).trim() : '';
+  const aDbId = (a.dbId !== undefined && a.dbId !== null) ? String(a.dbId).trim() : '';
+  const bDbId = (b.dbId !== undefined && b.dbId !== null) ? String(b.dbId).trim() : '';
+  const aSession = a.sessionId ? String(a.sessionId).trim() : '';
+  const bSession = b.sessionId ? String(b.sessionId).trim() : '';
+
+  if (aId && bId && aId === bId) return true;
+  if (aNum && bNum && aNum === bNum) return true;
+  if (aId && bNum && aId === bNum) return true;
+  if (aNum && bId && aNum === bId) return true;
+  if (aUuid && bUuid && aUuid === bUuid) return true;
+  if (aDbId && bDbId && aDbId === bDbId) return true;
+  if (aSession && bSession && aSession === bSession) return true;
+  return false;
+}
+
+export function mergeOrdersAuthoritatively(serverOrders = [], localOrders = []) {
+  const sList = Array.isArray(serverOrders) ? serverOrders : [];
+  const lList = Array.isArray(localOrders) ? localOrders : [];
+  const merged = [];
+
+  // Start with server orders
+  sList.forEach(so => {
+    merged.push({ ...so });
+  });
+
+  // Merge local orders (local keeps freshest status/tracking/custom fields)
+  lList.forEach(lo => {
+    const idx = merged.findIndex(m => areSameOrder(m, lo));
+    if (idx !== -1) {
+      merged[idx] = {
+        ...merged[idx],
+        ...lo,
+        status: lo.status || merged[idx].status,
+        trackingNumber: lo.trackingNumber || merged[idx].trackingNumber,
+        refundAmount: lo.refundAmount !== undefined ? lo.refundAmount : merged[idx].refundAmount,
+        refundStatus: lo.refundStatus || merged[idx].refundStatus
+      };
+    } else {
+      merged.push({ ...lo });
+    }
+  });
+
+  return merged;
+}
+
 // ============================================================
 // Context
 // ============================================================
@@ -309,7 +376,18 @@ export function StoreProvider({ children }) {
     return readLS('abl_orders_v9', DEFAULT_ORDERS);
   });
 
-  const [categories, setCategoriesRaw] = useState(() => readLS('abl_categories_v5', DEFAULT_CATEGORIES));
+  const [categories, setCategoriesRaw] = useState(() => {
+    const saved = readLS('abl_categories_v6', null) || readLS('abl_categories_v5', null);
+    if (Array.isArray(saved) && saved.length > 0) {
+      const catMap = new Map();
+      DEFAULT_CATEGORIES.forEach(c => catMap.set(c.id, c));
+      saved.forEach(c => catMap.set(c.id, { ...(catMap.get(c.id) || {}), ...c }));
+      const list = Array.from(catMap.values());
+      writeLS('abl_categories_v6', list);
+      return list;
+    }
+    return DEFAULT_CATEGORIES;
+  });
   const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v7', DEFAULT_CUSTOMERS));
   const [coupons, setCouponsRaw] = useState([]);
   const [reviews, setReviewsRaw] = useState(() => {
@@ -351,33 +429,12 @@ export function StoreProvider({ children }) {
         const data = await ordersRes.json();
         if (data.success && Array.isArray(data.orders)) {
           const existingOrders = readLS('abl_orders_v9', []) || [];
-          const orderMap = new Map();
-          
-          // Preserve all existing local orders
-          existingOrders.forEach(o => {
-            const k = o.id || o.order_number || o.uuid;
-            if (k) orderMap.set(String(k), o);
-          });
-
-          // Merge server orders (server updates status/tracking/DB fields)
-          data.orders.forEach(o => {
-            const k = o.id || o.order_number || o.uuid;
-            if (k) {
-              const existing = orderMap.get(String(k)) || {};
-              orderMap.set(String(k), { ...existing, ...o });
-            }
-          });
-
-          const mergedOrders = Array.from(orderMap.values());
+          const mergedOrders = mergeOrdersAuthoritatively(data.orders, existingOrders);
           setOrdersRaw(mergedOrders);
           writeLS('abl_orders_v9', mergedOrders);
 
           // Re-sync any locally completed orders to server if missing on backend (e.g. serverless cold start)
-          const serverKeys = new Set(data.orders.map(o => String(o.id || o.order_number || o.uuid)));
-          const missingOnServer = existingOrders.filter(o => {
-            const k = String(o.id || o.order_number || o.uuid);
-            return k && !serverKeys.has(k);
-          });
+          const missingOnServer = existingOrders.filter(lo => !data.orders.some(so => areSameOrder(so, lo)));
           if (missingOnServer.length > 0) {
             missingOnServer.forEach(missingOrder => {
               apiFetch('/api/orders/sync', {
@@ -1682,10 +1739,12 @@ export function StoreProvider({ children }) {
   }, [setCategories, showToast]);
 
   const updateOrderStatus = useCallback(async (id, newStatus, additionalData = {}) => {
+    if (!id) return;
     let affectedOrder = null;
     setOrdersRaw(prev => {
-      const updated = prev.map(o => {
-        if (o.id === id || o.order_number === id) {
+      const currentList = Array.isArray(prev) ? prev : [];
+      const updated = currentList.map(o => {
+        if (matchesOrderId(o, id)) {
           affectedOrder = {
             ...o,
             status: newStatus,
@@ -1711,13 +1770,12 @@ export function StoreProvider({ children }) {
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.orders)) {
-            const currentOrders = readLS('abl_orders_v9', []) || [];
-            const orderMap = new Map();
-            currentOrders.forEach(o => { const k = o.id || o.order_number || o.uuid; if (k) orderMap.set(String(k), o); });
-            data.orders.forEach(o => { const k = o.id || o.order_number || o.uuid; if (k) orderMap.set(String(k), { ...(orderMap.get(String(k)) || {}), ...o }); });
-            const merged = Array.from(orderMap.values());
-            setOrdersRaw(merged);
-            writeLS('abl_orders_v9', merged);
+            setOrdersRaw(prev => {
+              const current = Array.isArray(prev) ? prev : [];
+              const merged = mergeOrdersAuthoritatively(data.orders, current);
+              writeLS('abl_orders_v9', merged);
+              return merged;
+            });
           }
         }
       } catch (err) {
@@ -1742,23 +1800,43 @@ export function StoreProvider({ children }) {
   }, [setCustomers, showToast]);
 
   const cycleOrderStatus = useCallback((id) => {
+    if (!id) return;
     const statuses = ['Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
+    let affectedOrder = null;
     setOrdersRaw(prevOrders => {
-      const updated = prevOrders.map(o => {
-        if (o.id === id || o.order_number === id) {
-          const idx = statuses.indexOf(o.status);
-          return { ...o, status: statuses[(idx + 1) % statuses.length] };
+      const current = Array.isArray(prevOrders) ? prevOrders : [];
+      const updated = current.map(o => {
+        if (matchesOrderId(o, id)) {
+          const currentStatus = o.status || 'Confirmed';
+          const idx = statuses.indexOf(currentStatus);
+          const nextStatus = statuses[idx !== -1 ? (idx + 1) % statuses.length : 0];
+          affectedOrder = {
+            ...o,
+            status: nextStatus,
+            lastUpdated: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          };
+          return affectedOrder;
         }
         return o;
       });
       writeLS('abl_orders_v9', updated);
       return updated;
     });
+
+    if (affectedOrder) {
+      apiFetch('/api/orders/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: affectedOrder })
+      }).catch(() => {});
+    }
   }, []);
 
   const deleteOrder = useCallback(async (id) => {
+    if (!id) return;
     setOrdersRaw(prev => {
-      const updated = prev.filter(o => o.id !== id && o.order_number !== id);
+      const current = Array.isArray(prev) ? prev : [];
+      const updated = current.filter(o => !matchesOrderId(o, id));
       writeLS('abl_orders_v9', updated);
       return updated;
     });
@@ -1771,12 +1849,16 @@ export function StoreProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.orders)) {
-          setOrdersRaw(data.orders);
-          writeLS('abl_orders_v9', data.orders);
+          setOrdersRaw(prev => {
+            const current = Array.isArray(prev) ? prev : [];
+            const merged = mergeOrdersAuthoritatively(data.orders, current);
+            writeLS('abl_orders_v9', merged);
+            return merged;
+          });
         }
       }
     } catch (err) {
-      console.warn('Delete order sync server offline, deleted locally only:', err);
+      console.warn('Orders delete server offline, deleted locally only:', err);
     }
     showToast('Order deleted', 'trash');
   }, [showToast]);

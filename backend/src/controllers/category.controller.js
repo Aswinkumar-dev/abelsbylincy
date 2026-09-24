@@ -8,7 +8,8 @@ const DEFAULT_CATEGORIES = [
   { id: 5, name: 'Bangles', slug: 'bangles', image_url: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796721/abels_by_lincy/Bangle_Category.webp' },
   { id: 6, name: 'Charms', slug: 'charms', image_url: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp' },
   { id: 7, name: 'Silver Collections', slug: 'silver-collections', image_url: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp' },
-  { id: 8, name: 'Seasonal Collections', slug: 'seasonal-collections', image_url: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png' }
+  { id: 8, name: 'Seasonal Collections', slug: 'seasonal-collections', image_url: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png' },
+  { id: 9, name: 'Pair Collections', slug: 'pair-collections', image_url: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png' }
 ];
 
 const getCategories = async (req, res, next) => {

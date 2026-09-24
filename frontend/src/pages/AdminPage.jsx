@@ -7,7 +7,7 @@ import {
   ArrowUp, ArrowDown, Download, Upload, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
   User, Mail, Phone, MapPin, Printer, Truck, LogOut
 } from 'lucide-react';
-import { useStore, CAT_FALLBACK_IMAGES, apiFetch } from '../context/StoreContext';
+import { useStore, CAT_FALLBACK_IMAGES, apiFetch, matchesOrderId } from '../context/StoreContext';
 
 export default function AdminPage() {
   const {
@@ -23,18 +23,31 @@ export default function AdminPage() {
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
+  const normalizeStatus = (status) => {
+    if (!status) return 'Confirmed';
+    const s = String(status).trim().toLowerCase();
+    if (s === 'packed') return 'Packed';
+    if (s === 'shipped') return 'Shipped';
+    if (s === 'delivered') return 'Delivered';
+    if (s === 'cancelled' || s === 'refunded') return 'Cancelled';
+    return 'Confirmed';
+  };
 
   const getStatusStyles = (status) => {
-    switch (status) {
-      case 'Confirmed':
+    const s = String(status || '').trim().toLowerCase();
+    switch (s) {
+      case 'confirmed':
+      case 'new order':
+      case 'pending':
         return { bg: '#EBF8FF', color: '#2B6CB0', border: '#BEE3F8' };
-      case 'Packed':
+      case 'packed':
         return { bg: '#F3E8FF', color: '#6B21A8', border: '#E9D5FF' };
-      case 'Shipped':
+      case 'shipped':
         return { bg: '#FEF7E0', color: '#B06000', border: '#FDE293' };
-      case 'Delivered':
+      case 'delivered':
         return { bg: '#E6F4EA', color: '#137333', border: '#CEEAD6' };
-      case 'Cancelled':
+      case 'cancelled':
+      case 'refunded':
         return { bg: '#FCE8E6', color: '#C5221F', border: '#FAD2CF' };
       default:
         return { bg: '#EBF8FF', color: '#2B6CB0', border: '#BEE3F8' };
@@ -86,7 +99,7 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Dashboard filter state
-  const [dashTimePeriod, setDashTimePeriod] = useState('today'); // 'today' | 'week' | 'month'
+  const [dashTimePeriod, setDashTimePeriod] = useState('all'); // 'all' | 'today' | 'week' | 'month'
 
   // Random SKU generator
   const generateRandomSKU = (cat = 'JW') => {
@@ -328,8 +341,9 @@ export default function AdminPage() {
     const refundStatusText = parsedRefundAmt > 0 ? (isFullRefund ? 'Full Refund Processed' : 'Partial Refund Processed') : 'Order Cancelled (No Refund)';
 
     // 1. Update order status and exact refund amount in StoreContext
+    const targetKey = targetOrder.id || targetOrder.order_number || targetOrder.uuid;
     if (updateOrderStatus) {
-      updateOrderStatus(targetOrder.id, 'Cancelled', {
+      updateOrderStatus(targetKey, 'Cancelled', {
         refundAmount: parsedRefundAmt,
         isFullRefund,
         refundStatus: refundStatusText,
@@ -337,7 +351,7 @@ export default function AdminPage() {
       });
     }
 
-    if (selectedOrder && selectedOrder.id === targetOrder.id) {
+    if (selectedOrder && matchesOrderId(selectedOrder, targetKey)) {
       setSelectedOrder(prev => ({
         ...prev,
         status: 'Cancelled',
@@ -357,7 +371,7 @@ export default function AdminPage() {
           body: JSON.stringify({
             toEmail: targetOrder.email,
             customerName: targetOrder.customer,
-            orderId: targetOrder.id,
+            orderId: targetOrder.id || targetOrder.order_number,
             refundAmount: `$${parsedRefundAmt.toFixed(2)} AUD`,
             isFullRefund,
             originalTotal: targetOrder.total,
@@ -377,6 +391,7 @@ export default function AdminPage() {
   };
 
   const handleInitiateStatusChange = (order, newStatus) => {
+    const targetKey = order.id || order.order_number || order.uuid;
     if (newStatus === 'Shipped') {
       setShippingOrderModal(order);
       setShippingTrackingNumber(order.trackingNumber || '');
@@ -384,8 +399,8 @@ export default function AdminPage() {
     } else if (newStatus === 'Cancelled') {
       openCancelOrderModal(order);
     } else {
-      if (updateOrderStatus) updateOrderStatus(order.id, newStatus);
-      if (selectedOrder && selectedOrder.id === order.id) {
+      if (updateOrderStatus) updateOrderStatus(targetKey, newStatus);
+      if (selectedOrder && matchesOrderId(selectedOrder, targetKey)) {
         setSelectedOrder(prev => ({ ...prev, status: newStatus }));
       }
     }
@@ -405,6 +420,7 @@ export default function AdminPage() {
     setShippingTrackingError('');
 
     const targetOrder = shippingOrderModal;
+    const targetKey = targetOrder.id || targetOrder.order_number || targetOrder.uuid;
     const formattedAddress = [
       targetOrder.address || '189 Brompton Road',
       targetOrder.city || 'Brisbane City',
@@ -415,9 +431,9 @@ export default function AdminPage() {
 
     // 1. Update order status in StoreContext with tracking number
     if (updateOrderStatus) {
-      updateOrderStatus(targetOrder.id, 'Shipped', { trackingNumber: cleanTracking });
+      updateOrderStatus(targetKey, 'Shipped', { trackingNumber: cleanTracking });
     }
-    if (selectedOrder && selectedOrder.id === targetOrder.id) {
+    if (selectedOrder && matchesOrderId(selectedOrder, targetKey)) {
       setSelectedOrder(prev => ({ ...prev, status: 'Shipped', trackingNumber: cleanTracking }));
     }
 
@@ -767,11 +783,17 @@ export default function AdminPage() {
   const outOfStockProducts = products.filter(p => (p.stockQty || 0) === 0);
 
   // Status breakdown for orders
-  const confirmedOrdersCount = orders.filter(o => o.status === 'Confirmed' || !o.status).length;
-  const packedOrdersCount = orders.filter(o => o.status === 'Packed').length;
-  const shippedOrdersCount = orders.filter(o => o.status === 'Shipped').length;
-  const deliveredOrdersCount = orders.filter(o => o.status === 'Delivered').length;
-  const cancelledOrdersCount = orders.filter(o => o.status === 'Cancelled').length;
+  const confirmedOrdersCount = orders.filter(o => {
+    const s = String(o.status || '').trim().toLowerCase();
+    return s === 'confirmed' || s === 'new order' || s === 'pending' || !s;
+  }).length;
+  const packedOrdersCount = orders.filter(o => String(o.status || '').trim().toLowerCase() === 'packed').length;
+  const shippedOrdersCount = orders.filter(o => String(o.status || '').trim().toLowerCase() === 'shipped').length;
+  const deliveredOrdersCount = orders.filter(o => String(o.status || '').trim().toLowerCase() === 'delivered').length;
+  const cancelledOrdersCount = orders.filter(o => {
+    const s = String(o.status || '').trim().toLowerCase();
+    return s === 'cancelled' || s === 'refunded';
+  }).length;
 
   return (
     <div className="admin-layout">
@@ -928,6 +950,7 @@ export default function AdminPage() {
 
             const now = new Date();
             const filteredDashOrders = (orders || []).filter(o => {
+              if (dashTimePeriod === 'all') return true;
               if (dashTimePeriod === 'today') {
                 if (String(o.date || '').toLowerCase().includes('today')) return true;
                 const od = parseDate(o.date || o.created_at || o.placed_at);
@@ -950,14 +973,18 @@ export default function AdminPage() {
 
             const dashGrossRevenue = filteredDashOrders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0);
             const dashRefunds = filteredDashOrders.reduce((sum, o) => {
-              if (o.status === 'Cancelled' || o.status === 'Refunded') {
+              const s = String(o.status || '').trim().toLowerCase();
+              if (s === 'cancelled' || s === 'refunded') {
                 return sum + (o.refundAmount !== undefined ? Number(o.refundAmount) : (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0));
               }
               return sum + Number(o.refundAmount || 0);
             }, 0);
             const dashNetRevenue = Math.max(0, dashGrossRevenue - dashRefunds);
 
-            const activeDashOrders = filteredDashOrders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
+            const activeDashOrders = filteredDashOrders.filter(o => {
+              const s = String(o.status || '').trim().toLowerCase();
+              return s !== 'cancelled' && s !== 'refunded';
+            });
             const dashItemsCount = activeDashOrders.reduce((sum, o) => sum + (o.itemsCount || o.items?.length || 1), 0);
 
             const uniqueClientEmails = new Set();
@@ -968,11 +995,17 @@ export default function AdminPage() {
             });
             const totalClientsCount = Math.max((customers || []).length, uniqueClientEmails.size);
 
-            const dashConfirmed = filteredDashOrders.filter(o => o.status === 'Confirmed' || o.status === 'New Order' || !o.status).length;
-            const dashPacked = filteredDashOrders.filter(o => o.status === 'Packed').length;
-            const dashShipped = filteredDashOrders.filter(o => o.status === 'Shipped').length;
-            const dashDelivered = filteredDashOrders.filter(o => o.status === 'Delivered').length;
-            const dashCancelled = filteredDashOrders.filter(o => o.status === 'Cancelled' || o.status === 'Refunded').length;
+            const dashConfirmed = filteredDashOrders.filter(o => {
+              const s = String(o.status || '').trim().toLowerCase();
+              return s === 'confirmed' || s === 'new order' || s === 'pending' || !s;
+            }).length;
+            const dashPacked = filteredDashOrders.filter(o => String(o.status || '').trim().toLowerCase() === 'packed').length;
+            const dashShipped = filteredDashOrders.filter(o => String(o.status || '').trim().toLowerCase() === 'shipped').length;
+            const dashDelivered = filteredDashOrders.filter(o => String(o.status || '').trim().toLowerCase() === 'delivered').length;
+            const dashCancelled = filteredDashOrders.filter(o => {
+              const s = String(o.status || '').trim().toLowerCase();
+              return s === 'cancelled' || s === 'refunded';
+            }).length;
 
             return (
               <div>
@@ -984,7 +1017,7 @@ export default function AdminPage() {
 
                   {/* Period Filter Buttons */}
                   <div style={{ display: 'flex', gap: 8, background: '#FFFFFF', padding: 4, borderRadius: 8, border: '1px solid var(--border)' }}>
-                    {['today', 'week', 'month'].map(p => (
+                    {['all', 'today', 'week', 'month'].map(p => (
                       <button
                         key={p}
                         onClick={() => setDashTimePeriod(p)}
@@ -995,7 +1028,7 @@ export default function AdminPage() {
                           textTransform: 'capitalize'
                         }}
                       >
-                        {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'This Month'}
+                        {p === 'all' ? 'All Time' : p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'This Month'}
                       </button>
                     ))}
                   </div>
@@ -1670,11 +1703,12 @@ export default function AdminPage() {
                             <td style={{ fontSize: 12, color: 'var(--slate)' }}>{o.date}</td>
                             <td>
                               {(() => {
-                                const st = getStatusStyles(o.status);
+                                const normSt = normalizeStatus(o.status);
+                                const st = getStatusStyles(normSt);
                                 return (
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                     <select
-                                      value={o.status}
+                                      value={normSt}
                                       onChange={(e) => handleInitiateStatusChange(o, e.target.value)}
                                       style={{
                                         background: st.bg,
@@ -2543,7 +2577,8 @@ export default function AdminPage() {
                 rings: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796753/abels_by_lincy/Ring_Category.png',
                 charms: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp',
                 'silver-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp',
-                'seasonal-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png'
+                'seasonal-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png',
+                'pair-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png'
               };
               const defaultCatImg = catFallbacks[catSlug] || catFallbacks.necklaces;
 
@@ -2721,8 +2756,9 @@ export default function AdminPage() {
                   <option value="charms">Charms</option>
                   <option value="silver-collections">Silver Collections</option>
                   <option value="seasonal-collections">Seasonal Collections</option>
+                  <option value="pair-collections">Pair Collections</option>
                   {categories.map(c => (
-                    !['necklaces', 'bangles', 'bracelets', 'earrings', 'rings', 'charms', 'silver-collections', 'seasonal-collections'].includes(c.id) && (
+                    !['necklaces', 'bangles', 'bracelets', 'earrings', 'rings', 'charms', 'silver-collections', 'seasonal-collections', 'pair-collections'].includes(c.id) && (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     )
                   ))}
@@ -4287,7 +4323,7 @@ export default function AdminPage() {
                   <span style={{ fontSize: 11, color: 'var(--slate)' }}>Advance fulfillment state (Confirmed → Packed → Shipped → Delivered → Cancelled)</span>
                 </div>
                 <select
-                  value={selectedOrder.status}
+                  value={normalizeStatus(selectedOrder.status)}
                   onChange={(e) => handleInitiateStatusChange(selectedOrder, e.target.value)}
                   style={{
                     padding: '8px 14px',
