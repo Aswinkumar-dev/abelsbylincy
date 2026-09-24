@@ -324,25 +324,57 @@ export default function ProductPage() {
               </div>
             )}
 
-            {/* Size Options */}
-            {product.sizes?.length > 0 && (
-              <div className="pdp-option-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span className="pdp-option-label" style={{ margin: 0 }}>Size: {selectedSize}</span>
-                  <button onClick={() => setSizeModalOpen(true)} style={{ fontSize: 12, color: 'var(--gold-dark)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}>Size Guide</button>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {product.sizes.map(s => (
+            {/* Size Options & Ring Size Guide */}
+            {(product.sizes?.length > 0 || ((product.category && String(product.category).toLowerCase().includes('ring')) || (product.name && String(product.name).toLowerCase().includes('ring')))) && (
+              <div className="pdp-option-group" style={{ marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                  <span className="pdp-option-label" style={{ margin: 0, fontWeight: 700 }}>
+                    {product.sizes?.length > 0 ? `SIZE: ${selectedSize || product.sizes[0]}` : 'SIZE: STANDARD / ADJUSTABLE FIT'}
+                  </span>
+                  {((product.category && String(product.category).toLowerCase().includes('ring')) || (product.name && String(product.name).toLowerCase().includes('ring'))) && (
                     <button
-                      key={s}
-                      className={`btn-secondary${selectedSize === s ? ' active' : ''}`}
-                      style={{ minWidth: 44, padding: '8px 14px', fontSize: 13, borderColor: selectedSize === s ? 'var(--gold)' : 'var(--border)', background: selectedSize === s ? 'var(--cream)' : 'none' }}
-                      onClick={() => setSelectedSize(s)}
+                      type="button"
+                      onClick={() => setSizeModalOpen(true)}
+                      style={{
+                        fontSize: 12.5,
+                        color: 'var(--gold-dark)',
+                        textDecoration: 'underline',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontWeight: 600,
+                        padding: '2px 0'
+                      }}
                     >
-                      {s}
+                      <span>📏 Ring Size Guide</span>
                     </button>
-                  ))}
+                  )}
                 </div>
+                {product.sizes?.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {product.sizes.map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        className={`btn-secondary${selectedSize === s ? ' active' : ''}`}
+                        style={{
+                          minWidth: 44,
+                          padding: '8px 14px',
+                          fontSize: 13,
+                          borderColor: selectedSize === s ? 'var(--gold)' : 'var(--border)',
+                          background: selectedSize === s ? 'var(--cream)' : 'none',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => setSelectedSize(s)}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -521,28 +553,78 @@ export default function ProductPage() {
 
       {/* Ring Size Guide Modal */}
       {sizeModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setSizeModalOpen(false)}>
-          <div style={{ background: '#fff', padding: 28, borderRadius: 12, maxWidth: 540, width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setSizeModalOpen(false)}>
+          <div style={{ background: '#fff', padding: 'clamp(20px, 4vw, 32px)', borderRadius: 12, maxWidth: 620, width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 600 }}>Ring Size Guide</h3>
-              <button onClick={() => setSizeModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X style={{ width: 20, height: 20 }} /></button>
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Find Your Ring Size</h3>
+              <button onClick={() => setSizeModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }} aria-label="Close modal">
+                <X style={{ width: 22, height: 22, color: 'var(--onyx)' }} />
+              </button>
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+
+            {/* Steps Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+              <div style={{ background: 'var(--cream)', padding: 14, borderRadius: 8, border: '1px solid var(--border)', textAlign: 'center' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, background: 'var(--gold-dark)', color: '#fff', borderRadius: '50%', fontWeight: 'bold', fontSize: 12, marginBottom: 8 }}>1</span>
+                <p style={{ fontSize: 12, lineHeight: 1.4, color: 'var(--slate)', margin: 0 }}>Wrap a thin strip of paper or string around your finger.</p>
+              </div>
+              <div style={{ background: 'var(--cream)', padding: 14, borderRadius: 8, border: '1px solid var(--border)', textAlign: 'center' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, background: 'var(--gold-dark)', color: '#fff', borderRadius: '50%', fontWeight: 'bold', fontSize: 12, marginBottom: 8 }}>2</span>
+                <p style={{ fontSize: 12, lineHeight: 1.4, color: 'var(--slate)', margin: 0 }}>Mark the exact spot where the ends meet.</p>
+              </div>
+              <div style={{ background: 'var(--cream)', padding: 14, borderRadius: 8, border: '1px solid var(--border)', textAlign: 'center' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, background: 'var(--gold-dark)', color: '#fff', borderRadius: '50%', fontWeight: 'bold', fontSize: 12, marginBottom: 8 }}>3</span>
+                <p style={{ fontSize: 12, lineHeight: 1.4, color: 'var(--slate)', margin: 0 }}>Measure the length in mm to find your circumference.</p>
+              </div>
+            </div>
+
+            {/* Size Conversion Chart Header */}
+            <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 600, color: 'var(--onyx)', marginBottom: 12, borderLeft: '3px solid var(--gold-dark)', paddingLeft: 8 }}>
+              Size Conversion Chart
+            </h4>
+
+            <div style={{ overflowX: 'auto', marginBottom: 20 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, textAlign: 'center' }}>
                 <thead>
-                  <tr style={{ borderBottom: '2px solid var(--border)' }}><th style={{ padding: 8 }}>AU/UK</th><th style={{ padding: 8 }}>US/Canada</th><th style={{ padding: 8 }}>EU Size</th><th style={{ padding: 8 }}>Diameter (mm)</th></tr>
+                  <tr style={{ background: 'var(--onyx)', color: '#fff', textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.05em' }}>
+                    <th style={{ padding: '8px 6px' }}>AU / UK</th>
+                    <th style={{ padding: '8px 6px' }}>US / CA</th>
+                    <th style={{ padding: '8px 6px' }}>EU Size</th>
+                    <th style={{ padding: '8px 6px' }}>Circumference</th>
+                    <th style={{ padding: '8px 6px' }}>Diameter</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {[
-                    ['H', '4', '46.5', '14.8'], ['J', '4.75', '48', '15.3'], ['L', '5.75', '50', '15.9'],
-                    ['M', '6.25', '51', '16.2'], ['N', '6.75', '52', '16.5'], ['O', '7.25', '54', '17.2'],
-                    ['P', '7.75', '55', '17.5'], ['Q', '8.25', '57', '18.2'], ['R', '8.75', '58', '18.5'],
-                  ].map(([au, us, eu, mm]) => (
-                    <tr key={au} style={{ borderBottom: '1px solid var(--border)' }}><td style={{ padding: 8 }}>{au}</td><td style={{ padding: 8 }}>{us}</td><td style={{ padding: 8 }}>{eu}</td><td style={{ padding: 8 }}>{mm}mm</td></tr>
+                    { au: 'H', us: '4', eu: '46.5', circ: '46.8 mm', dia: '14.8 mm' },
+                    { au: 'J', us: '4.75', eu: '48', circ: '48.0 mm', dia: '15.3 mm' },
+                    { au: 'L', us: '5.75', eu: '50', circ: '50.0 mm', dia: '15.9 mm' },
+                    { au: 'M', us: '6.25', eu: '51', circ: '51.2 mm', dia: '16.2 mm' },
+                    { au: 'N', us: '6.75', eu: '52', circ: '52.5 mm', dia: '16.5 mm' },
+                    { au: 'O', us: '7.25', eu: '54', circ: '54.0 mm', dia: '17.2 mm' },
+                    { au: 'P', us: '7.75', eu: '55', circ: '55.3 mm', dia: '17.5 mm' },
+                    { au: 'Q', us: '8.25', eu: '57', circ: '57.0 mm', dia: '18.2 mm' },
+                    { au: 'R', us: '8.75', eu: '58', circ: '58.3 mm', dia: '18.5 mm' },
+                    { au: 'T', us: '9.75', eu: '61', circ: '60.8 mm', dia: '19.4 mm' },
+                  ].map((row, idx) => (
+                    <tr key={row.au} style={{ background: idx % 2 === 0 ? 'var(--cream)' : 'transparent', borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '7px 6px', fontWeight: 700, color: 'var(--gold-dark)' }}>{row.au}</td>
+                      <td style={{ padding: '7px 6px', fontWeight: 600 }}>{row.us}</td>
+                      <td style={{ padding: '7px 6px', color: 'var(--slate)' }}>{row.eu}</td>
+                      <td style={{ padding: '7px 6px', color: 'var(--onyx)' }}>{row.circ}</td>
+                      <td style={{ padding: '7px 6px', color: 'var(--slate)' }}>{row.dia}</td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {/* Helpful tips */}
+            <ul style={{ fontSize: 11.5, lineHeight: 1.6, color: 'var(--slate)', paddingLeft: 18, margin: 0, textAlign: 'left' }}>
+              <li>Measure your finger at the end of the day when hands are at their normal temperature.</li>
+              <li>Avoid measuring when your hands are cold, as fingers can be up to half a size smaller.</li>
+              <li>If you are between two sizes, we recommend selecting the larger size for the most comfortable fit.</li>
+            </ul>
           </div>
         </div>
       )}
