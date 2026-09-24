@@ -323,7 +323,7 @@ export function mergeOrdersAuthoritatively(serverOrders = [], localOrders = []) 
 const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
-  // Purge any stale legacy localStorage keys
+  // Purge any stale legacy localStorage keys (excluding orders to protect customer records)
   useEffect(() => {
     try {
       localStorage.removeItem('abl_reviews_v6');
@@ -341,9 +341,6 @@ export function StoreProvider({ children }) {
       localStorage.removeItem('abl_products_v8');
       localStorage.removeItem('abl_products_v7');
       localStorage.removeItem('abl_products');
-      localStorage.removeItem('abl_orders_v8');
-      localStorage.removeItem('abl_orders_v7');
-      localStorage.removeItem('abl_orders');
     } catch {}
   }, []);
 
@@ -373,7 +370,24 @@ export function StoreProvider({ children }) {
   });
 
   const [orders, setOrdersRaw] = useState(() => {
-    return readLS('abl_orders_v9', DEFAULT_ORDERS);
+    const v9 = readLS('abl_orders_v9', null);
+    if (Array.isArray(v9) && v9.length > 0) return v9;
+    const v8 = readLS('abl_orders_v8', null);
+    if (Array.isArray(v8) && v8.length > 0) {
+      writeLS('abl_orders_v9', v8);
+      return v8;
+    }
+    const v7 = readLS('abl_orders_v7', null);
+    if (Array.isArray(v7) && v7.length > 0) {
+      writeLS('abl_orders_v9', v7);
+      return v7;
+    }
+    const legacy = readLS('abl_orders', null);
+    if (Array.isArray(legacy) && legacy.length > 0) {
+      writeLS('abl_orders_v9', legacy);
+      return legacy;
+    }
+    return DEFAULT_ORDERS;
   });
 
   const [categories, setCategoriesRaw] = useState(() => {
