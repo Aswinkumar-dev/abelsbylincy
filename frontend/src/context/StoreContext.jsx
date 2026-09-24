@@ -292,25 +292,26 @@ export function mergeOrdersAuthoritatively(serverOrders = [], localOrders = []) 
   const lList = Array.isArray(localOrders) ? localOrders : [];
   const merged = [];
 
-  // Start with server orders
+  // 1. Server orders from MySQL database are the primary authority
   sList.forEach(so => {
     merged.push({ ...so });
   });
 
-  // Merge local orders (local keeps freshest status/tracking/custom fields)
+  // 2. Only add local orders if they were created offline/locally and not yet on the server
   lList.forEach(lo => {
     const idx = merged.findIndex(m => areSameOrder(m, lo));
-    if (idx !== -1) {
-      merged[idx] = {
-        ...merged[idx],
-        ...lo,
-        status: lo.status || merged[idx].status,
-        trackingNumber: lo.trackingNumber || merged[idx].trackingNumber,
-        refundAmount: lo.refundAmount !== undefined ? lo.refundAmount : merged[idx].refundAmount,
-        refundStatus: lo.refundStatus || merged[idx].refundStatus
-      };
-    } else {
+    if (idx === -1) {
       merged.push({ ...lo });
+    } else {
+      // Server DB status and values take absolute precedence over old browser cache
+      merged[idx] = {
+        ...lo,
+        ...merged[idx],
+        status: merged[idx].status || lo.status || 'Confirmed',
+        trackingNumber: merged[idx].trackingNumber || lo.trackingNumber || null,
+        refundAmount: merged[idx].refundAmount !== undefined ? merged[idx].refundAmount : lo.refundAmount,
+        refundStatus: merged[idx].refundStatus || lo.refundStatus
+      };
     }
   });
 
@@ -437,27 +438,14 @@ export function StoreProvider({ children }) {
   // Authoritative sync with backend API (Orders, Products, Reviews, Coupons directly from Server/DB)
   const syncBackendData = useCallback(async () => {
     try {
-      // 1. Fetch Orders from Server / Database
+      // 1. Fetch Orders directly from MySQL Database via Server API
       const ordersRes = await apiFetch('/api/orders/all');
       if (ordersRes.ok) {
         const data = await ordersRes.json();
         if (data.success && Array.isArray(data.orders)) {
-          const existingOrders = readLS('abl_orders_v9', []) || [];
-          const mergedOrders = mergeOrdersAuthoritatively(data.orders, existingOrders);
-          setOrdersRaw(mergedOrders);
-          writeLS('abl_orders_v9', mergedOrders);
-
-          // Re-sync any locally completed orders to server if missing on backend (e.g. serverless cold start)
-          const missingOnServer = existingOrders.filter(lo => !data.orders.some(so => areSameOrder(so, lo)));
-          if (missingOnServer.length > 0) {
-            missingOnServer.forEach(missingOrder => {
-              apiFetch('/api/orders/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order: missingOrder })
-              }).catch(() => {});
-            });
-          }
+          // Direct DB assignment — MySQL is the single source of truth
+          setOrdersRaw(data.orders);
+          writeLS('abl_orders_v9', data.orders);
 
           // Authoritative synchronization of unique client directory from orders
           const customerMap = new Map();
@@ -1784,12 +1772,8 @@ export function StoreProvider({ children }) {
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.orders)) {
-            setOrdersRaw(prev => {
-              const current = Array.isArray(prev) ? prev : [];
-              const merged = mergeOrdersAuthoritatively(data.orders, current);
-              writeLS('abl_orders_v9', merged);
-              return merged;
-            });
+            setOrdersRaw(data.orders);
+            writeLS('abl_orders_v9', data.orders);
           }
         }
       } catch (err) {
@@ -1863,12 +1847,8 @@ export function StoreProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.orders)) {
-          setOrdersRaw(prev => {
-            const current = Array.isArray(prev) ? prev : [];
-            const merged = mergeOrdersAuthoritatively(data.orders, current);
-            writeLS('abl_orders_v9', merged);
-            return merged;
-          });
+          setOrdersRaw(data.orders);
+          writeLS('abl_orders_v9', data.orders);
         }
       }
     } catch (err) {

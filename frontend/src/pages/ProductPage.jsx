@@ -349,7 +349,7 @@ export default function ProductPage() {
                         padding: '2px 0'
                       }}
                     >
-                      <span>📏 Ring Size Guide</span>
+                      <span>Ring Size Guide</span>
                     </button>
                   )}
                 </div>
