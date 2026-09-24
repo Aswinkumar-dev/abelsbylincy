@@ -910,13 +910,18 @@ export default function AdminPage() {
           {activeTab === 'overview' && (() => {
             const parseDate = (dStr) => {
               if (!dStr) return new Date();
-              if (String(dStr).toLowerCase().includes('today')) return new Date();
-              const parsed = new Date(dStr);
-              if (!isNaN(parsed.getTime())) return parsed;
-              const parts = String(dStr).replace(/,/g, '').trim().split(/\s+/);
+              if (typeof dStr !== 'string') return new Date(dStr);
+              if (dStr.toLowerCase().includes('today')) return new Date();
+              const direct = new Date(dStr);
+              if (!isNaN(direct.getTime()) && direct.getFullYear() > 2000) return direct;
+              const clean = dStr.replace(/today/gi, '').replace(/,/g, '').trim();
+              const parts = clean.split(/\s+/);
               if (parts.length >= 3) {
                 const months = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
-                return new Date(parseInt(parts[2], 10) || 2026, months[parts[1]?.toLowerCase().slice(0, 3)] ?? 7, parseInt(parts[0], 10) || 1);
+                const day = parseInt(parts[0], 10) || 1;
+                const month = months[parts[1]?.toLowerCase().slice(0, 3)] ?? 8;
+                const year = parseInt(parts[2], 10) || 2026;
+                return new Date(year, month, day);
               }
               return new Date();
             };
@@ -924,16 +929,21 @@ export default function AdminPage() {
             const now = new Date();
             const filteredDashOrders = (orders || []).filter(o => {
               if (dashTimePeriod === 'today') {
-                const todayDateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                return (o.date || '').includes('Today') || (o.date || '').includes(todayDateStr);
+                if (String(o.date || '').toLowerCase().includes('today')) return true;
+                const od = parseDate(o.date || o.created_at || o.placed_at);
+                return od.getFullYear() === now.getFullYear() &&
+                       od.getMonth() === now.getMonth() &&
+                       od.getDate() === now.getDate();
               }
               if (dashTimePeriod === 'week') {
+                if (String(o.date || '').toLowerCase().includes('today')) return true;
                 const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                return parseDate(o.date) >= oneWeekAgo;
+                return parseDate(o.date || o.created_at || o.placed_at) >= oneWeekAgo;
               }
               if (dashTimePeriod === 'month') {
+                if (String(o.date || '').toLowerCase().includes('today')) return true;
                 const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                return parseDate(o.date) >= oneMonthAgo;
+                return parseDate(o.date || o.created_at || o.placed_at) >= oneMonthAgo;
               }
               return true;
             });

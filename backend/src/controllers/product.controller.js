@@ -60,15 +60,19 @@ const fetchAllProductsFromDB = async () => {
       });
       const uuid = p.uuid ? String(p.uuid) : '';
       const stableId = uuid.startsWith('p_') ? uuid : (p.sku || uuid || String(p.id));
-      prodMap.set(String(stableId), {
-        ...p,
-        id: stableId,
-        dbId: p.id,
-        sku: p.sku || p.variants?.[0]?.sku || '',
-        price: p.variants?.[0]?.price !== undefined ? parseFloat(p.variants[0].price) : parseFloat(p.price) || 0,
-        salePrice: p.variants?.[0]?.compare_at_price ? parseFloat(p.variants[0].compare_at_price) : (p.salePrice || 0),
-        stockQty: p.variants?.[0]?.stock_quantity ?? p.stock_quantity ?? 10,
-        inStock: (p.variants?.[0]?.stock_quantity ?? p.stock_quantity ?? 10) > 0,
+        const directStock = (p.stock_quantity !== undefined && p.stock_quantity !== null) ? Number(p.stock_quantity) : null;
+        const variantStock = (p.variants?.[0]?.stock_quantity !== undefined && p.variants?.[0]?.stock_quantity !== null) ? Number(p.variants[0].stock_quantity) : null;
+        const finalStock = directStock !== null ? (variantStock !== null ? Math.min(directStock, variantStock) : directStock) : (variantStock !== null ? variantStock : 10);
+
+        prodMap.set(String(stableId), {
+          ...p,
+          id: stableId,
+          dbId: p.id,
+          sku: p.sku || p.variants?.[0]?.sku || '',
+          price: p.variants?.[0]?.price !== undefined ? parseFloat(p.variants[0].price) : parseFloat(p.price) || 0,
+          salePrice: p.variants?.[0]?.compare_at_price ? parseFloat(p.variants[0].compare_at_price) : (p.salePrice || 0),
+          stockQty: finalStock,
+          inStock: finalStock > 0,
         image: galleryUrls[0] || allUrls[0] || p.image || '',
         images: galleryUrls.length > 0 ? galleryUrls : (allUrls.length > 0 ? allUrls : (p.image ? [p.image] : [])),
         colorImages,

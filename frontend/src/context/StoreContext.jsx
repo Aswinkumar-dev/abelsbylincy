@@ -350,8 +350,43 @@ export function StoreProvider({ children }) {
       if (ordersRes.ok) {
         const data = await ordersRes.json();
         if (data.success && Array.isArray(data.orders)) {
-          setOrdersRaw(data.orders);
-          writeLS('abl_orders_v9', data.orders);
+          const existingOrders = readLS('abl_orders_v9', []) || [];
+          const orderMap = new Map();
+          
+          // Preserve all existing local orders
+          existingOrders.forEach(o => {
+            const k = o.id || o.order_number || o.uuid;
+            if (k) orderMap.set(String(k), o);
+          });
+
+          // Merge server orders (server updates status/tracking/DB fields)
+          data.orders.forEach(o => {
+            const k = o.id || o.order_number || o.uuid;
+            if (k) {
+              const existing = orderMap.get(String(k)) || {};
+              orderMap.set(String(k), { ...existing, ...o });
+            }
+          });
+
+          const mergedOrders = Array.from(orderMap.values());
+          setOrdersRaw(mergedOrders);
+          writeLS('abl_orders_v9', mergedOrders);
+
+          // Re-sync any locally completed orders to server if missing on backend (e.g. serverless cold start)
+          const serverKeys = new Set(data.orders.map(o => String(o.id || o.order_number || o.uuid)));
+          const missingOnServer = existingOrders.filter(o => {
+            const k = String(o.id || o.order_number || o.uuid);
+            return k && !serverKeys.has(k);
+          });
+          if (missingOnServer.length > 0) {
+            missingOnServer.forEach(missingOrder => {
+              apiFetch('/api/orders/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: missingOrder })
+              }).catch(() => {});
+            });
+          }
 
           // Authoritative synchronization of unique client directory from orders
           const customerMap = new Map();
@@ -359,7 +394,7 @@ export function StoreProvider({ children }) {
           existingCusts.forEach(c => {
             if (c.email) customerMap.set(c.email.trim().toLowerCase(), c);
           });
-          data.orders.forEach(o => {
+          mergedOrders.forEach(o => {
             const email = (o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '').trim().toLowerCase();
             if (email) {
               const name = (o.customer && typeof o.customer === 'string' && o.customer !== 'Valued Customer')
@@ -409,9 +444,23 @@ export function StoreProvider({ children }) {
       if (prodRes.ok) {
         const data = await prodRes.json();
         if (data.success && Array.isArray(data.products)) {
+          const existingProducts = readLS('abl_products_v12', []) || [];
           const cleanDBProducts = sanitizeProducts(data.products.filter(isAllowedProduct));
-          setProductsRaw(cleanDBProducts);
-          writeLS('abl_products_v12', cleanDBProducts);
+
+          // Retain stock deductions from local storage if local has confirmed purchase reduction
+          const mergedProducts = cleanDBProducts.map(dbProd => {
+            const localMatch = existingProducts.find(lp => 
+              String(lp.id) === String(dbProd.id) ||
+              (lp.sku && dbProd.sku && String(lp.sku).trim().toUpperCase() === String(dbProd.sku).trim().toUpperCase())
+            );
+            if (localMatch && localMatch.stockQty !== undefined && localMatch.stockQty < dbProd.stockQty) {
+              return { ...dbProd, stockQty: localMatch.stockQty, inStock: localMatch.stockQty > 0 };
+            }
+            return dbProd;
+          });
+
+          setProductsRaw(mergedProducts);
+          writeLS('abl_products_v12', mergedProducts);
         }
       }
     } catch (err) {
@@ -1634,18 +1683,22 @@ export function StoreProvider({ children }) {
 
   const updateOrderStatus = useCallback(async (id, newStatus, additionalData = {}) => {
     let affectedOrder = null;
-    setOrdersRaw(prev => prev.map(o => {
-      if (o.id === id) {
-        affectedOrder = {
-          ...o,
-          status: newStatus,
-          lastUpdated: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-          ...additionalData
-        };
-        return affectedOrder;
-      }
-      return o;
-    }));
+    setOrdersRaw(prev => {
+      const updated = prev.map(o => {
+        if (o.id === id || o.order_number === id) {
+          affectedOrder = {
+            ...o,
+            status: newStatus,
+            lastUpdated: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            ...additionalData
+          };
+          return affectedOrder;
+        }
+        return o;
+      });
+      writeLS('abl_orders_v9', updated);
+      return updated;
+    });
 
     // Authoritative Server sync
     if (affectedOrder) {
@@ -1658,7 +1711,13 @@ export function StoreProvider({ children }) {
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.orders)) {
-            setOrdersRaw(data.orders);
+            const currentOrders = readLS('abl_orders_v9', []) || [];
+            const orderMap = new Map();
+            currentOrders.forEach(o => { const k = o.id || o.order_number || o.uuid; if (k) orderMap.set(String(k), o); });
+            data.orders.forEach(o => { const k = o.id || o.order_number || o.uuid; if (k) orderMap.set(String(k), { ...(orderMap.get(String(k)) || {}), ...o }); });
+            const merged = Array.from(orderMap.values());
+            setOrdersRaw(merged);
+            writeLS('abl_orders_v9', merged);
           }
         }
       } catch (err) {
@@ -1684,17 +1743,25 @@ export function StoreProvider({ children }) {
 
   const cycleOrderStatus = useCallback((id) => {
     const statuses = ['Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'];
-    setOrdersRaw(prevOrders => prevOrders.map(o => {
-      if (o.id === id) {
-        const idx = statuses.indexOf(o.status);
-        return { ...o, status: statuses[(idx + 1) % statuses.length] };
-      }
-      return o;
-    }));
+    setOrdersRaw(prevOrders => {
+      const updated = prevOrders.map(o => {
+        if (o.id === id || o.order_number === id) {
+          const idx = statuses.indexOf(o.status);
+          return { ...o, status: statuses[(idx + 1) % statuses.length] };
+        }
+        return o;
+      });
+      writeLS('abl_orders_v9', updated);
+      return updated;
+    });
   }, []);
 
   const deleteOrder = useCallback(async (id) => {
-    setOrdersRaw(prev => prev.filter(o => o.id !== id && o.order_number !== id));
+    setOrdersRaw(prev => {
+      const updated = prev.filter(o => o.id !== id && o.order_number !== id);
+      writeLS('abl_orders_v9', updated);
+      return updated;
+    });
     try {
       const res = await apiFetch('/api/orders/sync', {
         method: 'POST',
@@ -1705,6 +1772,7 @@ export function StoreProvider({ children }) {
         const data = await res.json();
         if (data.success && Array.isArray(data.orders)) {
           setOrdersRaw(data.orders);
+          writeLS('abl_orders_v9', data.orders);
         }
       }
     } catch (err) {
