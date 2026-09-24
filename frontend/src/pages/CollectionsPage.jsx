@@ -15,7 +15,7 @@ export default function CollectionsPage() {
       </div>
 
       <div className="container" style={{ paddingBottom: 80, paddingTop: 40 }}>
-        <div className="bs-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
+        <div className="bs-grid">
           {products.map(p => (
             <ProductCard key={p.id} product={p} />
           ))}
