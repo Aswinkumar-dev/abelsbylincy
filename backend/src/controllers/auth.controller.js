@@ -534,9 +534,6 @@ const googleLogin = async (req, res, next) => {
   }
 };
 
-/**
- * Logout user by deleting their session from the database
- */
 const logout = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
@@ -552,6 +549,22 @@ const logout = async (req, res, next) => {
   }
 };
 
+/**
+ * Get all registered customers for Admin Directory
+ */
+const getAllUsers = async (req, res, next) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, uuid, email, first_name, last_name, role, created_at 
+       FROM users 
+       ORDER BY created_at DESC`
+    );
+    res.status(200).json({ success: true, users: rows || [] });
+  } catch (error) {
+    res.status(200).json({ success: true, users: [] });
+  }
+};
+
 module.exports = {
   register,
   verifyEmail,
@@ -559,5 +572,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   googleLogin,
-  logout
+  logout,
+  getAllUsers
 };

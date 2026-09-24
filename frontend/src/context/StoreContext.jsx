@@ -438,61 +438,91 @@ export function StoreProvider({ children }) {
   // Authoritative sync with backend API (Orders, Products, Reviews, Coupons directly from Server/DB)
   const syncBackendData = useCallback(async () => {
     try {
-      // 1. Fetch Orders directly from MySQL Database via Server API
-      const ordersRes = await apiFetch('/api/orders/all');
-      if (ordersRes.ok) {
-        const data = await ordersRes.json();
-        if (data.success && Array.isArray(data.orders)) {
-          // Direct DB assignment — MySQL is the single source of truth
-          setOrdersRaw(data.orders);
-          writeLS('abl_orders_v9', data.orders);
+      // 1. Fetch Orders & Registered Users directly from MySQL Database via Server API
+      const [ordersRes, usersRes] = await Promise.allSettled([
+        apiFetch('/api/orders/all'),
+        apiFetch(`/api/auth/users?t=${Date.now()}`)
+      ]);
 
-          // Authoritative synchronization of unique client directory from orders
-          const customerMap = new Map();
-          const existingCusts = readLS('abl_customers_v7', DEFAULT_CUSTOMERS) || [];
-          existingCusts.forEach(c => {
-            if (c.email) customerMap.set(c.email.trim().toLowerCase(), c);
-          });
-          mergedOrders.forEach(o => {
-            const email = (o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '').trim().toLowerCase();
-            if (email) {
-              const name = (o.customer && typeof o.customer === 'string' && o.customer !== 'Valued Customer')
-                ? o.customer
-                : (o.shippingAddress ? `${o.shippingAddress.first_name || ''} ${o.shippingAddress.last_name || ''}`.trim() : 'Valued Customer');
-              const spentNum = o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0;
-              const dateStr = o.date || 'Recent';
+      let dbOrders = [];
+      let dbUsers = [];
 
-              if (customerMap.has(email)) {
-                const existing = customerMap.get(email);
-                const currentSpent = parseFloat(String(existing.spent || '0').replace(/[^0-9.]/g, '')) || 0;
-                customerMap.set(email, {
-                  ...existing,
-                  name: (existing.name && existing.name !== 'Valued Customer') ? existing.name : name,
-                  orders: Math.max(existing.orders || 1, (existing.orders || 1) + 1),
-                  spent: `$${(currentSpent + spentNum).toFixed(2)}`,
-                  status: 'Active'
-                });
-              } else {
-                customerMap.set(email, {
-                  id: `cust_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
-                  name: name || 'Valued Customer',
-                  email: email,
-                  phone: o.phone || '',
-                  orders: 1,
-                  spent: `$${spentNum.toFixed(2)}`,
-                  joined: dateStr,
-                  status: 'Active'
-                });
-              }
-            }
-          });
-          const mergedCustomers = Array.from(customerMap.values());
-          if (mergedCustomers.length > 0) {
-            setCustomersRaw(mergedCustomers);
-            writeLS('abl_customers_v7', mergedCustomers);
-          }
+      if (ordersRes.status === 'fulfilled' && ordersRes.value.ok) {
+        const oData = await ordersRes.value.json();
+        if (oData.success && Array.isArray(oData.orders)) {
+          dbOrders = oData.orders;
+          setOrdersRaw(dbOrders);
+          writeLS('abl_orders_v9', dbOrders);
         }
       }
+
+      if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
+        const uData = await usersRes.value.json();
+        if (uData.success && Array.isArray(uData.users)) {
+          dbUsers = uData.users;
+        }
+      }
+
+      // Authoritative synchronization of unique client directory directly from MySQL (Users + Orders)
+      const customerMap = new Map();
+
+      // Populate from registered MySQL users
+      dbUsers.forEach(u => {
+        const email = (u.email || '').trim().toLowerCase();
+        if (email) {
+          const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Registered User';
+          customerMap.set(email, {
+            id: u.uuid || `cust_${u.id}`,
+            name: fullName,
+            email: email,
+            phone: u.phone || '',
+            role: u.role || 'customer',
+            orders: 0,
+            spent: '$0.00',
+            joined: u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
+            status: 'Active'
+          });
+        }
+      });
+
+      // Augment / add order statistics from MySQL orders
+      dbOrders.forEach(o => {
+        const email = (o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '').trim().toLowerCase();
+        if (email) {
+          const name = (o.customer && typeof o.customer === 'string' && o.customer !== 'Valued Customer')
+            ? o.customer
+            : (o.shippingAddress ? `${o.shippingAddress.first_name || ''} ${o.shippingAddress.last_name || ''}`.trim() : 'Valued Customer');
+          const spentNum = o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0;
+          const dateStr = o.date || 'Recent';
+
+          if (customerMap.has(email)) {
+            const existing = customerMap.get(email);
+            const currentSpent = parseFloat(String(existing.spent || '0').replace(/[^0-9.]/g, '')) || 0;
+            customerMap.set(email, {
+              ...existing,
+              name: (existing.name && existing.name !== 'Valued Customer' && existing.name !== 'Registered User') ? existing.name : (name || existing.name),
+              orders: (existing.orders || 0) + 1,
+              spent: `$${(currentSpent + spentNum).toFixed(2)}`,
+              status: 'Active'
+            });
+          } else {
+            customerMap.set(email, {
+              id: `cust_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+              name: name || 'Valued Customer',
+              email: email,
+              phone: o.phone || '',
+              orders: 1,
+              spent: `$${spentNum.toFixed(2)}`,
+              joined: dateStr,
+              status: 'Active'
+            });
+          }
+        }
+      });
+
+      const mergedCustomers = Array.from(customerMap.values());
+      setCustomersRaw(mergedCustomers);
+      writeLS('abl_customers_v7', mergedCustomers);
     } catch (err) {
       // Server offline fallback
     }

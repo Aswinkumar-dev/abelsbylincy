@@ -120,7 +120,12 @@ const getAllOrders = async (req, res, next) => {
   try {
     let dbOrders = [];
     try {
-      const [rows] = await db.query('SELECT * FROM orders ORDER BY created_at DESC');
+      const [rows] = await db.query(
+        `SELECT orders.*, users.email AS user_email, users.first_name AS user_fname, users.last_name AS user_lname 
+         FROM orders 
+         LEFT JOIN users ON orders.user_id = users.id 
+         ORDER BY orders.created_at DESC`
+      );
       for (const order of rows) {
         try {
           const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
@@ -128,7 +133,7 @@ const getAllOrders = async (req, res, next) => {
           const [payments] = await db.query('SELECT * FROM payments WHERE order_id = ?', [order.id]);
 
           const shipAddr = addresses.find(a => a.address_type === 'shipping') || addresses[0] || {};
-          const custName = `${shipAddr.first_name || ''} ${shipAddr.last_name || ''}`.trim() || 'Valued Customer';
+          const custName = `${shipAddr.first_name || order.user_fname || ''} ${shipAddr.last_name || order.user_lname || ''}`.trim() || 'Valued Customer';
           const dateStr = order.placed_at 
             ? new Date(order.placed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
             : new Date(order.created_at || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -152,7 +157,7 @@ const getAllOrders = async (req, res, next) => {
             dbId: order.id,
             uuid: order.uuid,
             customer: custName,
-            email: order.guest_email || '',
+            email: order.guest_email || order.user_email || '',
             phone: shipAddr.phone || '',
             address: shipAddr.address_line_1 || '',
             city: shipAddr.suburb || '',
