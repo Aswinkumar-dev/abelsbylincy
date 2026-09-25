@@ -466,8 +466,8 @@ export function StoreProvider({ children }) {
       // Authoritative synchronization of unique client directory directly from MySQL (Users + Orders)
       const customerMap = new Map();
 
-      // Populate from registered MySQL users
-      dbUsers.forEach(u => {
+      // Populate from registered MySQL users (excluding admin store owners)
+      dbUsers.filter(u => u.role !== 'admin' && u.role !== 'super_admin' && u.role !== 'Super Admin').forEach(u => {
         const email = (u.email || '').trim().toLowerCase();
         if (email) {
           const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Registered User';
