@@ -9,69 +9,123 @@ const db = require('../config/database');
  * @param {string} referenceType - 'orders', 'adjustment_sheet', etc.
  * @param {number} referenceId - Reference row ID
  * @param {string} note - Optional narrative description
- * @param {number} productId - Optional fallback product ID if variantId is not directly supplied
+ * @param {number|string} productId - Optional fallback product ID / SKU if variantId is not directly supplied
  */
-const adjustStock = async (connection, variantId, quantity, movementType, referenceType = null, referenceId = null, note = null, productId = null) => {
+const adjustStock = async (connection, variantId, quantity, movementType, referenceType = null, referenceId = null, note = null, productId = null, productName = null, productSlug = null, productSku = null) => {
   let targetVariantId = variantId;
 
-  if (!targetVariantId && productId) {
+  if (!targetVariantId && (productId || productName || productSlug || productSku)) {
     try {
+      const cleanP = productId ? String(productId).trim() : '';
+      const numP = (!isNaN(cleanP) && Number(cleanP) > 0) ? Number(cleanP) : -1;
+      const cleanName = productName ? String(productName).trim() : '';
+      const cleanSlug = productSlug ? String(productSlug).trim() : '';
+      const cleanSku = productSku ? String(productSku).trim() : '';
+
       const [vars] = await connection.query(
         `SELECT pv.id FROM product_variants pv 
          LEFT JOIN products p ON pv.product_id = p.id 
-         WHERE pv.id = ? OR pv.sku = ? OR p.id = ? OR p.uuid = ? OR p.sku = ? OR p.slug = ? OR (p.name = ? AND p.name != '')
+         WHERE (pv.id = ?) 
+            OR (pv.sku = ? AND ? != '') 
+            OR (p.id = ?) 
+            OR (p.uuid = ? AND ? != '') 
+            OR (p.sku = ? AND ? != '') 
+            OR (pv.sku = ? AND ? != '')
+            OR (p.slug = ? AND ? != '') 
+            OR (p.name = ? AND ? != '')
          ORDER BY pv.is_default DESC, pv.id ASC LIMIT 1`,
-        [productId, productId, productId, productId, productId, productId, productId]
+        [
+          numP, 
+          cleanSku, cleanSku, 
+          numP, 
+          cleanP, cleanP, 
+          cleanSku, cleanSku, 
+          cleanP, cleanP, 
+          cleanSlug, cleanSlug, 
+          cleanName, cleanName
+        ]
       );
       if (vars.length > 0) {
         targetVariantId = vars[0].id;
       }
-    } catch (_) {}
+    } catch (e) {
+      console.warn('⚠️ Error finding targetVariantId for stock adjustment:', e.message);
+    }
   }
 
   if (targetVariantId) {
     if (quantity < 0) {
       const deductQty = Math.abs(quantity);
       await connection.query(
-        'UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) WHERE id = ?',
+        'UPDATE product_variants SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - ?) WHERE id = ?',
         [deductQty, targetVariantId]
       );
     } else {
       await connection.query(
-        'UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?',
+        'UPDATE product_variants SET stock_quantity = COALESCE(stock_quantity, 0) + ? WHERE id = ?',
         [quantity, targetVariantId]
       );
     }
-  }
 
-  if (productId) {
+    // Log inventory movement
     try {
-      if (quantity < 0) {
-        await connection.query(
-          `UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) 
-           WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '')`,
-          [Math.abs(quantity), productId, productId, productId, productId, productId]
-        );
-      } else {
-        await connection.query(
-          `UPDATE products SET stock_quantity = stock_quantity + ? 
-           WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '')`,
-          [quantity, productId, productId, productId, productId, productId]
-        );
-      }
-    } catch (_) {}
+      await connection.query(
+        `INSERT INTO inventory_movements (variant_id, movement_type, quantity, reference_type, reference_id, note)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [targetVariantId, movementType, quantity, referenceType, referenceId, note]
+      );
+    } catch (logErr) {
+      console.warn('⚠️ Inventory movement log error:', logErr.message);
+    }
   }
+};
 
-  // Log inventory movement
+/**
+ * Idempotently deducts stock for an entire order exactly once.
+ * If inventory_movements already contains records for this order, it safely skips.
+ */
+const adjustOrderStockOnce = async (connection, orderId, orderNumber, items) => {
+  if (!orderId || !Array.isArray(items) || items.length === 0) return;
+
   try {
-    await connection.query(
-      `INSERT INTO inventory_movements (variant_id, movement_type, quantity, reference_type, reference_id, note)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [targetVariantId, movementType, quantity, referenceType, referenceId, note]
+    const [existing] = await connection.query(
+      `SELECT id FROM inventory_movements 
+       WHERE reference_type = 'orders' AND reference_id = ? AND movement_type = 'sale' LIMIT 1`,
+      [orderId]
     );
-  } catch {}
+
+    if (existing.length > 0) {
+      return; // Already deducted for this order!
+    }
+
+    for (const item of items) {
+      const qty = parseInt(item.quantity || 1, 10);
+      const varId = item.variant_id || item.variantId || null;
+      const prodId = item.product_id || item.productId || item.id || item.sku || null;
+      const prodName = (item.name || item.product_name || item.productName || '').trim();
+      const prodSlug = (item.slug || '').trim();
+      const prodSku = (item.sku || '').trim();
+
+      await adjustStock(
+        connection,
+        varId,
+        -qty,
+        'sale',
+        'orders',
+        orderId,
+        `Sale order #${orderNumber || orderId}`,
+        prodId,
+        prodName,
+        prodSlug,
+        prodSku
+      );
+    }
+  } catch (err) {
+    console.warn('⚠️ adjustOrderStockOnce note:', err.message);
+  }
 };
 
 module.exports = {
-  adjustStock
+  adjustStock,
+  adjustOrderStockOnce
 };

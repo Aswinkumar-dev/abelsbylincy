@@ -1,6 +1,7 @@
 const stripe = require('../config/stripe');
 const stripeService = require('../services/stripe.service');
 const { createOrderFromCart } = require('../services/order.service');
+const { adjustOrderStockOnce } = require('../services/inventory.service');
 const db = require('../config/database');
 
 const createStripeIntent = async (req, res, next) => {
@@ -633,22 +634,13 @@ const recordStripeOrder = async (req, res, next) => {
           if (itColNames.includes('product_image_url')) { iCols.push('product_image_url'); iPlaceholders.push('?'); iVals.push(item.image || item.productImageUrl || null); }
 
           await db.query(`INSERT INTO order_items (${iCols.join(', ')}) VALUES (${iPlaceholders.join(', ')})`, iVals);
+        }
 
-          // Deduct stock in DB — product_variants is the authoritative stock column
-          if (cleanId || cleanSku || cleanName || cleanSlug) {
-            try {
-              await db.query(
-                `UPDATE product_variants SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - ?) 
-                 WHERE product_id IN (
-                   SELECT id FROM products 
-                   WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '') OR (slug = ? AND slug != '')
-                 ) OR (sku = ? AND sku != '')`,
-                [qty, realProductId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null, cleanSku || null]
-              );
-            } catch (stockDbErr) {
-              console.warn('DB stock update note:', stockDbErr.message);
-            }
-          }
+        // Deduct stock idempotently in DB
+        try {
+          await adjustOrderStockOnce(db, orderId, orderNumber, order.items);
+        } catch (stockDbErr) {
+          console.warn('DB stock update note:', stockDbErr.message);
         }
       }
 

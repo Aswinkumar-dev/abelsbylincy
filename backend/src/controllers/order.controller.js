@@ -1,4 +1,5 @@
 const { createOrderFromCart } = require('../services/order.service');
+const { adjustOrderStockOnce } = require('../services/inventory.service');
 const db = require('../config/database');
 
 const createOrder = async (req, res, next) => {
@@ -454,22 +455,13 @@ const syncOrders = async (req, res, next) => {
                 item.image || item.productImageUrl || null
               ]
             );
+          }
 
-            // Deduct stock in DB — product_variants is authoritative
-            if (cleanId || cleanSku || cleanName || cleanSlug) {
-              try {
-                await db.query(
-                  `UPDATE product_variants SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - ?) 
-                   WHERE product_id IN (
-                     SELECT id FROM products 
-                     WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '') OR (slug = ? AND slug != '')
-                   ) OR (sku = ? AND sku != '')`,
-                  [qty, cleanId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null, cleanSku || null]
-                );
-              } catch (stockDbErr) {
-                console.warn('DB stock update note:', stockDbErr.message);
-              }
-            }
+          // Deduct stock idempotently in DB
+          try {
+            await adjustOrderStockOnce(db, orderDbId, primaryKey, order.items);
+          } catch (stockDbErr) {
+            console.warn('DB stock update note:', stockDbErr.message);
           }
         }
       } catch (dbErr) {

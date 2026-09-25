@@ -551,20 +551,7 @@ export default function CheckoutPage() {
 
       window.history.replaceState(null, '', window.location.pathname);
 
-      // Immediately deduct stock in DB via dedicated endpoint (uses name+sku+slug — never fails on ID mismatch)
-      const deductItems = purchasedItems.map(pi => ({
-        name: pi.name || pi.productName || '',
-        sku: pi.sku || '',
-        slug: pi.slug || '',
-        quantity: pi.quantity || 1
-      }));
-      apiFetch('/api/products/deduct-stock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: deductItems })
-      }).catch(e => console.warn('Stock deduction note:', e));
-
-      // Record Stripe order to backend API, DB & dispatch single authoritative confirmation email
+      // Record Stripe order to backend API, DB & dispatch single authoritative confirmation email (deducts stock idempotently)
       apiFetch('/api/payments/record-stripe-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

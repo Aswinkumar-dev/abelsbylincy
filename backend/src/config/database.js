@@ -103,6 +103,17 @@ async function runMigrations(connection) {
         if (oColNames.includes('guest_email')) {
           await connection.query("ALTER TABLE orders MODIFY COLUMN guest_email VARCHAR(255) NULL");
         }
+        if (oColNames.includes('status')) {
+          await connection.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'Confirmed'");
+          await connection.query("UPDATE orders SET status = 'Confirmed' WHERE status IS NULL OR status = '' OR status = 'pending'");
+        }
+        if (oColNames.includes('payment_status')) {
+          await connection.query("ALTER TABLE orders MODIFY COLUMN payment_status VARCHAR(50) NOT NULL DEFAULT 'paid'");
+          await connection.query("UPDATE orders SET payment_status = 'paid' WHERE payment_status IS NULL OR payment_status = ''");
+        }
+        if (oColNames.includes('fulfillment_status')) {
+          await connection.query("ALTER TABLE orders MODIFY COLUMN fulfillment_status VARCHAR(50) NULL DEFAULT 'unfulfilled'");
+        }
         if (!oColNames.includes('refund_amount')) {
           await connection.query("ALTER TABLE orders ADD COLUMN refund_amount DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER total_amount");
           console.log('Migrated: Added refund_amount column to orders table.');
@@ -204,6 +215,21 @@ async function runMigrations(connection) {
           event_type VARCHAR(100) NOT NULL,
           payload LONGTEXT NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS inventory_movements (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          variant_id INT NULL,
+          movement_type VARCHAR(50) NOT NULL,
+          quantity INT NOT NULL,
+          reference_type VARCHAR(50) NULL,
+          reference_id VARCHAR(100) NULL,
+          note TEXT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_inv_variant (variant_id),
+          INDEX idx_inv_ref (reference_type, reference_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 

@@ -1,6 +1,6 @@
 const stripe = require('../config/stripe');
 const db = require('../config/database');
-const { adjustStock } = require('./inventory.service');
+const { adjustStock, adjustOrderStockOnce } = require('./inventory.service');
 const { sendOrderConfirmationEmail } = require('./email.service');
 
 /**
@@ -155,9 +155,7 @@ const handleWebhookEvent = async (event) => {
           
           // Requirement 29 & 30: Stock Deduction with Automatic Failure Reconciliation
           try {
-            for (const item of orderItems) {
-              await adjustStock(connection, item.variant_id, -item.quantity, 'sale', 'orders', orderId, `Sale order #${order.order_number}`, item.product_id);
-            }
+            await adjustOrderStockOnce(connection, orderId, order.order_number, orderItems);
 
             try {
               await sendOrderConfirmationEmail({
