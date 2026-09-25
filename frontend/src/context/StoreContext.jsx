@@ -1099,7 +1099,7 @@ export function StoreProvider({ children }) {
         }
         setCartRaw(finalCart);
 
-        // Direct MySQL DB wishlist fetch on login (pure database authority)
+        // Direct MySQL DB wishlist fetch & merge guest wishlist on login
         let dbWishlist = Array.isArray(data.wishlist) ? data.wishlist : [];
         if (dbWishlist.length === 0) {
           try {
@@ -1119,7 +1119,21 @@ export function StoreProvider({ children }) {
             console.warn('⚠️ Wishlist fetch fallback note:', wErr.message);
           }
         }
-        setWishlistRaw(dbWishlist);
+
+        const guestWishlist = Array.isArray(wishlist) ? wishlist : [];
+        const finalWishlist = Array.from(new Set([...dbWishlist, ...guestWishlist].map(String).filter(Boolean)));
+        setWishlistRaw(finalWishlist);
+
+        if (finalWishlist.length > 0) {
+          apiFetch('/api/wishlist/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
+            },
+            body: JSON.stringify({ email: cleanEmail, items: finalWishlist })
+          }).catch(() => {});
+        }
 
         setCurrentUser(userObj);
         writeLS('abl_current_user', userObj);
@@ -1137,7 +1151,7 @@ export function StoreProvider({ children }) {
       showToast('Login server unreachable. Please check your internet connection.', 'alert-circle');
       return false;
     }
-  }, [setCurrentUser, showToast]);
+  }, [cart, wishlist, setCurrentUser, showToast]);
 
   const registerUser = useCallback(async (name, email, password) => {
     const cleanEmail = email.trim().toLowerCase();
@@ -1174,6 +1188,40 @@ export function StoreProvider({ children }) {
         localStorage.setItem('abl_access_token', data.accessToken);
       }
 
+      // Merge guest cart to MySQL DB
+      const guestCart = Array.isArray(cart) ? cart : (readLS('abl_cart', []) || []);
+      const dbCart = Array.isArray(data.cart) ? data.cart : [];
+      let finalCart = dbCart;
+      if (guestCart.length > 0) {
+        finalCart = mergeCartLists(dbCart, guestCart);
+        writeLS('abl_cart', []);
+        apiFetch('/api/cart/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
+          },
+          body: JSON.stringify({ email: cleanEmail, items: finalCart })
+        }).catch(() => {});
+      }
+      setCartRaw(finalCart);
+
+      // Merge guest wishlist to MySQL DB
+      const guestWishlist = Array.isArray(wishlist) ? wishlist : [];
+      const dbWishlist = Array.isArray(data.wishlist) ? data.wishlist : [];
+      const finalWishlist = Array.from(new Set([...dbWishlist, ...guestWishlist].map(String).filter(Boolean)));
+      setWishlistRaw(finalWishlist);
+      if (finalWishlist.length > 0) {
+        apiFetch('/api/wishlist/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
+          },
+          body: JSON.stringify({ email: cleanEmail, items: finalWishlist })
+        }).catch(() => {});
+      }
+
       setCustomers(prev => {
         const current = Array.isArray(prev) ? prev : [];
         if (current.some(c => c.email?.toLowerCase() === cleanEmail)) {
@@ -1193,7 +1241,7 @@ export function StoreProvider({ children }) {
       showToast('Registration service temporarily unavailable. Please try again.', 'alert-circle');
       return false;
     }
-  }, [setCustomers, setCurrentUser, showToast]);
+  }, [cart, wishlist, setCustomers, setCurrentUser, showToast]);
 
   const requestPasswordReset = useCallback(async (email) => {
     const cleanEmail = (email || '').trim().toLowerCase();
@@ -1394,7 +1442,7 @@ export function StoreProvider({ children }) {
       }
       setCartRaw(finalCart);
 
-      // 3. Direct MySQL DB Wishlist (pure database authority)
+      // 3. Direct MySQL DB Wishlist & merge guest wishlist (pure database authority)
       let dbWishlist = Array.isArray(authData.wishlist) ? authData.wishlist : [];
       if (dbWishlist.length === 0) {
         try {
@@ -1412,7 +1460,21 @@ export function StoreProvider({ children }) {
           }
         } catch (_) {}
       }
-      setWishlistRaw(dbWishlist);
+
+      const guestWishlist = Array.isArray(wishlist) ? wishlist : [];
+      const finalWishlist = Array.from(new Set([...dbWishlist, ...guestWishlist].map(String).filter(Boolean)));
+      setWishlistRaw(finalWishlist);
+
+      if (finalWishlist.length > 0) {
+        apiFetch('/api/wishlist/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authData.accessToken ? { 'Authorization': `Bearer ${authData.accessToken}` } : {})
+          },
+          body: JSON.stringify({ email: lowerEmail, items: finalWishlist })
+        }).catch(() => {});
+      }
 
       showToast(`Welcome back, ${userObj.name}!`, 'check');
       return true;
@@ -1421,7 +1483,7 @@ export function StoreProvider({ children }) {
       showToast('Google sign-in error. Please try again.', 'alert-circle');
       return false;
     }
-  }, [setCustomers, setCurrentUser, showToast]);
+  }, [cart, wishlist, setCustomers, setCurrentUser, showToast]);
 
   const loginWithGoogle = useCallback(async (credentialOrEvent) => {
     if (typeof credentialOrEvent === 'string') {
