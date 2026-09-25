@@ -1,23 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { User, ShoppingBag, Heart, Award, Eye, EyeOff, LogOut, KeyRound, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export default function AccountPage() {
-  const { currentUser, loginWithEmail, registerUser, loginWithGoogle, logoutUser, requestPasswordReset, orders, wishlist } = useStore();
+  const { currentUser, loginWithEmail, registerUser, loginWithGoogle, requestPasswordReset } = useStore();
   const [searchParams] = useSearchParams();
   const [authMode, setAuthMode] = useState(() => searchParams.get('mode') === 'register' ? 'register' : 'login'); // 'login', 'register', or 'forgot'
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
 
-  // Redirect only if an explicit external target was requested via ?redirect= (e.g. /checkout)
+  // Redirect to target or home if user is already logged in
   useEffect(() => {
     if (currentUser) {
-      const redirectPath = searchParams.get('redirect');
-      if (redirectPath && redirectPath !== '/account') {
-        navigate(redirectPath, { replace: true });
-      }
+      const redirectPath = searchParams.get('redirect') || '/';
+      navigate(redirectPath, { replace: true });
     }
   }, [currentUser, navigate, searchParams]);
 
@@ -43,12 +40,6 @@ export default function AccountPage() {
 
   // Animation shake state
   const [isShaking, setIsShaking] = useState(false);
-
-  const userOrders = orders.filter(o => {
-    const userEmail = (currentUser?.email || '').trim().toLowerCase();
-    const oEmail = (o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '').trim().toLowerCase();
-    return userEmail && oEmail === userEmail;
-  });
 
   const triggerShake = () => {
     setIsShaking(true);
@@ -112,20 +103,16 @@ export default function AccountPage() {
       setPasswordError('Invalid email or password credentials.');
       triggerShake();
     } else {
-      const redirectPath = searchParams.get('redirect');
-      if (redirectPath && redirectPath !== '/account') {
-        navigate(redirectPath, { replace: true });
-      }
+      const redirectPath = searchParams.get('redirect') || '/';
+      navigate(redirectPath, { replace: true });
     }
   };
 
   const handleGoogleLogin = async () => {
     const success = await loginWithGoogle();
     if (success) {
-      const redirectPath = searchParams.get('redirect');
-      if (redirectPath && redirectPath !== '/account') {
-        navigate(redirectPath, { replace: true });
-      }
+      const redirectPath = searchParams.get('redirect') || '/';
+      navigate(redirectPath, { replace: true });
     }
   };
 
@@ -190,18 +177,17 @@ export default function AccountPage() {
       setEmailError('An account with this email address already exists.');
       triggerShake();
     } else {
-      const redirectPath = searchParams.get('redirect');
-      if (redirectPath && redirectPath !== '/account') {
-        navigate(redirectPath, { replace: true });
-      }
+      const redirectPath = searchParams.get('redirect') || '/';
+      navigate(redirectPath, { replace: true });
     }
   };
 
-  // ============================================================
-  // GUEST VIEW: Floating Gold Login Card on Clean Off-White Page Background
-  // ============================================================
-  if (!currentUser) {
-    return (
+  // If already logged in, redirecting via useEffect so render nothing
+  if (currentUser) {
+    return null;
+  }
+
+  return (
       <>
         <style>{`
           @keyframes floatCard {
@@ -743,233 +729,4 @@ export default function AccountPage() {
         </div>
       </>
     );
-  }
-
-  // ============================================================
-  // LOGGED IN VIEW (Luxury Account Dashboard)
-  // ============================================================
-  return (
-    <>
-      <div className="page-hero">
-        <div className="container">
-          <p className="section-subtitle">Client Portal</p>
-          <h1>Welcome, {currentUser.name || currentUser.firstName || 'Valued Client'}</h1>
-        </div>
-      </div>
-
-      <div className="container account-dashboard-layout" style={{ marginTop: 40, marginBottom: 80 }}>
-        {/* Sidebar Nav */}
-        <aside className="account-sidebar">
-          <div className="user-profile-card">
-            <div className="user-avatar" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {currentUser.avatar ? (
-                <img src={currentUser.avatar} alt={currentUser.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                (currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()
-              )}
-            </div>
-            <div>
-              <p className="user-profile-name">{currentUser.name || 'Member'}</p>
-              <p className="user-profile-email">{currentUser.email}</p>
-              <span className="user-tier-badge">
-                {currentUser.provider === 'google' ? 'Google Verified' : (currentUser.status || 'Active Client')}
-              </span>
-            </div>
-          </div>
-
-          <nav className="account-nav" style={{ marginTop: 24 }}>
-            {[
-              { id: 'dashboard', label: 'Overview', icon: <User style={{ width: 16 }} /> },
-              { id: 'orders', label: `My Orders (${userOrders.length})`, icon: <ShoppingBag style={{ width: 16 }} /> },
-              { id: 'wishlist', label: `My Wishlist (${wishlist.length})`, icon: <Heart style={{ width: 16 }} /> },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                className={`account-nav-btn${activeTab === tab.id ? ' active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.icon} {tab.label}
-              </button>
-            ))}
-            <button className="account-nav-btn" style={{ color: 'var(--danger)', marginTop: 8 }} onClick={logoutUser}>
-              <LogOut style={{ width: 16 }} /> Sign Out
-            </button>
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <div className="account-main">
-          {activeTab === 'dashboard' && (
-            <div>
-              <h2 className="account-section-title">Account Overview</h2>
-
-              <div className="account-kpi-grid">
-                <div className="account-kpi-card">
-                  <ShoppingBag style={{ width: 22, height: 22, color: 'var(--gold)', marginBottom: 8 }} />
-                  <p style={{ fontSize: 12, color: 'var(--slate)' }}>Total Orders</p>
-                  <p style={{ fontSize: 24, fontWeight: 700, color: 'var(--onyx)' }}>{userOrders.length}</p>
-                </div>
-                <div className="account-kpi-card">
-                  <Heart style={{ width: 22, height: 22, color: 'var(--gold)', marginBottom: 8 }} />
-                  <p style={{ fontSize: 12, color: 'var(--slate)' }}>Wishlist Pieces</p>
-                  <p style={{ fontSize: 24, fontWeight: 700, color: 'var(--onyx)' }}>{wishlist.length}</p>
-                </div>
-                <div className="account-kpi-card">
-                  <Award style={{ width: 22, height: 22, color: 'var(--gold)', marginBottom: 8 }} />
-                  <p style={{ fontSize: 12, color: 'var(--slate)' }}>Client Status</p>
-                  <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--onyx)' }}>
-                    {currentUser.provider === 'google' ? 'Google Client' : 'VIP Member'}
-                  </p>
-                </div>
-              </div>
-
-              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, margin: '32px 0 16px', color: 'var(--onyx)' }}>Recent Orders</h3>
-              {userOrders.length === 0 ? (
-                <div style={{ background: '#FAF9F6', border: '1px dashed var(--border)', borderRadius: 10, padding: '32px 20px', textAlign: 'center' }}>
-                  <ShoppingBag style={{ width: 36, height: 36, color: 'var(--slate)', margin: '0 auto 12px auto' }} />
-                  <p style={{ color: 'var(--onyx)', fontWeight: 600, marginBottom: 6 }}>No orders placed yet</p>
-                  <p style={{ color: 'var(--slate)', fontSize: 13, marginBottom: 16 }}>Explore our handcrafted gold-plated jewellery collection.</p>
-                  <Link to="/shop" className="btn-primary" style={{ display: 'inline-flex' }}>
-                    Shop Collection →
-                  </Link>
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Order #</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                        <th>Total</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {userOrders.slice(0, 5).map(o => (
-                        <tr key={o.id || o.order_number}>
-                          <td style={{ fontWeight: 600, color: 'var(--gold-dark)' }}>#{o.order_number || o.id}</td>
-                          <td>{o.date || 'Recent'}</td>
-                          <td>
-                            <span className={`status-badge status-${(o.status || 'confirmed').toLowerCase()}`}>
-                              {o.status || 'Confirmed'}
-                            </span>
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{o.total || (o.rawAmount ? `$${o.rawAmount.toFixed(2)}` : '$0.00')}</td>
-                          <td>
-                            <button
-                              type="button"
-                              onClick={() => setActiveTab('orders')}
-                              style={{ background: 'none', border: 'none', color: 'var(--gold-dark)', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}
-                            >
-                              View Details →
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'orders' && (
-            <div>
-              <h2 className="account-section-title">Order History ({userOrders.length})</h2>
-              {userOrders.length === 0 ? (
-                <div style={{ background: '#FAF9F6', border: '1px dashed var(--border)', borderRadius: 10, padding: '40px 20px', textAlign: 'center' }}>
-                  <ShoppingBag style={{ width: 40, height: 40, color: 'var(--slate)', margin: '0 auto 12px auto' }} />
-                  <h4 style={{ margin: '0 0 6px 0', color: 'var(--onyx)' }}>You have no orders yet</h4>
-                  <p style={{ color: 'var(--slate)', fontSize: 13, marginBottom: 18 }}>When you place an order, its details and delivery tracking will appear here.</p>
-                  <Link to="/shop" className="btn-primary" style={{ display: 'inline-flex' }}>
-                    Discover Jewellery
-                  </Link>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {userOrders.map(o => (
-                    <div key={o.id || o.order_number} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 20, background: '#FFFFFF' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, paddingBottom: 14, borderBottom: '1px solid #F3EFEA' }}>
-                        <div>
-                          <span style={{ fontSize: 12, color: 'var(--slate)' }}>Order Reference</span>
-                          <p style={{ margin: '2px 0 0 0', fontWeight: 700, color: 'var(--onyx)' }}>#{o.order_number || o.id}</p>
-                        </div>
-                        <div>
-                          <span style={{ fontSize: 12, color: 'var(--slate)' }}>Date Placed</span>
-                          <p style={{ margin: '2px 0 0 0', fontWeight: 600, color: 'var(--onyx)' }}>{o.date || 'Recent'}</p>
-                        </div>
-                        <div>
-                          <span style={{ fontSize: 12, color: 'var(--slate)' }}>Total Amount</span>
-                          <p style={{ margin: '2px 0 0 0', fontWeight: 700, color: 'var(--gold-dark)' }}>{o.total || (o.rawAmount ? `$${o.rawAmount.toFixed(2)}` : '$0.00')}</p>
-                        </div>
-                        <div>
-                          <span className={`status-badge status-${(o.status || 'confirmed').toLowerCase()}`}>
-                            {o.status || 'Confirmed'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {Array.isArray(o.items) && o.items.length > 0 && (
-                        <div style={{ marginTop: 14 }}>
-                          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                            Purchased Items ({o.items.length})
-                          </p>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {o.items.map((item, idx) => (
-                              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                                <span style={{ color: 'var(--onyx)', fontWeight: 500 }}>
-                                  {item.quantity || 1}x {item.name || item.title || 'Fine Jewellery'}
-                                  {item.size ? ` (Size: ${item.size})` : ''}
-                                  {item.color ? ` (Color: ${item.color})` : ''}
-                                </span>
-                                <span style={{ fontWeight: 600, color: 'var(--onyx)' }}>
-                                  ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {o.trackingNumber && (
-                        <div style={{ marginTop: 14, padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 6, fontSize: 12.5, color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span>🚚 <strong>Australia Post Tracking:</strong> {o.trackingNumber}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'wishlist' && (
-            <div>
-              <h2 className="account-section-title">My Saved Pieces ({wishlist.length})</h2>
-              {wishlist.length === 0 ? (
-                <div style={{ background: '#FAF9F6', border: '1px dashed var(--border)', borderRadius: 10, padding: '40px 20px', textAlign: 'center' }}>
-                  <Heart style={{ width: 40, height: 40, color: 'var(--slate)', margin: '0 auto 12px auto' }} />
-                  <h4 style={{ margin: '0 0 6px 0', color: 'var(--onyx)' }}>Your wishlist is empty</h4>
-                  <p style={{ color: 'var(--slate)', fontSize: 13, marginBottom: 18 }}>Save items you love and find them stored here in your account across all devices.</p>
-                  <Link to="/shop" className="btn-primary" style={{ display: 'inline-flex' }}>
-                    Discover Jewellery
-                  </Link>
-                </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                  <p style={{ fontSize: 14, color: 'var(--slate)', marginBottom: 20 }}>
-                    You have <strong>{wishlist.length}</strong> piece{wishlist.length > 1 ? 's' : ''} saved to your account.
-                  </p>
-                  <Link to="/wishlist" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    <Heart style={{ width: 16 }} /> Open Full Wishlist Page
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </>
-  );
 }

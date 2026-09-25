@@ -294,10 +294,12 @@ const login = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    await db.query(
-      'INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?)',
-      [user.id, refreshHash, expiresAt]
-    );
+    try {
+      await db.query(
+        'INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE expires_at = VALUES(expires_at)',
+        [user.id, refreshHash, expiresAt]
+      );
+    } catch (_) {}
 
     // Fetch user's cart from DB or fileStore
     let userCart = [];
@@ -605,10 +607,12 @@ const googleLogin = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    await connection.query(
-      'INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?)',
-      [userId, refreshHash, expiresAt]
-    );
+    try {
+      await connection.query(
+        'INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE expires_at = VALUES(expires_at)',
+        [userId, refreshHash, expiresAt]
+      );
+    } catch (_) {}
 
     await connection.commit();
 
