@@ -239,7 +239,7 @@ const login = async (req, res, next) => {
       userCart = getStoredCart(user.email) || [];
     }
 
-    // Fetch user's wishlist from DB or fileStore
+    // Fetch user's wishlist strictly from user_wishlists table in DB
     let userWishlist = [];
     try {
       const [wRows] = await db.query(
@@ -249,23 +249,8 @@ const login = async (req, res, next) => {
       if (wRows && wRows.length > 0 && wRows[0].wishlist_json) {
         userWishlist = typeof wRows[0].wishlist_json === 'string' ? JSON.parse(wRows[0].wishlist_json) : wRows[0].wishlist_json;
       }
-      if (!Array.isArray(userWishlist) || userWishlist.length === 0) {
-        const [relRows] = await db.query(
-          `SELECT wi.product_id 
-           FROM wishlist_items wi
-           JOIN wishlists w ON wi.wishlist_id = w.id
-           WHERE LOWER(TRIM(w.user_email)) = ? OR (w.user_id IS NOT NULL AND w.user_id = ?)
-           ORDER BY wi.created_at DESC`,
-          [user.email.toLowerCase(), user.id]
-        );
-        if (relRows && relRows.length > 0) {
-          userWishlist = relRows.map(r => String(r.product_id));
-        }
-      }
     } catch (_) {}
-    if (!Array.isArray(userWishlist) || userWishlist.length === 0) {
-      userWishlist = (typeof getStoredWishlist === 'function' ? getStoredWishlist(user.email) : []) || [];
-    }
+    if (!Array.isArray(userWishlist)) userWishlist = [];
 
     res.status(200).json({
       success: true,
@@ -567,7 +552,7 @@ const googleLogin = async (req, res, next) => {
       userCart = getStoredCart(user.email) || [];
     }
 
-    // Fetch user's wishlist from DB or fileStore
+    // Fetch user's wishlist strictly from user_wishlists table in DB
     let userWishlist = [];
     try {
       const [wRows] = await db.query(
@@ -577,23 +562,8 @@ const googleLogin = async (req, res, next) => {
       if (wRows && wRows.length > 0 && wRows[0].wishlist_json) {
         userWishlist = typeof wRows[0].wishlist_json === 'string' ? JSON.parse(wRows[0].wishlist_json) : wRows[0].wishlist_json;
       }
-      if (!Array.isArray(userWishlist) || userWishlist.length === 0) {
-        const [relRows] = await db.query(
-          `SELECT wi.product_id 
-           FROM wishlist_items wi
-           JOIN wishlists w ON wi.wishlist_id = w.id
-           WHERE LOWER(TRIM(w.user_email)) = ? OR (w.user_id IS NOT NULL AND w.user_id = ?)
-           ORDER BY wi.created_at DESC`,
-          [user.email.toLowerCase(), userId]
-        );
-        if (relRows && relRows.length > 0) {
-          userWishlist = relRows.map(r => String(r.product_id));
-        }
-      }
     } catch (_) {}
-    if (!Array.isArray(userWishlist) || userWishlist.length === 0) {
-      userWishlist = (typeof getStoredWishlist === 'function' ? getStoredWishlist(user.email) : []) || [];
-    }
+    if (!Array.isArray(userWishlist)) userWishlist = [];
 
     res.status(200).json({
       success: true,

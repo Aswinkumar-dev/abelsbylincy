@@ -444,12 +444,22 @@ export function StoreProvider({ children }) {
     return readLS('abl_cart', []);
   });
   const [cartLoading, setCartLoading] = useState(false);
-  const [wishlist, setWishlistRaw] = useState(() => readLS('abl_wishlist', []));
+  const [wishlist, setWishlistRaw] = useState([]); // Pure MySQL DB persistence — no localStorage used
   const [currentUser, setCurrentUserRaw] = useState(() => readLS('abl_current_user', null));
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => readLS('abl_admin_auth', false));
   const [adminUser, setAdminUserRaw] = useState(() => readLS('abl_admin_user', null));
   const [messages, setMessagesRaw] = useState(() => readLS('abl_messages_v2', DEFAULT_MESSAGES));
   const [subscribers, setSubscribersRaw] = useState(() => readLS('abl_subscribers_v2', DEFAULT_SUBSCRIBERS));
+
+  // Purge any legacy client-side wishlist storage keys so DB is 100% authoritative
+  useEffect(() => {
+    try {
+      localStorage.removeItem('abl_wishlist');
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('abl_wishlist_')) localStorage.removeItem(k);
+      });
+    } catch (_) {}
+  }, []);
 
   // Authoritative sync with backend API (Orders, Products, Reviews, Coupons directly from Server/DB)
   const syncBackendData = useCallback(async () => {
@@ -663,6 +673,20 @@ export function StoreProvider({ children }) {
     } catch (err) {
       // Offline fallback
     }
+
+    try {
+      // 8. Fetch Inventory Movement History from MySQL Database
+      const invRes = await apiFetch(`/api/inventory/history?t=${Date.now()}`);
+      if (invRes.ok) {
+        const data = await invRes.json();
+        if (data.success && Array.isArray(data.history)) {
+          setStockHistoryRaw(data.history);
+          writeLS('abl_stock_history_v6', data.history);
+        }
+      }
+    } catch (err) {
+      // Offline fallback
+    }
   }, []);
 
   useEffect(() => {
@@ -686,7 +710,6 @@ export function StoreProvider({ children }) {
         else if (e.key === 'abl_messages_v2') setMessagesRaw(val);
         else if (e.key === 'abl_subscribers_v2') setSubscribersRaw(val);
         else if (e.key === 'abl_cart') setCartRaw(val);
-        else if (e.key === 'abl_wishlist') setWishlistRaw(val);
         else if (e.key === 'abl_current_user') setCurrentUserRaw(val);
         else if (e.key === 'abl_admin_auth') setAdminLoggedIn(val);
         else if (e.key === 'abl_admin_user') setAdminUserRaw(val);
@@ -802,12 +825,10 @@ export function StoreProvider({ children }) {
     setWishlistRaw(prev => {
       const currentList = Array.isArray(prev) ? prev : [];
       const next = typeof updaterOrValue === 'function' ? updaterOrValue(currentList) : updaterOrValue;
-      const cleanList = Array.isArray(next) ? next : [];
-      writeLS('abl_wishlist', cleanList);
+      const cleanList = Array.from(new Set((Array.isArray(next) ? next : []).map(String).filter(Boolean)));
 
       const email = currentUser?.email?.trim().toLowerCase();
       if (email) {
-        writeLS(`abl_wishlist_${email}`, cleanList);
         const token = localStorage.getItem('abl_access_token');
         apiFetch('/api/wishlist/sync', {
           method: 'POST',
@@ -816,7 +837,7 @@ export function StoreProvider({ children }) {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
           body: JSON.stringify({ email, items: cleanList })
-        }).catch(err => console.warn('⚠️ Wishlist sync note:', err.message));
+        }).catch(err => console.warn('⚠️ Wishlist DB sync note:', err.message));
       }
 
       return cleanList;
@@ -896,10 +917,13 @@ export function StoreProvider({ children }) {
     };
   }, [currentUser?.email]);
 
-  // Multi-device Wishlist preservation: sync account wishlist from MySQL DB
+  // Multi-device Wishlist preservation: strictly fetch from MySQL user_wishlists table
   useEffect(() => {
     const userEmail = currentUser?.email?.trim().toLowerCase();
-    if (!userEmail) return;
+    if (!userEmail) {
+      setWishlistRaw([]);
+      return;
+    }
 
     let isMounted = true;
 
@@ -914,21 +938,12 @@ export function StoreProvider({ children }) {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success && isMounted) {
-            const dbList = Array.isArray(data.items) ? data.items : [];
-            const userSavedList = readLS(`abl_wishlist_${userEmail}`, []) || [];
-
-            const finalList = Array.isArray(data.items) && data.items.length > 0 ? dbList : userSavedList;
-
-            if (finalList.length > 0 || (data.success && Array.isArray(data.items))) {
-              setWishlistRaw(finalList);
-              writeLS('abl_wishlist', finalList);
-              writeLS(`abl_wishlist_${userEmail}`, finalList);
-            }
+          if (data.success && isMounted && Array.isArray(data.items)) {
+            setWishlistRaw(data.items);
           }
         }
       } catch (err) {
-        console.warn('⚠️ User wishlist sync error:', err.message);
+        console.warn('⚠️ User wishlist DB fetch error:', err.message);
       }
     };
 
@@ -1021,19 +1036,34 @@ export function StoreProvider({ children }) {
   }, [setCart, showToast]);
 
   // ============================================================
-  // Wishlist actions
+  // Wishlist actions (Direct MySQL DB persistence)
   // ============================================================
   const toggleWishlist = useCallback((id) => {
-    setWishlist(prev => {
-      if (prev.includes(id)) {
-        showToast('Removed from wishlist', 'heart');
-        return prev.filter(i => i !== id);
-      } else {
-        showToast('Added to wishlist!', 'heart');
-        return [...prev, id];
+    if (!id) return;
+    const cleanId = String(id).trim();
+    const email = currentUser?.email?.trim().toLowerCase();
+
+    setWishlistRaw(prev => {
+      const current = Array.isArray(prev) ? prev : [];
+      const exists = current.includes(cleanId);
+      const next = exists ? current.filter(i => i !== cleanId) : [...current, cleanId];
+      showToast(exists ? 'Removed from wishlist' : 'Added to wishlist!', 'heart');
+
+      if (email) {
+        const token = localStorage.getItem('abl_access_token');
+        apiFetch('/api/wishlist/toggle', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ email, productId: cleanId })
+        }).catch(err => console.warn('⚠️ Wishlist toggle DB note:', err.message));
       }
+
+      return next;
     });
-  }, [setWishlist, showToast]);
+  }, [currentUser, showToast]);
 
   // ============================================================
   // Auth actions
@@ -1105,12 +1135,10 @@ export function StoreProvider({ children }) {
           }).catch(() => {});
         }
 
-        // Direct MySQL DB wishlist fetch or payload wishlist on login
-        const localWishlist = readLS('abl_wishlist', []) || [];
-        const userSavedWishlist = readLS(`abl_wishlist_${cleanEmail}`, []) || [];
+        // Direct MySQL DB wishlist fetch on login (no localStorage)
         let dbWishlist = Array.isArray(data.wishlist) ? data.wishlist : null;
 
-        if (!dbWishlist || dbWishlist.length === 0) {
+        if (!dbWishlist) {
           try {
             const wRes = await apiFetch(`/api/wishlist?email=${encodeURIComponent(cleanEmail)}&t=${Date.now()}`, {
               headers: {
@@ -1129,26 +1157,7 @@ export function StoreProvider({ children }) {
           }
         }
 
-        const combinedWishlist = Array.from(new Set([
-          ...(Array.isArray(dbWishlist) ? dbWishlist : []),
-          ...userSavedWishlist,
-          ...localWishlist
-        ]));
-
-        setWishlistRaw(combinedWishlist);
-        writeLS('abl_wishlist', combinedWishlist);
-        writeLS(`abl_wishlist_${cleanEmail}`, combinedWishlist);
-
-        if (combinedWishlist.length > 0) {
-          apiFetch('/api/wishlist/sync', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
-            },
-            body: JSON.stringify({ email: cleanEmail, items: combinedWishlist })
-          }).catch(() => {});
-        }
+        setWishlistRaw(Array.isArray(dbWishlist) ? dbWishlist : []);
 
         setCurrentUser(userObj);
         writeLS('abl_current_user', userObj);
@@ -1452,7 +1461,7 @@ export function StoreProvider({ children }) {
         }).catch(() => {});
       }
 
-      // Restore wishlist
+      // Restore wishlist strictly from MySQL DB
       let backendWishlist = [];
       if (authData && Array.isArray(authData.wishlist) && authData.wishlist.length > 0) {
         backendWishlist = authData.wishlist;
@@ -1475,29 +1484,7 @@ export function StoreProvider({ children }) {
         } catch (_) {}
       }
 
-      const userSavedWishlist = readLS(`abl_wishlist_${lowerEmail}`, []) || [];
-      const localGuestWishlist = readLS('abl_wishlist', []) || [];
-      const combinedWishlist = Array.from(new Set([
-        ...backendWishlist,
-        ...userSavedWishlist,
-        ...localGuestWishlist
-      ]));
-
-      if (combinedWishlist.length > 0) {
-        setWishlistRaw(combinedWishlist);
-        writeLS('abl_wishlist', combinedWishlist);
-        writeLS(`abl_wishlist_${lowerEmail}`, combinedWishlist);
-
-        const token = localStorage.getItem('abl_access_token');
-        apiFetch('/api/wishlist/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({ email: lowerEmail, items: combinedWishlist })
-        }).catch(() => {});
-      }
+      setWishlistRaw(Array.isArray(backendWishlist) ? backendWishlist : []);
     })();
 
     return true;
@@ -1587,7 +1574,6 @@ export function StoreProvider({ children }) {
     setCartRaw([]);
     writeLS('abl_cart', []);
     setWishlistRaw([]);
-    writeLS('abl_wishlist', []);
     try {
       localStorage.removeItem('abl_access_token');
       localStorage.removeItem('abl_user_token');
@@ -1918,20 +1904,88 @@ export function StoreProvider({ children }) {
     showToast('Product deleted from database & store', 'trash');
   }, [showToast]);
 
-  const adjustStockQty = useCallback((id, delta) => {
-    setProducts(prev => prev.map(p => {
-      if (p.id === id) {
-        const newQty = Math.max(0, (p.stockQty || 0) + delta);
-        return { ...p, stockQty: newQty, inStock: newQty > 0 };
-      }
-      return p;
-    }));
-  }, [setProducts]);
+  const adjustStockQty = useCallback(async (idOrProduct, delta, reason = '') => {
+    const prod = typeof idOrProduct === 'object' ? idOrProduct : (products || []).find(p => p.id === idOrProduct || p.sku === idOrProduct || p.uuid === idOrProduct);
+    const prodId = prod?.id || (typeof idOrProduct === 'string' ? idOrProduct : '');
+    const prodSku = prod?.sku || '';
+    const deltaNum = parseInt(delta, 10) || 0;
 
-  const restockAllLowStock = useCallback((qty) => {
-    setProducts(prev => prev.map(p => (p.stockQty || 0) <= 8 ? { ...p, stockQty: (p.stockQty || 0) + qty, inStock: true } : p));
+    let calculatedStock = 0;
+    setProducts(prev => {
+      const current = Array.isArray(prev) ? prev : [];
+      return current.map(p => {
+        if (p.id === prodId || (prodSku && p.sku === prodSku)) {
+          const nextQty = Math.max(0, (p.stockQty || 0) + deltaNum);
+          calculatedStock = nextQty;
+          return { ...p, stockQty: nextQty, inStock: nextQty > 0 };
+        }
+        return p;
+      });
+    });
+
+    const note = reason || (deltaNum > 0 ? `Stock intake (+${deltaNum})` : `Stock reduction (${deltaNum})`);
+    const tempHistory = {
+      id: `sh_${Date.now()}`,
+      productId: prod?.uuid || prodId,
+      sku: prodSku || 'ABL-JEW',
+      productName: prod?.name || 'Jewellery Piece',
+      change: deltaNum,
+      reason: note,
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      stockAfter: calculatedStock
+    };
+
+    setStockHistory(prev => [tempHistory, ...(Array.isArray(prev) ? prev : [])]);
+
+    try {
+      const res = await apiFetch('/api/inventory/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: prod?.uuid || prodId,
+          sku: prodSku,
+          delta: deltaNum,
+          newQty: calculatedStock,
+          reason: note
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.movement) {
+          setStockHistory(prev => {
+            const list = Array.isArray(prev) ? prev.filter(h => h.id !== tempHistory.id) : [];
+            return [data.movement, ...list];
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Inventory adjust server sync error:', err.message);
+    }
+  }, [products, setProducts, setStockHistory]);
+
+  const restockAllLowStock = useCallback(async (qty = 10, threshold = 8) => {
+    setProducts(prev => {
+      const current = Array.isArray(prev) ? prev : [];
+      return current.map(p => (p.stockQty || 0) <= threshold ? { ...p, stockQty: (p.stockQty || 0) + qty, inStock: true } : p);
+    });
     showToast('Low stock items restocked!', 'check');
-  }, [setProducts, showToast]);
+
+    try {
+      const res = await apiFetch('/api/inventory/restock-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: qty, threshold })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.movements) && data.movements.length > 0) {
+          setStockHistory(prev => [...data.movements, ...(Array.isArray(prev) ? prev : [])]);
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Restock all server sync error:', err.message);
+    }
+  }, [setProducts, setStockHistory, showToast]);
 
   const saveCategory = useCallback((catData) => {
     setCategories(prev => {

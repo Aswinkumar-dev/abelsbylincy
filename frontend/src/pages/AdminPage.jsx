@@ -760,21 +760,9 @@ export default function AdminPage() {
 
   // Helper Stock Adjust
   const handleRecordStockChange = (prod, delta, reason) => {
+    if (!prod) return;
+    adjustStockQty(prod, delta, reason);
     const newQty = Math.max(0, (prod.stockQty || 0) + delta);
-    const updated = products.map(p => p.id === prod.id ? { ...p, stockQty: newQty, inStock: newQty > 0 } : p);
-    setProducts(updated);
-
-    const historyItem = {
-      id: `sh_${Date.now()}`,
-      productId: prod.id,
-      sku: prod.sku || 'ABL-JEW',
-      productName: prod.name,
-      change: delta,
-      reason: reason || 'Manual stock adjustment',
-      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      stockAfter: newQty
-    };
-    setStockHistory([historyItem, ...(stockHistory || [])]);
     showToast(`Stock updated for ${prod.name} (${newQty} units remaining)`, 'check');
   };
 

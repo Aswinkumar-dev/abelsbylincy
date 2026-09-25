@@ -16,6 +16,7 @@ const contactRoutes = require('./routes/contact.routes');
 const newsletterRoutes = require('./routes/newsletter.routes');
 const couponRoutes = require('./routes/coupon.routes');
 const wishlistRoutes = require('./routes/wishlist.routes');
+const inventoryRoutes = require('./routes/inventory.routes');
 
 const app = express();
 
@@ -116,6 +117,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/inventory', inventoryRoutes);
 
 // Base route handler
 app.use((req, res) => {
