@@ -453,7 +453,7 @@ const recordStripeOrder = async (req, res, next) => {
     const discountAmount = parseFloat(order.discountAmount || 0) || 0;
     const shippingAmount = parseFloat(order.shippingFee || order.shippingAmount || 0) || 0;
     const statusVal = order.status || 'Confirmed';
-
+    let lastDbError = null;
     try {
       let orderId = null;
       let userId = null;
@@ -527,12 +527,23 @@ const recordStripeOrder = async (req, res, next) => {
           const cleanName = (item.name || item.productName || '').trim();
           const cleanSlug = (item.slug || cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '').trim();
 
+          let realProductId = null;
+          const numId = parseInt(String(cleanId).replace(/[^0-9]/g, ''), 10);
+          if (!isNaN(numId) && numId > 0) realProductId = numId;
+          try {
+            const [pRows] = await db.query(
+              'SELECT id FROM products WHERE id = ? OR sku = ? OR name = ? LIMIT 1',
+              [realProductId || -1, cleanSku || '', cleanName || '']
+            );
+            if (pRows.length > 0) realProductId = pRows[0].id;
+          } catch (_) {}
+
           await db.query(
             `INSERT INTO order_items (order_id, product_id, sku, product_name, variant_name, quantity, unit_price, total_amount, product_image_url) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               orderId,
-              cleanId || null,
+              realProductId || null,
               cleanSku || 'ABL-JEW',
               cleanName || 'Fine Jewellery Selection',
               item.size || item.color || item.variantName || null,
@@ -552,7 +563,7 @@ const recordStripeOrder = async (req, res, next) => {
                    SELECT id FROM products 
                    WHERE id = ? OR uuid = ? OR sku = ? OR slug = ? OR (name = ? AND name != '') OR (slug = ? AND slug != '')
                  ) OR (sku = ? AND sku != '')`,
-                [qty, cleanId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null, cleanSku || null]
+                [qty, realProductId || null, cleanId || null, cleanSku || null, cleanSlug || null, cleanName || null, cleanSlug || null, cleanSku || null]
               );
             } catch (stockDbErr) {
               console.warn('DB stock update note:', stockDbErr.message);
@@ -587,6 +598,7 @@ const recordStripeOrder = async (req, res, next) => {
       }
 
     } catch (dbErr) {
+      lastDbError = dbErr.message;
       console.warn('⚠️ Order DB record note:', dbErr.message);
     }
 
@@ -662,7 +674,12 @@ const recordStripeOrder = async (req, res, next) => {
       console.warn('Order confirmation email trigger note:', emailErr.message);
     }
 
-    res.status(200).json({ success: true, message: 'Stripe order recorded and confirmation processed.' });
+    res.status(200).json({ 
+      success: true, 
+      message: 'Stripe order recorded and confirmation processed.',
+      dbSaved: !lastDbError,
+      dbError: lastDbError
+    });
   } catch (error) {
     next(error);
   }
