@@ -1310,99 +1310,101 @@ export function StoreProvider({ children }) {
     const firstName = given_name || (name ? name.split(' ')[0] : '') || '';
     const lastName = family_name || (name ? name.split(' ').slice(1).join(' ') : '') || '';
 
-    try {
-      // 1. Authenticate with backend MySQL database
-      const authRes = await apiFetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: lowerEmail,
-          googleSub: sub || profile.id || `g_${Date.now()}`,
-          firstName,
-          lastName,
-          avatarUrl: picture || ''
-        })
-      });
+    // Immediate optimistic local auth so UI transitions instantly
+    const tempUserObj = {
+      id: `c_google_${sub || Date.now()}`,
+      name: name || [firstName, lastName].filter(Boolean).join(' ') || (firstName ? `${firstName} ${lastName}`.trim() : '') || lowerEmail.split('@')[0],
+      firstName,
+      lastName,
+      email: lowerEmail,
+      avatar: picture || '',
+      provider: 'google',
+      role: 'customer',
+      joined: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      spent: '$0',
+      orders: 0
+    };
 
-      let authData = {};
-      if (authRes.ok) {
-        authData = await authRes.json();
-      }
+    setCurrentUser(tempUserObj);
+    writeLS('abl_current_user', tempUserObj);
+    writeLS('abl_user_token', { email: lowerEmail, name: tempUserObj.name, provider: 'google' });
+    showToast(`Welcome back, ${tempUserObj.name}!`, 'check');
 
-      if (authData.accessToken) {
-        localStorage.setItem('abl_access_token', authData.accessToken);
-      }
+    // Asynchronous backend DB sync (cart, wishlist, auth_sessions, auth_identities) in background (non-blocking)
+    setTimeout(async () => {
+      try {
+        const authRes = await apiFetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: lowerEmail,
+            googleSub: sub || profile.id || `g_${Date.now()}`,
+            firstName,
+            lastName,
+            avatarUrl: picture || ''
+          })
+        });
 
-      const backendUser = authData.user || {};
-      const userObj = {
-        id: backendUser.uuid || `c_google_${sub || Date.now()}`,
-        name: name || [backendUser.firstName, backendUser.lastName].filter(Boolean).join(' ') || (firstName ? `${firstName} ${lastName}`.trim() : '') || lowerEmail.split('@')[0],
-        firstName: backendUser.firstName || firstName,
-        lastName: backendUser.lastName || lastName,
-        email: lowerEmail,
-        avatar: picture || '',
-        provider: 'google',
-        role: backendUser.role || 'customer',
-        joined: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        spent: '$0',
-        orders: 0
-      };
-
-      setCurrentUser(userObj);
-      writeLS('abl_current_user', userObj);
-      writeLS('abl_user_token', { email: lowerEmail, name: userObj.name, provider: 'google' });
-
-      setCustomers(prev => {
-        const current = Array.isArray(prev) ? prev : [];
-        if (current.some(c => c.email?.toLowerCase() === lowerEmail)) {
-          return current.map(c => c.email?.toLowerCase() === lowerEmail ? { ...c, ...userObj } : c);
+        let authData = {};
+        if (authRes.ok) {
+          authData = await authRes.json();
         }
-        return [userObj, ...current];
-      });
 
-      // 2. Direct MySQL DB Cart (instant, authoritative)
-      const dbCart = Array.isArray(authData.cart) ? authData.cart : [];
-      const guestCart = readLS('abl_cart', []) || [];
-      let finalCart = dbCart;
-      if (guestCart.length > 0) {
-        finalCart = mergeCartLists(dbCart, guestCart);
-        writeLS('abl_cart', []);
-        apiFetch('/api/cart/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(authData.accessToken ? { 'Authorization': `Bearer ${authData.accessToken}` } : {})
-          },
-          body: JSON.stringify({ email: lowerEmail, items: finalCart })
-        }).catch(() => {});
+        if (authData.accessToken) {
+          localStorage.setItem('abl_access_token', authData.accessToken);
+        }
+
+        const backendUser = authData.user || {};
+        const userObj = {
+          ...tempUserObj,
+          id: backendUser.uuid || tempUserObj.id,
+          role: backendUser.role || 'customer'
+        };
+
+        setCurrentUser(userObj);
+        writeLS('abl_current_user', userObj);
+
+        // Direct MySQL DB Cart
+        const dbCart = Array.isArray(authData.cart) ? authData.cart : [];
+        const guestCart = readLS('abl_cart', []) || [];
+        let finalCart = dbCart;
+        if (guestCart.length > 0) {
+          finalCart = mergeCartLists(dbCart, guestCart);
+          writeLS('abl_cart', []);
+          apiFetch('/api/cart/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(authData.accessToken ? { 'Authorization': `Bearer ${authData.accessToken}` } : {})
+            },
+            body: JSON.stringify({ email: lowerEmail, items: finalCart })
+          }).catch(() => {});
+        }
+        setCartRaw(finalCart);
+
+        // Direct MySQL DB Wishlist & merge guest wishlist
+        const dbWishlist = Array.isArray(authData.wishlist) ? authData.wishlist : [];
+        const guestWishlist = Array.isArray(wishlist) ? wishlist : [];
+        const finalWishlist = Array.from(new Set([...dbWishlist, ...guestWishlist].map(String).filter(Boolean)));
+        setWishlistRaw(finalWishlist);
+
+        if (finalWishlist.length > 0) {
+          apiFetch('/api/wishlist/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(authData.accessToken ? { 'Authorization': `Bearer ${authData.accessToken}` } : {})
+            },
+            body: JSON.stringify({ email: lowerEmail, items: finalWishlist })
+          }).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('⚠️ Background Google sync note:', err.message);
       }
-      setCartRaw(finalCart);
+    }, 20);
 
-      // 3. Direct MySQL DB Wishlist & merge guest wishlist (pure database authority)
-      const dbWishlist = Array.isArray(authData.wishlist) ? authData.wishlist : [];
-      const guestWishlist = Array.isArray(wishlist) ? wishlist : [];
-      const finalWishlist = Array.from(new Set([...dbWishlist, ...guestWishlist].map(String).filter(Boolean)));
-      setWishlistRaw(finalWishlist);
-
-      if (finalWishlist.length > 0) {
-        apiFetch('/api/wishlist/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(authData.accessToken ? { 'Authorization': `Bearer ${authData.accessToken}` } : {})
-          },
-          body: JSON.stringify({ email: lowerEmail, items: finalWishlist })
-        }).catch(() => {});
-      }
-
-      showToast(`Welcome back, ${userObj.name}!`, 'check');
-      return true;
-    } catch (err) {
-      console.error('⚠️ Google sign-in error:', err);
-      showToast('Google sign-in error. Please try again.', 'alert-circle');
-      return false;
-    }
-  }, [cart, wishlist, setCustomers, setCurrentUser, showToast]);
+    return true;
+  }, [wishlist, setCurrentUser, showToast]);
 
   const loginWithGoogle = useCallback(async (credentialOrEvent) => {
     if (typeof credentialOrEvent === 'string') {
@@ -1417,9 +1419,32 @@ export function StoreProvider({ children }) {
     // 1. Trigger Real Google OAuth 2.0 Popup (accounts.google.com)
     if (window.google?.accounts?.oauth2) {
       return new Promise((resolve) => {
+        let settled = false;
+        const done = (val) => {
+          if (!settled) {
+            settled = true;
+            resolve(val);
+          }
+        };
+
+        // Reset if user cancels/closes popup
+        const onFocus = () => {
+          setTimeout(() => {
+            if (!settled) {
+              window.removeEventListener('focus', onFocus);
+              done(false);
+            }
+          }, 1500);
+        };
+        window.addEventListener('focus', onFocus, { once: true });
+
         const client = window.google.accounts.oauth2.initTokenClient({
           client_id: clientId,
           scope: 'email profile openid',
+          error_callback: (err) => {
+            console.warn('Google Auth popup closed/error:', err);
+            done(false);
+          },
           callback: async (tokenResponse) => {
             if (tokenResponse && tokenResponse.access_token) {
               try {
@@ -1429,7 +1454,7 @@ export function StoreProvider({ children }) {
                 if (res.ok) {
                   const profile = await res.json();
                   const ok = await loginWithGoogleProfile(profile);
-                  resolve(Boolean(ok));
+                  done(Boolean(ok));
                   return;
                 }
               } catch (e) {
@@ -1437,7 +1462,7 @@ export function StoreProvider({ children }) {
               }
             }
             showToast('Google Sign-In was cancelled.', 'alert-circle');
-            resolve(false);
+            done(false);
           }
         });
         client.requestAccessToken();

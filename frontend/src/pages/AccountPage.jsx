@@ -37,7 +37,8 @@ export default function AccountPage() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [nameError, setNameError] = useState('');
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isEmailLoading, setIsEmailLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Animation shake state
   const [isShaking, setIsShaking] = useState(false);
@@ -54,7 +55,8 @@ export default function AccountPage() {
     setNameError('');
     setForgotErrorMsg('');
     setForgotSuccess(false);
-    setIsAuthLoading(false);
+    setIsEmailLoading(false);
+    setIsGoogleLoading(false);
     if (mode === 'forgot' && loginEmail) {
       setForgotEmail(loginEmail);
     }
@@ -81,7 +83,7 @@ export default function AccountPage() {
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    if (isAuthLoading) return;
+    if (isEmailLoading || isGoogleLoading) return;
     setEmailError('');
     setPasswordError('');
 
@@ -101,25 +103,25 @@ export default function AccountPage() {
       return;
     }
 
-    setIsAuthLoading(true);
+    setIsEmailLoading(true);
     try {
       const success = await loginWithEmail(loginEmail, loginPassword);
       if (!success) {
         setPasswordError('Invalid email or password credentials.');
         triggerShake();
-        setIsAuthLoading(false);
+        setIsEmailLoading(false);
       } else {
         const redirectPath = searchParams.get('redirect') || '/';
         navigate(redirectPath, { replace: true });
       }
     } catch (_) {
-      setIsAuthLoading(false);
+      setIsEmailLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    if (isAuthLoading) return;
-    setIsAuthLoading(true);
+    if (isGoogleLoading || isEmailLoading) return;
+    setIsGoogleLoading(true);
     try {
       const success = await loginWithGoogle();
       if (success) {
@@ -128,7 +130,7 @@ export default function AccountPage() {
       }
     } catch (_) {
     } finally {
-      setIsAuthLoading(false);
+      setIsGoogleLoading(false);
     }
   };
 
@@ -164,7 +166,7 @@ export default function AccountPage() {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    if (isAuthLoading) return;
+    if (isEmailLoading || isGoogleLoading) return;
     setNameError('');
     setEmailError('');
     setPasswordError('');
@@ -189,19 +191,19 @@ export default function AccountPage() {
       return;
     }
 
-    setIsAuthLoading(true);
+    setIsEmailLoading(true);
     try {
       const success = await registerUser(regName.trim(), regEmail.trim(), regPassword);
       if (!success) {
         setEmailError('An account with this email address already exists.');
         triggerShake();
-        setIsAuthLoading(false);
+        setIsEmailLoading(false);
       } else {
         const redirectPath = searchParams.get('redirect') || '/';
         navigate(redirectPath, { replace: true });
       }
     } catch (_) {
-      setIsAuthLoading(false);
+      setIsEmailLoading(false);
     }
   };
 
@@ -424,7 +426,7 @@ export default function AccountPage() {
 
                 <button
                   type="submit"
-                  disabled={isAuthLoading}
+                  disabled={isEmailLoading || isGoogleLoading}
                   style={{
                     width: '100%',
                     height: 50,
@@ -436,8 +438,8 @@ export default function AccountPage() {
                     fontWeight: 700,
                     letterSpacing: '0.15em',
                     textTransform: 'uppercase',
-                    cursor: isAuthLoading ? 'not-allowed' : 'pointer',
-                    opacity: isAuthLoading ? 0.7 : 1,
+                    cursor: (isEmailLoading || isGoogleLoading) ? 'not-allowed' : 'pointer',
+                    opacity: isEmailLoading ? 0.7 : 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -445,7 +447,7 @@ export default function AccountPage() {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                   }}
                 >
-                  {isAuthLoading ? <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> : 'SUBMIT'}
+                  {isEmailLoading ? <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> : 'SUBMIT'}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', gap: 12 }}>
@@ -457,7 +459,7 @@ export default function AccountPage() {
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
-                  disabled={isAuthLoading}
+                  disabled={isEmailLoading || isGoogleLoading}
                   style={{
                     width: '100%',
                     height: 48,
@@ -467,15 +469,15 @@ export default function AccountPage() {
                     borderRadius: 8,
                     fontSize: 13,
                     fontWeight: 600,
-                    cursor: isAuthLoading ? 'not-allowed' : 'pointer',
-                    opacity: isAuthLoading ? 0.7 : 1,
+                    cursor: (isEmailLoading || isGoogleLoading) ? 'not-allowed' : 'pointer',
+                    opacity: isGoogleLoading ? 0.7 : 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 10
                   }}
                 >
-                  {isAuthLoading ? (
+                  {isGoogleLoading ? (
                     <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} />
                   ) : (
                     <>
@@ -729,7 +731,7 @@ export default function AccountPage() {
 
                 <button
                   type="submit"
-                  disabled={isAuthLoading}
+                  disabled={isEmailLoading || isGoogleLoading}
                   style={{
                     width: '100%',
                     height: 50,
@@ -741,8 +743,8 @@ export default function AccountPage() {
                     fontWeight: 700,
                     letterSpacing: '0.15em',
                     textTransform: 'uppercase',
-                    cursor: isAuthLoading ? 'not-allowed' : 'pointer',
-                    opacity: isAuthLoading ? 0.7 : 1,
+                    cursor: (isEmailLoading || isGoogleLoading) ? 'not-allowed' : 'pointer',
+                    opacity: isEmailLoading ? 0.7 : 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -750,7 +752,7 @@ export default function AccountPage() {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                   }}
                 >
-                  {isAuthLoading ? <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> : 'SUBMIT'}
+                  {isEmailLoading ? <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> : 'SUBMIT'}
                 </button>
               </form>
             )}
