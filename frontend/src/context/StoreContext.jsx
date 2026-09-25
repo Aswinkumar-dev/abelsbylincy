@@ -281,7 +281,6 @@ export function matchesOrderId(o, targetKey) {
   if (o.order_number && String(o.order_number).trim() === target) return true;
   if (o.uuid && String(o.uuid).trim() === target) return true;
   if (o.dbId !== undefined && o.dbId !== null && String(o.dbId).trim() === target) return true;
-  if (o.sessionId && String(o.sessionId).trim() === target) return true;
   return false;
 }
 
@@ -295,8 +294,6 @@ export function areSameOrder(a, b) {
   const bUuid = b.uuid ? String(b.uuid).trim() : '';
   const aDbId = (a.dbId !== undefined && a.dbId !== null) ? String(a.dbId).trim() : '';
   const bDbId = (b.dbId !== undefined && b.dbId !== null) ? String(b.dbId).trim() : '';
-  const aSession = a.sessionId ? String(a.sessionId).trim() : '';
-  const bSession = b.sessionId ? String(b.sessionId).trim() : '';
 
   if (aId && bId && aId === bId) return true;
   if (aNum && bNum && aNum === bNum) return true;
@@ -304,7 +301,6 @@ export function areSameOrder(a, b) {
   if (aNum && bId && aNum === bId) return true;
   if (aUuid && bUuid && aUuid === bUuid) return true;
   if (aDbId && bDbId && aDbId === bDbId) return true;
-  if (aSession && bSession && aSession === bSession) return true;
   return false;
 }
 
@@ -778,31 +774,55 @@ export function StoreProvider({ children }) {
     });
   }, []);
   const setCart = useCallback((updaterOrValue) => {
-    let nextItems;
     setCartRaw(prev => {
-      nextItems = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
-      if (!Array.isArray(nextItems)) nextItems = [];
-      writeLS('abl_cart', nextItems);
-      return nextItems;
-    });
+      const nextItems = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      const cleanList = Array.isArray(nextItems) ? nextItems : [];
+      writeLS('abl_cart', cleanList);
 
-    const user = readLS('abl_current_user', null) || currentUser;
-    const email = user?.email?.trim().toLowerCase();
-    if (email && Array.isArray(nextItems)) {
-      writeLS(`abl_cart_${email}`, nextItems);
-      const token = localStorage.getItem('abl_access_token');
-      apiFetch('/api/cart/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ email, items: nextItems })
-      }).catch(err => console.warn('⚠️ Cart sync note:', err.message));
-    }
+      const user = readLS('abl_current_user', null) || currentUser;
+      const email = user?.email?.trim().toLowerCase();
+      if (email) {
+        writeLS(`abl_cart_${email}`, cleanList);
+        const token = localStorage.getItem('abl_access_token');
+        apiFetch('/api/cart/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ email, items: cleanList })
+        }).catch(err => console.warn('⚠️ Cart sync note:', err.message));
+      }
+
+      return cleanList;
+    });
   }, [currentUser]);
 
-  const setWishlist = useCallback((v) => { setWishlistRaw(v); writeLS('abl_wishlist', v); }, []);
+  const setWishlist = useCallback((updaterOrValue) => {
+    setWishlistRaw(prev => {
+      const currentList = Array.isArray(prev) ? prev : [];
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(currentList) : updaterOrValue;
+      const cleanList = Array.isArray(next) ? next : [];
+      writeLS('abl_wishlist', cleanList);
+
+      const email = currentUser?.email?.trim().toLowerCase();
+      if (email) {
+        writeLS(`abl_wishlist_${email}`, cleanList);
+        const token = localStorage.getItem('abl_access_token');
+        apiFetch('/api/wishlist/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ email, items: cleanList })
+        }).catch(err => console.warn('⚠️ Wishlist sync note:', err.message));
+      }
+
+      return cleanList;
+    });
+  }, [currentUser]);
+
   const setCurrentUser = useCallback((v) => { setCurrentUserRaw(v); writeLS('abl_current_user', v); }, []);
   const setAdminUser = useCallback((v) => { setAdminUserRaw(v); writeLS('abl_admin_user', v); }, []);
   const setMessages = useCallback((updaterOrValue) => {
@@ -816,7 +836,10 @@ export function StoreProvider({ children }) {
   // Continuous auto-sync: when cart changes or user logs in, persist cart to DB
   useEffect(() => {
     const userEmail = currentUser?.email?.trim().toLowerCase();
-    if (!userEmail || !Array.isArray(cart) || cart.length === 0) return;
+    if (!userEmail || !Array.isArray(cart)) return;
+
+    writeLS(`abl_cart_${userEmail}`, cart);
+    writeLS('abl_cart', cart);
 
     const token = localStorage.getItem('abl_access_token');
     apiFetch('/api/cart/sync', {
@@ -848,32 +871,15 @@ export function StoreProvider({ children }) {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success && Array.isArray(data.items) && isMounted) {
-            const dbList = data.items;
+          if (data.success && isMounted) {
+            const dbList = Array.isArray(data.items) ? data.items : [];
             const userSavedList = readLS(`abl_cart_${userEmail}`, []) || [];
 
-            // If MySQL has items, MySQL DB is authoritative. Otherwise fall back to local saved user cart.
-            let finalList = [];
-            if (dbList.length > 0) {
-              finalList = dbList;
-            } else if (userSavedList.length > 0) {
-              finalList = userSavedList;
-            }
+            const finalList = Array.isArray(data.items) ? dbList : userSavedList;
 
             setCartRaw(finalList);
             writeLS('abl_cart', finalList);
             writeLS(`abl_cart_${userEmail}`, finalList);
-
-            if (finalList.length > 0 && dbList.length === 0) {
-              apiFetch('/api/cart/sync', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                },
-                body: JSON.stringify({ email: userEmail, items: finalList })
-              }).catch(() => {});
-            }
           }
         }
       } catch (err) {
@@ -884,6 +890,66 @@ export function StoreProvider({ children }) {
     };
 
     syncUserCartFromDB();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.email]);
+
+  // Continuous auto-sync: when wishlist changes or user logs in, persist wishlist to DB
+  useEffect(() => {
+    const userEmail = currentUser?.email?.trim().toLowerCase();
+    if (!userEmail || !Array.isArray(wishlist)) return;
+
+    writeLS(`abl_wishlist_${userEmail}`, wishlist);
+    writeLS('abl_wishlist', wishlist);
+
+    const token = localStorage.getItem('abl_access_token');
+    apiFetch('/api/wishlist/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ email: userEmail, items: wishlist })
+    }).catch(() => {});
+  }, [wishlist, currentUser?.email]);
+
+  // Multi-device Wishlist preservation: sync account wishlist from MySQL DB
+  useEffect(() => {
+    const userEmail = currentUser?.email?.trim().toLowerCase();
+    if (!userEmail) return;
+
+    let isMounted = true;
+
+    const syncUserWishlistFromDB = async () => {
+      try {
+        const token = localStorage.getItem('abl_access_token');
+        const res = await apiFetch(`/api/wishlist?email=${encodeURIComponent(userEmail)}&t=${Date.now()}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && isMounted) {
+            const dbList = Array.isArray(data.items) ? data.items : [];
+            const userSavedList = readLS(`abl_wishlist_${userEmail}`, []) || [];
+
+            const finalList = Array.isArray(data.items) ? dbList : userSavedList;
+
+            setWishlistRaw(finalList);
+            writeLS('abl_wishlist', finalList);
+            writeLS(`abl_wishlist_${userEmail}`, finalList);
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ User wishlist sync error:', err.message);
+      }
+    };
+
+    syncUserWishlistFromDB();
 
     return () => {
       isMounted = false;
