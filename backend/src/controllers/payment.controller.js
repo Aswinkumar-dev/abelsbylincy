@@ -464,60 +464,107 @@ const recordStripeOrder = async (req, res, next) => {
         } catch (_) {}
       }
 
+      // Dynamic column inspection for orders table
+      const [oCols] = await db.query('SHOW COLUMNS FROM orders');
+      const oColNames = oCols.map(c => c.Field);
+
       const [existing] = await db.query('SELECT id FROM orders WHERE order_number = ? OR uuid = ?', [orderNumber, orderUuid]);
       if (existing.length > 0) {
         orderId = existing[0].id;
-        await db.query(
-          `UPDATE orders SET 
-             user_id = COALESCE(?, user_id),
-             guest_email = ?,
-             currency = 'AUD',
-             subtotal = ?,
-             discount_amount = ?,
-             shipping_amount = ?,
-             total_amount = ?,
-             status = ?,
-             payment_status = 'paid',
-             tracking_number = COALESCE(?, tracking_number),
-             updated_at = NOW()
-           WHERE id = ?`,
-          [userId, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null, orderId]
-        );
+        const updateSets = [];
+        const updateVals = [];
+        
+        if (oColNames.includes('user_id')) { updateSets.push('user_id = COALESCE(?, user_id)'); updateVals.push(userId); }
+        if (oColNames.includes('guest_email')) { updateSets.push('guest_email = ?'); updateVals.push(guestEmail); }
+        if (oColNames.includes('currency')) { updateSets.push("currency = 'AUD'"); }
+        if (oColNames.includes('subtotal')) { updateSets.push('subtotal = ?'); updateVals.push(subtotal); }
+        if (oColNames.includes('discount_amount')) { updateSets.push('discount_amount = ?'); updateVals.push(discountAmount); }
+        if (oColNames.includes('shipping_amount')) { updateSets.push('shipping_amount = ?'); updateVals.push(shippingAmount); }
+        if (oColNames.includes('total_amount')) { updateSets.push('total_amount = ?'); updateVals.push(totalAmount); }
+        if (oColNames.includes('status')) { updateSets.push('status = ?'); updateVals.push(statusVal); }
+        if (oColNames.includes('payment_status')) { updateSets.push("payment_status = 'paid'"); }
+        if (oColNames.includes('tracking_number')) { updateSets.push('tracking_number = COALESCE(?, tracking_number)'); updateVals.push(order.trackingNumber || null); }
+        if (oColNames.includes('updated_at')) { updateSets.push('updated_at = NOW()'); }
+
+        updateVals.push(orderId);
+        await db.query(`UPDATE orders SET ${updateSets.join(', ')} WHERE id = ?`, updateVals);
       } else {
+        const insertCols = [];
+        const insertPlaceholders = [];
+        const insertVals = [];
+
+        if (oColNames.includes('uuid')) { insertCols.push('uuid'); insertPlaceholders.push('?'); insertVals.push(orderUuid); }
+        if (oColNames.includes('order_number')) { insertCols.push('order_number'); insertPlaceholders.push('?'); insertVals.push(orderNumber); }
+        if (oColNames.includes('user_id')) { insertCols.push('user_id'); insertPlaceholders.push('?'); insertVals.push(userId); }
+        if (oColNames.includes('guest_email')) { insertCols.push('guest_email'); insertPlaceholders.push('?'); insertVals.push(guestEmail); }
+        if (oColNames.includes('currency')) { insertCols.push('currency'); insertPlaceholders.push("'AUD'"); }
+        if (oColNames.includes('subtotal')) { insertCols.push('subtotal'); insertPlaceholders.push('?'); insertVals.push(subtotal); }
+        if (oColNames.includes('discount_amount')) { insertCols.push('discount_amount'); insertPlaceholders.push('?'); insertVals.push(discountAmount); }
+        if (oColNames.includes('tax_amount')) { insertCols.push('tax_amount'); insertPlaceholders.push('0'); }
+        if (oColNames.includes('shipping_amount')) { insertCols.push('shipping_amount'); insertPlaceholders.push('?'); insertVals.push(shippingAmount); }
+        if (oColNames.includes('total_amount')) { insertCols.push('total_amount'); insertPlaceholders.push('?'); insertVals.push(totalAmount); }
+        if (oColNames.includes('status')) { insertCols.push('status'); insertPlaceholders.push('?'); insertVals.push(statusVal); }
+        if (oColNames.includes('payment_status')) { insertCols.push('payment_status'); insertPlaceholders.push("'paid'"); }
+        if (oColNames.includes('fulfillment_status')) { insertCols.push('fulfillment_status'); insertPlaceholders.push("'dispatching'"); }
+        if (oColNames.includes('tracking_number')) { insertCols.push('tracking_number'); insertPlaceholders.push('?'); insertVals.push(order.trackingNumber || null); }
+        if (oColNames.includes('placed_at')) { insertCols.push('placed_at'); insertPlaceholders.push('NOW()'); }
+
         const [orderResult] = await db.query(
-          `INSERT INTO orders 
-            (uuid, order_number, user_id, guest_email, currency, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, placed_at) 
-           VALUES (?, ?, ?, ?, 'AUD', ?, ?, 0, ?, ?, ?, 'paid', 'dispatching', ?, NOW())`,
-          [orderUuid, orderNumber, userId, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null]
+          `INSERT INTO orders (${insertCols.join(', ')}) VALUES (${insertPlaceholders.join(', ')})`,
+          insertVals
         );
         orderId = orderResult.insertId;
       }
 
       // Record / update shipping address
       if (orderId && (order.address || order.city || order.state)) {
+        const [aCols] = await db.query('SHOW COLUMNS FROM order_addresses');
+        const aColNames = aCols.map(c => c.Field);
+
         const custName = String(order.customer || order.name || '').trim();
         const firstName = custName.split(' ')[0] || 'Valued';
         const lastName = custName.split(' ').slice(1).join(' ') || 'Customer';
 
         const [existingAddr] = await db.query('SELECT id FROM order_addresses WHERE order_id = ? AND address_type = "shipping"', [orderId]);
         if (existingAddr.length > 0) {
-          await db.query(
-            `UPDATE order_addresses SET
-               first_name = ?, last_name = ?, address_line_1 = ?, suburb = ?, state = ?, postcode = ?, country = 'Australia', country_code = 'AU', phone = ?
-             WHERE id = ?`,
-            [firstName, lastName, order.address || '', order.city || '', order.state || '', order.postcode || '', order.phone || '', existingAddr[0].id]
-          );
+          const uSets = [];
+          const uVals = [];
+          if (aColNames.includes('first_name')) { uSets.push('first_name = ?'); uVals.push(firstName); }
+          if (aColNames.includes('last_name')) { uSets.push('last_name = ?'); uVals.push(lastName); }
+          if (aColNames.includes('address_line_1')) { uSets.push('address_line_1 = ?'); uVals.push(order.address || ''); }
+          if (aColNames.includes('suburb')) { uSets.push('suburb = ?'); uVals.push(order.city || ''); }
+          if (aColNames.includes('state')) { uSets.push('state = ?'); uVals.push(order.state || ''); }
+          if (aColNames.includes('postcode')) { uSets.push('postcode = ?'); uVals.push(order.postcode || ''); }
+          if (aColNames.includes('country')) { uSets.push("country = 'Australia'"); }
+          if (aColNames.includes('country_code')) { uSets.push("country_code = 'AU'"); }
+          if (aColNames.includes('phone')) { uSets.push('phone = ?'); uVals.push(order.phone || ''); }
+
+          uVals.push(existingAddr[0].id);
+          await db.query(`UPDATE order_addresses SET ${uSets.join(', ')} WHERE id = ?`, uVals);
         } else {
-          await db.query(
-            `INSERT INTO order_addresses (order_id, address_type, first_name, last_name, address_line_1, suburb, state, postcode, country, country_code, phone) 
-             VALUES (?, 'shipping', ?, ?, ?, ?, ?, ?, 'Australia', 'AU', ?)`,
-            [orderId, firstName, lastName, order.address || '', order.city || '', order.state || '', order.postcode || '', order.phone || '']
-          );
+          const iCols = ['order_id', 'address_type'];
+          const iPlaceholders = ['?', "'shipping'"];
+          const iVals = [orderId];
+
+          if (aColNames.includes('first_name')) { iCols.push('first_name'); iPlaceholders.push('?'); iVals.push(firstName); }
+          if (aColNames.includes('last_name')) { iCols.push('last_name'); iPlaceholders.push('?'); iVals.push(lastName); }
+          if (aColNames.includes('address_line_1')) { iCols.push('address_line_1'); iPlaceholders.push('?'); iVals.push(order.address || ''); }
+          if (aColNames.includes('suburb')) { iCols.push('suburb'); iPlaceholders.push('?'); iVals.push(order.city || ''); }
+          if (aColNames.includes('state')) { iCols.push('state'); iPlaceholders.push('?'); iVals.push(order.state || ''); }
+          if (aColNames.includes('postcode')) { iCols.push('postcode'); iPlaceholders.push('?'); iVals.push(order.postcode || ''); }
+          if (aColNames.includes('country')) { iCols.push('country'); iPlaceholders.push("'Australia'"); }
+          if (aColNames.includes('country_code')) { iCols.push('country_code'); iPlaceholders.push("'AU'"); }
+          if (aColNames.includes('phone')) { iCols.push('phone'); iPlaceholders.push('?'); iVals.push(order.phone || ''); }
+
+          await db.query(`INSERT INTO order_addresses (${iCols.join(', ')}) VALUES (${iPlaceholders.join(', ')})`, iVals);
         }
       }
 
       // Record items & deduct stock in MySQL
       if (Array.isArray(order.items) && order.items.length > 0) {
+        const [itCols] = await db.query('SHOW COLUMNS FROM order_items');
+        const itColNames = itCols.map(c => c.Field);
+
         await db.query('DELETE FROM order_items WHERE order_id = ?', [orderId]);
         for (const item of order.items) {
           const qty = parseInt(item.quantity || 1, 10);
@@ -538,21 +585,16 @@ const recordStripeOrder = async (req, res, next) => {
             if (pRows.length > 0) realProductId = pRows[0].id;
           } catch (_) {}
 
-          await db.query(
-            `INSERT INTO order_items (order_id, product_id, sku, product_name, variant_name, quantity, unit_price, total_amount, product_image_url) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              orderId,
-              realProductId || null,
-              cleanSku || 'ABL-JEW',
-              cleanName || 'Fine Jewellery Selection',
-              item.size || item.color || item.variantName || null,
-              qty,
-              unitPrice,
-              unitPrice * qty,
-              item.image || item.productImageUrl || null
-            ]
-          );
+          const iCols = ['order_id', 'product_name', 'quantity', 'unit_price', 'total_amount'];
+          const iPlaceholders = ['?', '?', '?', '?', '?'];
+          const iVals = [orderId, cleanName || 'Fine Jewellery Selection', qty, unitPrice, unitPrice * qty];
+
+          if (itColNames.includes('product_id')) { iCols.push('product_id'); iPlaceholders.push('?'); iVals.push(realProductId || null); }
+          if (itColNames.includes('sku')) { iCols.push('sku'); iPlaceholders.push('?'); iVals.push(cleanSku || 'ABL-JEW'); }
+          if (itColNames.includes('variant_name')) { iCols.push('variant_name'); iPlaceholders.push('?'); iVals.push(item.size || item.color || item.variantName || null); }
+          if (itColNames.includes('product_image_url')) { iCols.push('product_image_url'); iPlaceholders.push('?'); iVals.push(item.image || item.productImageUrl || null); }
+
+          await db.query(`INSERT INTO order_items (${iCols.join(', ')}) VALUES (${iPlaceholders.join(', ')})`, iVals);
 
           // Deduct stock in DB — product_variants is the authoritative stock column
           if (cleanId || cleanSku || cleanName || cleanSlug) {
@@ -573,28 +615,39 @@ const recordStripeOrder = async (req, res, next) => {
       }
 
       // Record payment
+      const [pCols] = await db.query('SHOW COLUMNS FROM payments');
+      const pColNames = pCols.map(c => c.Field);
+
       const paymentIntentId = order.sessionId || order.stripePaymentIntentId || order.paymentIntentId || `pi_stripe_${Date.now()}`;
       const [existingPay] = await db.query('SELECT id FROM payments WHERE order_id = ? OR stripe_payment_intent_id = ?', [orderId, paymentIntentId]);
 
       if (existingPay.length > 0) {
-        await db.query(
-          `UPDATE payments SET
-             provider = 'stripe',
-             amount = ?,
-             amount_received = ?,
-             currency = 'AUD',
-             status = 'succeeded',
-             stripe_payment_intent_id = ?,
-             paid_at = NOW()
-           WHERE id = ?`,
-          [totalAmount, totalAmount, paymentIntentId, existingPay[0].id]
-        );
+        const uSets = [];
+        const uVals = [];
+        if (pColNames.includes('provider')) { uSets.push("provider = 'stripe'"); }
+        if (pColNames.includes('amount')) { uSets.push('amount = ?'); uVals.push(totalAmount); }
+        if (pColNames.includes('amount_received')) { uSets.push('amount_received = ?'); uVals.push(totalAmount); }
+        if (pColNames.includes('currency')) { uSets.push("currency = 'AUD'"); }
+        if (pColNames.includes('status')) { uSets.push("status = 'succeeded'"); }
+        if (pColNames.includes('stripe_payment_intent_id')) { uSets.push('stripe_payment_intent_id = ?'); uVals.push(paymentIntentId); }
+        if (pColNames.includes('paid_at')) { uSets.push('paid_at = NOW()'); }
+
+        uVals.push(existingPay[0].id);
+        await db.query(`UPDATE payments SET ${uSets.join(', ')} WHERE id = ?`, uVals);
       } else {
-        await db.query(
-          `INSERT INTO payments (order_id, provider, payment_method_type, stripe_payment_intent_id, amount, amount_received, currency, status, paid_at) 
-           VALUES (?, 'stripe', 'card', ?, ?, ?, 'AUD', 'succeeded', NOW())`,
-          [orderId, paymentIntentId, totalAmount, totalAmount]
-        );
+        const iCols = ['order_id', 'amount'];
+        const iPlaceholders = ['?', '?'];
+        const iVals = [orderId, totalAmount];
+
+        if (pColNames.includes('provider')) { iCols.push('provider'); iPlaceholders.push("'stripe'"); }
+        if (pColNames.includes('payment_method_type')) { iCols.push('payment_method_type'); iPlaceholders.push("'card'"); }
+        if (pColNames.includes('stripe_payment_intent_id')) { iCols.push('stripe_payment_intent_id'); iPlaceholders.push('?'); iVals.push(paymentIntentId); }
+        if (pColNames.includes('amount_received')) { iCols.push('amount_received'); iPlaceholders.push('?'); iVals.push(totalAmount); }
+        if (pColNames.includes('currency')) { iCols.push('currency'); iPlaceholders.push("'AUD'"); }
+        if (pColNames.includes('status')) { iCols.push('status'); iPlaceholders.push("'succeeded'"); }
+        if (pColNames.includes('paid_at')) { iCols.push('paid_at'); iPlaceholders.push('NOW()'); }
+
+        await db.query(`INSERT INTO payments (${iCols.join(', ')}) VALUES (${iPlaceholders.join(', ')})`, iVals);
       }
 
     } catch (dbErr) {
