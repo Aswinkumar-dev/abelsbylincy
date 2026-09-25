@@ -676,9 +676,9 @@ export function StoreProvider({ children }) {
 
   useEffect(() => {
     syncBackendData();
-  }, [syncBackendData, adminLoggedIn, currentUser?.email]);
+  }, [syncBackendData, adminLoggedIn]);
 
-  // Automatic MySQL DB cart & wishlist synchronization across all browsers and tabs
+  // Automatic MySQL DB cart & wishlist synchronization on initial mount or across browsers
   useEffect(() => {
     const userEmail = (currentUser?.email || readLS('abl_current_user', null)?.email || '').trim().toLowerCase();
     if (!userEmail) return;
@@ -697,7 +697,7 @@ export function StoreProvider({ children }) {
         setWishlistRaw(wRes.value.items);
       }
     }).catch(() => {});
-  }, [currentUser?.email]);
+  }, []); // Run once on initial mount
 
   // Cross-tab real-time sync via storage event (for session, cart, wishlist, products)
   useEffect(() => {
@@ -1098,7 +1098,7 @@ export function StoreProvider({ children }) {
         const finalWishlist = Array.from(new Set([...dbWishlist, ...guestWishlist].map(String).filter(Boolean)));
         setWishlistRaw(finalWishlist);
 
-        if (finalWishlist.length > 0) {
+        if (guestWishlist.length > 0) {
           apiFetch('/api/wishlist/sync', {
             method: 'POST',
             headers: {
@@ -1185,7 +1185,7 @@ export function StoreProvider({ children }) {
       const dbWishlist = Array.isArray(data.wishlist) ? data.wishlist : [];
       const finalWishlist = Array.from(new Set([...dbWishlist, ...guestWishlist].map(String).filter(Boolean)));
       setWishlistRaw(finalWishlist);
-      if (finalWishlist.length > 0) {
+      if (guestWishlist.length > 0) {
         apiFetch('/api/wishlist/sync', {
           method: 'POST',
           headers: {
@@ -1392,7 +1392,7 @@ export function StoreProvider({ children }) {
       const finalWishlist = Array.from(new Set([...dbWishlist, ...guestWishlist].map(String).filter(Boolean)));
       setWishlistRaw(finalWishlist);
 
-      if (finalWishlist.length > 0) {
+      if (guestWishlist.length > 0) {
         apiFetch('/api/wishlist/sync', {
           method: 'POST',
           headers: {

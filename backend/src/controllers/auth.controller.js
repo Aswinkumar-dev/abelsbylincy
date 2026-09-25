@@ -292,12 +292,12 @@ const login = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    const sessionPromise = db.query(
+    // Non-blocking background session logging
+    db.query(
       'INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE expires_at = VALUES(expires_at)',
       [user.id, refreshHash, expiresAt]
     ).catch(() => {});
-
-    const updateLoginPromise = updateUserLastLogin(user.id).catch(() => {});
+    updateUserLastLogin(user.id).catch(() => {});
 
     // Fetch user's cart & wishlist from DB in parallel
     const [cartResult, wResult] = await Promise.allSettled([
@@ -321,9 +321,7 @@ const login = async (req, res, next) => {
     }
     if (!Array.isArray(userWishlist)) userWishlist = [];
 
-    await Promise.allSettled([sessionPromise, updateLoginPromise]);
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       accessToken,
       refreshToken,
@@ -526,9 +524,6 @@ const resetPassword = async (req, res, next) => {
  * Google OAuth Login & Account Link Merging
  */
 const googleLogin = async (req, res, next) => {
-  const connection = await db.getConnection();
-  await connection.beginTransaction();
-
   try {
     const { email, googleSub, firstName, lastName, avatarUrl } = req.body;
 
@@ -536,34 +531,23 @@ const googleLogin = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Google email and subject identifier are required.' });
     }
 
-    // 1. Check if user exists by email
-    let user = await findUserByEmail(email);
+    const cleanEmail = String(email).trim().toLowerCase();
+    let user = await findUserByEmail(cleanEmail);
     let userId;
 
     if (user) {
       userId = user.id;
 
-      // Check if user has Google provider linked already in auth_identities
-      const [identities] = await connection.query(
-        "SELECT id FROM auth_identities WHERE user_id = ? AND provider = 'google'",
-        [userId]
-      );
+      // Update user info & link Google identity if not already linked (non-blocking)
+      db.query(
+        `INSERT INTO auth_identities (user_id, provider, provider_user_id, provider_email, provider_email_verified, provider_name, provider_avatar_url)
+         VALUES (?, 'google', ?, ?, TRUE, ?, ?)
+         ON DUPLICATE KEY UPDATE provider_email_verified = TRUE, provider_name = VALUES(provider_name), provider_avatar_url = VALUES(provider_avatar_url)`,
+        [userId, googleSub, cleanEmail, `${firstName || ''} ${lastName || ''}`.trim(), avatarUrl || null]
+      ).catch(() => {});
 
-      if (identities.length === 0) {
-        // Link Google profile directly to existing email user (Merging flow)
-        await connection.query(
-          `INSERT INTO auth_identities (user_id, provider, provider_user_id, provider_email, provider_email_verified, provider_name, provider_avatar_url)
-           VALUES (?, 'google', ?, ?, TRUE, ?, ?)`,
-          [userId, googleSub, email, `${firstName || ''} ${lastName || ''}`.trim(), avatarUrl || null]
-        );
-      }
-
-      // If email wasn't verified before, mark verified now since Google verified it
-      if (!user.email_verified) {
-        await connection.query(
-          "UPDATE users SET email_verified = TRUE, status = 'active' WHERE id = ?",
-          [userId]
-        );
+      if (!user.email_verified || user.status !== 'active') {
+        db.query("UPDATE users SET email_verified = TRUE, status = 'active' WHERE id = ?", [userId]).catch(() => {});
         user.email_verified = 1;
         user.status = 'active';
       }
@@ -571,27 +555,30 @@ const googleLogin = async (req, res, next) => {
       // 2. Register user since email doesn't exist
       const uuid = crypto.randomUUID();
 
-      // No password_hash stored for Google-only signups
-      const [userResult] = await connection.query(
+      const [userResult] = await db.query(
         `INSERT INTO users (uuid, email, password_hash, first_name, last_name, role, status, email_verified)
          VALUES (?, ?, NULL, ?, ?, 'customer', 'active', TRUE)`,
-        [uuid, email, firstName || null, lastName || null]
+        [uuid, cleanEmail, firstName || null, lastName || null]
       );
       userId = userResult.insertId;
 
-      // Link Google identity mapping
-      await connection.query(
+      user = {
+        id: userId,
+        uuid,
+        email: cleanEmail,
+        first_name: firstName || null,
+        last_name: lastName || null,
+        role: 'customer',
+        status: 'active',
+        email_verified: 1
+      };
+
+      db.query(
         `INSERT INTO auth_identities (user_id, provider, provider_user_id, provider_email, provider_email_verified, provider_name, provider_avatar_url)
          VALUES (?, 'google', ?, ?, TRUE, ?, ?)`,
-        [userId, googleSub, email, `${firstName || ''} ${lastName || ''}`.trim(), avatarUrl || null]
-      );
-
-      // Re-fetch user details for response token creation
-      const [newUsers] = await connection.query('SELECT * FROM users WHERE id = ?', [userId]);
-      user = newUsers[0];
+        [userId, googleSub, cleanEmail, `${firstName || ''} ${lastName || ''}`.trim(), avatarUrl || null]
+      ).catch(() => {});
     }
-
-    await updateUserLastLogin(userId);
 
     // Generate JWT Auth Tokens
     const accessToken = generateAccessToken(user);
@@ -601,19 +588,17 @@ const googleLogin = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    try {
-      await connection.query(
-        'INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE expires_at = VALUES(expires_at)',
-        [userId, refreshHash, expiresAt]
-      );
-    } catch (_) {}
-
-    await connection.commit();
+    // Non-blocking background session logging
+    db.query(
+      'INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE expires_at = VALUES(expires_at)',
+      [userId, refreshHash, expiresAt]
+    ).catch(() => {});
+    updateUserLastLogin(userId).catch(() => {});
 
     // Fetch user's cart & wishlist from DB in parallel
     const [cartResult, wResult] = await Promise.allSettled([
-      db.query('SELECT cart_json FROM user_carts WHERE LOWER(TRIM(user_email)) = ?', [user.email.toLowerCase()]),
-      db.query('SELECT wishlist_json FROM user_wishlists WHERE LOWER(TRIM(user_email)) = ?', [user.email.toLowerCase()])
+      db.query('SELECT cart_json FROM user_carts WHERE LOWER(TRIM(user_email)) = ?', [cleanEmail]),
+      db.query('SELECT wishlist_json FROM user_wishlists WHERE LOWER(TRIM(user_email)) = ?', [cleanEmail])
     ]);
 
     let userCart = [];
@@ -622,7 +607,7 @@ const googleLogin = async (req, res, next) => {
       userCart = typeof raw === 'string' ? JSON.parse(raw) : raw;
     }
     if (!Array.isArray(userCart) || userCart.length === 0) {
-      userCart = getStoredCart(user.email) || [];
+      userCart = getStoredCart(cleanEmail) || [];
     }
 
     let userWishlist = [];
@@ -632,7 +617,7 @@ const googleLogin = async (req, res, next) => {
     }
     if (!Array.isArray(userWishlist)) userWishlist = [];
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       accessToken,
       refreshToken,
@@ -647,10 +632,7 @@ const googleLogin = async (req, res, next) => {
       }
     });
   } catch (error) {
-    await connection.rollback();
     next(error);
-  } finally {
-    connection.release();
   }
 };
 

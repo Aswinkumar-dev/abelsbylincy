@@ -487,15 +487,19 @@ async function runMigrations(connection) {
   }
 }
 
-// Test connection on startup
+// Test connection on startup in background (non-blocking for fast serverless responses)
+let migrationsRan = false;
 (async () => {
+  if (migrationsRan) return;
+  migrationsRan = true;
   try {
     const connection = await pool.getConnection();
     console.log('✅ MySQL Database pool initialized successfully.');
-    await runMigrations(connection);
-    connection.release();
+    runMigrations(connection).finally(() => {
+      try { connection.release(); } catch (_) {}
+    });
   } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
+    console.error('❌ Database connection note:', error.message);
   }
 })();
 
