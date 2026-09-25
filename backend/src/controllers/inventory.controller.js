@@ -53,19 +53,19 @@ const adjustStock = async (req, res, next) => {
       let pRows = [];
       if (numId > 0) {
         [pRows] = await db.query(
-          `SELECT id, uuid, name, sku, slug, stock_quantity as prod_stock FROM products WHERE id = ? LIMIT 1`,
+          `SELECT id, uuid, name, sku, slug FROM products WHERE id = ? LIMIT 1`,
           [numId]
         );
       }
       if (pRows.length === 0 && cleanId) {
         [pRows] = await db.query(
-          `SELECT id, uuid, name, sku, slug, stock_quantity as prod_stock FROM products WHERE uuid = ? OR LOWER(TRIM(sku)) = LOWER(?) OR LOWER(TRIM(slug)) = LOWER(?) LIMIT 1`,
+          `SELECT id, uuid, name, sku, slug FROM products WHERE uuid = ? OR LOWER(TRIM(sku)) = LOWER(?) OR LOWER(TRIM(slug)) = LOWER(?) LIMIT 1`,
           [cleanId, cleanId, cleanId]
         );
       }
       if (pRows.length === 0 && cleanSku) {
         [pRows] = await db.query(
-          `SELECT id, uuid, name, sku, slug, stock_quantity as prod_stock FROM products WHERE LOWER(TRIM(sku)) = LOWER(?) LIMIT 1`,
+          `SELECT id, uuid, name, sku, slug FROM products WHERE LOWER(TRIM(sku)) = LOWER(?) LIMIT 1`,
           [cleanSku]
         );
       }
@@ -84,11 +84,8 @@ const adjustStock = async (req, res, next) => {
 
         if (varRows.length > 0) {
           targetVariantId = varRows[0].id;
-          const vStock = varRows[0].stock_quantity !== null && varRows[0].stock_quantity !== undefined ? Number(varRows[0].stock_quantity) : null;
-          const pStock = row.prod_stock !== null && row.prod_stock !== undefined ? Number(row.prod_stock) : null;
-          currentVarStock = vStock !== null ? vStock : (pStock !== null ? pStock : 10);
-        } else {
-          currentVarStock = row.prod_stock !== null && row.prod_stock !== undefined ? Number(row.prod_stock) : 10;
+          currentVarStock = varRows[0].stock_quantity !== null && varRows[0].stock_quantity !== undefined ? Number(varRows[0].stock_quantity) : 10;
+          if (varRows[0].sku) productSku = varRows[0].sku;
         }
       } else if (cleanSku) {
         const [vRows] = await db.query(
@@ -120,15 +117,15 @@ const adjustStock = async (req, res, next) => {
     }
     const effectiveDelta = deltaNum !== 0 ? deltaNum : (calculatedStock - currentVarStock);
 
-    // 2. Update stock in MySQL product_variants and products tables
+    // 2. Update stock in MySQL product_variants table
     if (targetProductId) {
-      try {
-        await db.query('UPDATE products SET stock_quantity = ? WHERE id = ?', [calculatedStock, targetProductId]);
-        await db.query('UPDATE product_variants SET stock_quantity = ?, is_active = TRUE WHERE product_id = ?', [calculatedStock, targetProductId]);
-      } catch (_) {}
-
-      // If no variant row existed, insert one now so variants are always active
-      if (!targetVariantId) {
+      if (targetVariantId) {
+        try {
+          await db.query('UPDATE product_variants SET stock_quantity = ?, is_active = TRUE WHERE id = ?', [calculatedStock, targetVariantId]);
+        } catch (uErr) {
+          console.warn('⚠️ Update variant error:', uErr.message);
+        }
+      } else {
         try {
           const [newVar] = await db.query(
             `INSERT INTO product_variants (product_id, sku, variant_name, price, stock_quantity, is_default, is_active)
@@ -136,7 +133,9 @@ const adjustStock = async (req, res, next) => {
             [targetProductId, productSku || 'ABL-JEW', calculatedStock]
           );
           targetVariantId = newVar.insertId;
-        } catch (_) {}
+        } catch (iErr) {
+          console.warn('⚠️ Insert variant error:', iErr.message);
+        }
       }
     } else if (targetVariantId) {
       try {
@@ -149,15 +148,17 @@ const adjustStock = async (req, res, next) => {
     const note = reason || (effectiveDelta > 0 ? `Stock intake (+${effectiveDelta})` : `Stock reduction (${effectiveDelta})`);
 
     let movementRecordId = null;
-    try {
-      const [insertRes] = await db.query(
-        `INSERT INTO inventory_movements (variant_id, movement_type, quantity, reference_type, note)
-         VALUES (?, ?, ?, 'manual_adjustment', ?)`,
-        [targetVariantId || null, type, effectiveDelta, note]
-      );
-      movementRecordId = insertRes.insertId;
-    } catch (logErr) {
-      console.warn('⚠️ Failed to insert into inventory_movements:', logErr.message);
+    if (targetVariantId) {
+      try {
+        const [insertRes] = await db.query(
+          `INSERT INTO inventory_movements (variant_id, movement_type, quantity, reference_type, note)
+           VALUES (?, ?, ?, 'manual_adjustment', ?)`,
+          [targetVariantId, type, effectiveDelta, note]
+        );
+        movementRecordId = insertRes.insertId;
+      } catch (logErr) {
+        console.warn('⚠️ Failed to insert into inventory_movements:', logErr.message);
+      }
     }
 
     // 4. Update fileStore fallback if available
@@ -230,7 +231,6 @@ const restockAllLowStock = async (req, res, next) => {
       const nextQty = (v.stock_quantity || 0) + qtyToAdd;
       try {
         await db.query('UPDATE product_variants SET stock_quantity = ? WHERE id = ?', [nextQty, v.variant_id]);
-        await db.query('UPDATE products SET stock_quantity = ? WHERE id = ?', [nextQty, v.product_id]);
 
         const [mRes] = await db.query(
           `INSERT INTO inventory_movements (variant_id, movement_type, quantity, reference_type, note)
