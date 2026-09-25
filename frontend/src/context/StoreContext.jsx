@@ -245,29 +245,29 @@ function writeLS(key, val) {
   }
 }
 
-export function mergeCartLists(dbItems = [], localItems = []) {
-  const dbArr = Array.isArray(dbItems) ? dbItems : [];
-  const localArr = Array.isArray(localItems) ? localItems : [];
-  const merged = [...dbArr.map(item => ({ ...item }))];
+export function mergeCartLists(primaryItems = [], secondaryItems = []) {
+  const primary = Array.isArray(primaryItems) ? primaryItems : [];
+  const secondary = Array.isArray(secondaryItems) ? secondaryItems : [];
+  const merged = [...primary.map(item => ({ ...item }))];
 
-  for (const loc of localArr) {
-    if (!loc || !loc.id) continue;
-    const locId = String(loc.id);
-    const locSize = String(loc.size || '');
-    const locColor = String(loc.color || '');
+  for (const sec of secondary) {
+    if (!sec || !sec.id) continue;
+    const secId = String(sec.id);
+    const secSize = String(sec.size || '');
+    const secColor = String(sec.color || '');
 
     const existingIndex = merged.findIndex(
-      m => String(m.id) === locId && String(m.size || '') === locSize && String(m.color || '') === locColor
+      m => String(m.id) === secId && String(m.size || '') === secSize && String(m.color || '') === secColor
     );
 
     if (existingIndex >= 0) {
       merged[existingIndex] = {
+        ...sec,
         ...merged[existingIndex],
-        ...loc,
-        quantity: (Number(merged[existingIndex].quantity) || 1) + (Number(loc.quantity) || 1)
+        quantity: Math.max(Number(merged[existingIndex].quantity) || 1, Number(sec.quantity) || 1)
       };
     } else {
-      merged.push({ ...loc });
+      merged.push({ ...sec });
     }
   }
 
@@ -437,16 +437,15 @@ export function StoreProvider({ children }) {
   const [settings, setSettingsRaw] = useState(() => readLS('abl_settings', DEFAULT_SETTINGS));
   const [cms, setCMSRaw] = useState(() => readLS('abl_cms_v5', DEFAULT_CMS));
   const [cart, setCartRaw] = useState(() => {
-    const guestCart = readLS('abl_cart', []);
     const savedUser = readLS('abl_current_user', null);
     if (savedUser?.email) {
       const userKey = `abl_cart_${savedUser.email.trim().toLowerCase()}`;
-      const userCart = readLS(userKey, []);
+      const userCart = readLS(userKey, null);
       if (Array.isArray(userCart) && userCart.length > 0) {
-        return mergeCartLists(userCart, guestCart);
+        return userCart;
       }
     }
-    return guestCart;
+    return readLS('abl_cart', []);
   });
   const [cartLoading, setCartLoading] = useState(false);
   const [wishlist, setWishlistRaw] = useState(() => readLS('abl_wishlist', []));
@@ -851,17 +850,21 @@ export function StoreProvider({ children }) {
           const data = await res.json();
           if (data.success && Array.isArray(data.items) && isMounted) {
             const dbList = data.items;
-            const localList = readLS('abl_cart', []) || [];
             const userSavedList = readLS(`abl_cart_${userEmail}`, []) || [];
 
-            let finalList = mergeCartLists(dbList, userSavedList);
-            finalList = mergeCartLists(finalList, localList);
+            // If MySQL has items, MySQL DB is authoritative. Otherwise fall back to local saved user cart.
+            let finalList = [];
+            if (dbList.length > 0) {
+              finalList = dbList;
+            } else if (userSavedList.length > 0) {
+              finalList = userSavedList;
+            }
 
             setCartRaw(finalList);
             writeLS('abl_cart', finalList);
             writeLS(`abl_cart_${userEmail}`, finalList);
 
-            if (finalList.length > 0) {
+            if (finalList.length > 0 && dbList.length === 0) {
               apiFetch('/api/cart/sync', {
                 method: 'POST',
                 headers: {
