@@ -70,13 +70,24 @@ app.get(['/db-status', '/api/db-status'], async (req, res) => {
   try {
     const [rows] = await db.query('SELECT 1 as connected');
     const [prodCount] = await db.query('SELECT count(*) as total FROM products');
+    let orderCount = 0;
+    let orderError = null;
+    try {
+      const [oCount] = await db.query('SELECT count(*) as total FROM orders');
+      orderCount = oCount[0]?.total ?? 0;
+    } catch (oe) {
+      orderError = oe.message;
+    }
+
     res.status(200).json({
       success: true,
       connected: true,
       dbHost: process.env.DB_HOST || 'default (localhost)',
       dbName: process.env.DB_NAME || 'default',
       dbUser: process.env.DB_USER || 'default',
-      productsInMySQL: prodCount[0]?.total ?? 0
+      productsInMySQL: prodCount[0]?.total ?? 0,
+      ordersInMySQL: orderCount,
+      orderError: orderError
     });
   } catch (err) {
     res.status(200).json({

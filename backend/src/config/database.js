@@ -210,6 +210,12 @@ async function runMigrations(connection) {
         await connection.query('ALTER TABLE payments ADD COLUMN card_last4 CHAR(4) NULL AFTER card_brand');
         console.log('Migrated: Added card_last4 column to payments table.');
       }
+      if (payColNames.includes('provider')) {
+        await connection.query("ALTER TABLE payments MODIFY COLUMN provider VARCHAR(50) DEFAULT 'stripe'");
+      }
+      if (payColNames.includes('amount_received')) {
+        await connection.query("ALTER TABLE payments MODIFY COLUMN amount_received DECIMAL(10,2) DEFAULT 0");
+      }
     } catch (payErr) {
       console.warn('⚠️ Payments & orders table migration note:', payErr.message);
     }

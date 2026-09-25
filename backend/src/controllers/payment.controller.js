@@ -568,19 +568,21 @@ const recordStripeOrder = async (req, res, next) => {
       if (existingPay.length > 0) {
         await db.query(
           `UPDATE payments SET
+             provider = 'stripe',
              amount = ?,
+             amount_received = ?,
              currency = 'AUD',
              status = 'succeeded',
              stripe_payment_intent_id = ?,
              paid_at = NOW()
            WHERE id = ?`,
-          [totalAmount, paymentIntentId, existingPay[0].id]
+          [totalAmount, totalAmount, paymentIntentId, existingPay[0].id]
         );
       } else {
         await db.query(
-          `INSERT INTO payments (order_id, stripe_payment_intent_id, amount, currency, status, paid_at) 
-           VALUES (?, ?, ?, 'AUD', 'succeeded', NOW())`,
-          [orderId, paymentIntentId, totalAmount]
+          `INSERT INTO payments (order_id, provider, payment_method_type, stripe_payment_intent_id, amount, amount_received, currency, status, paid_at) 
+           VALUES (?, 'stripe', 'card', ?, ?, ?, 'AUD', 'succeeded', NOW())`,
+          [orderId, paymentIntentId, totalAmount, totalAmount]
         );
       }
 
