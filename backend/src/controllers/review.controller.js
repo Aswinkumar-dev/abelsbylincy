@@ -211,27 +211,89 @@ const createReview = async (req, res, next) => {
       created_at: new Date().toISOString()
     };
 
-    // 1. Try MySQL insert
+    // Determine product ID & name dynamically
+    let realProductId = null;
+    const numId = parseInt(String(productId).replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(numId) && numId > 0) realProductId = numId;
     try {
+      const [pRows] = await db.query(
+        'SELECT id, name FROM products WHERE id = ? OR slug = ? OR sku = ? OR name = ? LIMIT 1',
+        [realProductId || -1, String(productId), String(productId), String(productName || '')]
+      );
+      if (pRows.length > 0) {
+        realProductId = pRows[0].id;
+        if (!finalProdName) finalProdName = pRows[0].name;
+      }
+    } catch (_) {}
+
+    // 1. Try MySQL insert with dynamic column inspection
+    let lastDbError = null;
+    try {
+      const [rCols] = await db.query('SHOW COLUMNS FROM reviews');
+      const rColNames = rCols.map(c => c.Field);
+
+      const iCols = ['rating'];
+      const iPlaceholders = ['?'];
+      const iVals = [Number(rating) || 5];
+
+      if (rColNames.includes('product_id')) { 
+        iCols.push('product_id'); 
+        iPlaceholders.push('?'); 
+        iVals.push(realProductId || productId); 
+      }
+      if (rColNames.includes('product_name')) { 
+        iCols.push('product_name'); 
+        iPlaceholders.push('?'); 
+        iVals.push(finalProdName || 'Fine Jewellery'); 
+      }
+      if (rColNames.includes('user_id')) { 
+        iCols.push('user_id'); 
+        iPlaceholders.push('?'); 
+        iVals.push(userId || null); 
+      }
+      if (rColNames.includes('user_email')) { 
+        iCols.push('user_email'); 
+        iPlaceholders.push('?'); 
+        iVals.push(cleanEmail || null); 
+      }
+      if (rColNames.includes('author_name')) { 
+        iCols.push('author_name'); 
+        iPlaceholders.push('?'); 
+        iVals.push(cleanAuthor || 'Customer'); 
+      }
+      if (rColNames.includes('title')) { 
+        iCols.push('title'); 
+        iPlaceholders.push('?'); 
+        iVals.push(title || `${rating} Star Rating`); 
+      }
+      if (rColNames.includes('review_text')) { 
+        iCols.push('review_text'); 
+        iPlaceholders.push('?'); 
+        iVals.push(reviewText || ''); 
+      }
+      if (rColNames.includes('is_verified_purchase')) { 
+        iCols.push('is_verified_purchase'); 
+        iPlaceholders.push('?'); 
+        iVals.push(isVerifiedPurchase ? 1 : 0); 
+      }
+      if (rColNames.includes('status')) { 
+        iCols.push('status'); 
+        iPlaceholders.push("'approved'"); 
+      }
+      if (rColNames.includes('order_id')) { 
+        iCols.push('order_id'); 
+        iPlaceholders.push('NULL'); 
+      }
+
       const [result] = await db.query(
-        `INSERT INTO reviews (product_id, product_name, user_id, user_email, author_name, rating, title, review_text, is_verified_purchase, status) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')`,
-        [
-          productId,
-          finalProdName || null,
-          userId || null,
-          cleanEmail || null,
-          cleanAuthor || null,
-          rating,
-          title || `${rating} Star Rating`,
-          reviewText || null,
-          isVerifiedPurchase ? 1 : 0
-        ]
+        `INSERT INTO reviews (${iCols.join(', ')}) VALUES (${iPlaceholders.join(', ')})`,
+        iVals
       );
       if (result && result.insertId) {
         newReview.id = result.insertId;
       }
     } catch (dbErr) {
+      lastDbError = dbErr.message;
       console.warn('⚠️ Review DB insert note (fallback to fileStore):', dbErr.message);
     }
 
@@ -244,6 +306,8 @@ const createReview = async (req, res, next) => {
       success: true,
       reviewId: newReview.id,
       review: newReview,
+      dbSaved: !lastDbError,
+      dbError: lastDbError,
       message: 'Review submitted successfully! Thank you.'
     });
   } catch (error) {

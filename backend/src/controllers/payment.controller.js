@@ -619,7 +619,8 @@ const recordStripeOrder = async (req, res, next) => {
       const pColNames = pCols.map(c => c.Field);
 
       const paymentIntentId = order.sessionId || order.stripePaymentIntentId || order.paymentIntentId || `pi_stripe_${Date.now()}`;
-      const [existingPay] = await db.query('SELECT id FROM payments WHERE order_id = ? OR stripe_payment_intent_id = ?', [orderId, paymentIntentId]);
+      const idempotencyKey = order.idempotencyKey || `ik_${order.uuid || order.order_number || order.id || orderNumber}`;
+      const [existingPay] = await db.query('SELECT id FROM payments WHERE order_id = ? OR stripe_payment_intent_id = ? OR idempotency_key = ?', [orderId, paymentIntentId, idempotencyKey]);
 
       if (existingPay.length > 0) {
         const uSets = [];
@@ -630,6 +631,8 @@ const recordStripeOrder = async (req, res, next) => {
         if (pColNames.includes('currency')) { uSets.push("currency = 'AUD'"); }
         if (pColNames.includes('status')) { uSets.push("status = 'succeeded'"); }
         if (pColNames.includes('stripe_payment_intent_id')) { uSets.push('stripe_payment_intent_id = ?'); uVals.push(paymentIntentId); }
+        if (pColNames.includes('idempotency_key')) { uSets.push('idempotency_key = COALESCE(?, idempotency_key)'); uVals.push(idempotencyKey); }
+        if (pColNames.includes('card_brand')) { uSets.push("card_brand = COALESCE(?, card_brand, 'Visa')"); uVals.push(order.cardBrand || null); }
         if (pColNames.includes('paid_at')) { uSets.push('paid_at = NOW()'); }
 
         uVals.push(existingPay[0].id);
@@ -642,6 +645,8 @@ const recordStripeOrder = async (req, res, next) => {
         if (pColNames.includes('provider')) { iCols.push('provider'); iPlaceholders.push("'stripe'"); }
         if (pColNames.includes('payment_method_type')) { iCols.push('payment_method_type'); iPlaceholders.push("'card'"); }
         if (pColNames.includes('stripe_payment_intent_id')) { iCols.push('stripe_payment_intent_id'); iPlaceholders.push('?'); iVals.push(paymentIntentId); }
+        if (pColNames.includes('idempotency_key')) { iCols.push('idempotency_key'); iPlaceholders.push('?'); iVals.push(idempotencyKey); }
+        if (pColNames.includes('card_brand')) { iCols.push('card_brand'); iPlaceholders.push('?'); iVals.push(order.cardBrand || 'Visa'); }
         if (pColNames.includes('amount_received')) { iCols.push('amount_received'); iPlaceholders.push('?'); iVals.push(totalAmount); }
         if (pColNames.includes('currency')) { iCols.push('currency'); iPlaceholders.push("'AUD'"); }
         if (pColNames.includes('status')) { iCols.push('status'); iPlaceholders.push("'succeeded'"); }

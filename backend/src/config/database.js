@@ -369,6 +369,15 @@ async function runMigrations(connection) {
         await connection.query('ALTER TABLE reviews ADD COLUMN reply TEXT NULL AFTER status');
         console.log('Migrated: Added reply column to reviews table.');
       }
+      if (revColNames.includes('order_id')) {
+        await connection.query('ALTER TABLE reviews MODIFY COLUMN order_id INT NULL');
+      }
+      if (revColNames.includes('user_id')) {
+        await connection.query('ALTER TABLE reviews MODIFY COLUMN user_id INT NULL');
+      }
+      if (revColNames.includes('product_id')) {
+        await connection.query('ALTER TABLE reviews MODIFY COLUMN product_id VARCHAR(100) NOT NULL');
+      }
       console.log('Migrated: Ensured reviews table & columns exist.');
     } catch (revTableErr) {
       console.warn('⚠️ Reviews table migration note:', revTableErr.message);
