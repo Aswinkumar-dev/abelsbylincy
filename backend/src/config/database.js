@@ -69,6 +69,7 @@ async function runMigrations(connection) {
           order_number VARCHAR(100) UNIQUE NOT NULL,
           user_id INT NULL,
           guest_email VARCHAR(255) NULL,
+          currency VARCHAR(10) DEFAULT 'AUD',
           subtotal DECIMAL(10, 2) NOT NULL DEFAULT 0,
           discount_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
           tax_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
@@ -87,6 +88,24 @@ async function runMigrations(connection) {
           INDEX idx_orders_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
+
+      try {
+        const [oCols] = await connection.query('SHOW COLUMNS FROM orders');
+        const oColNames = oCols.map(c => c.Field);
+        if (oColNames.includes('currency')) {
+          await connection.query("ALTER TABLE orders MODIFY COLUMN currency VARCHAR(10) DEFAULT 'AUD'");
+        } else {
+          await connection.query("ALTER TABLE orders ADD COLUMN currency VARCHAR(10) DEFAULT 'AUD' AFTER guest_email");
+        }
+        if (oColNames.includes('user_id')) {
+          await connection.query("ALTER TABLE orders MODIFY COLUMN user_id INT NULL");
+        }
+        if (oColNames.includes('guest_email')) {
+          await connection.query("ALTER TABLE orders MODIFY COLUMN guest_email VARCHAR(255) NULL");
+        }
+      } catch (oErr) {
+        console.warn('Orders column migration note:', oErr.message);
+      }
 
       await connection.query(`
         CREATE TABLE IF NOT EXISTS order_addresses (

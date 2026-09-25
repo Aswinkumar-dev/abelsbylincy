@@ -456,13 +456,22 @@ const recordStripeOrder = async (req, res, next) => {
 
     try {
       let orderId = null;
+      let userId = null;
+      if (guestEmail) {
+        try {
+          const [uRows] = await db.query('SELECT id FROM users WHERE email = ?', [guestEmail.trim().toLowerCase()]);
+          if (uRows.length > 0) userId = uRows[0].id;
+        } catch (_) {}
+      }
 
-      const [existing] = await db.query('SELECT id FROM orders WHERE order_number = ?', [orderNumber]);
+      const [existing] = await db.query('SELECT id FROM orders WHERE order_number = ? OR uuid = ?', [orderNumber, orderUuid]);
       if (existing.length > 0) {
         orderId = existing[0].id;
         await db.query(
           `UPDATE orders SET 
+             user_id = COALESCE(?, user_id),
              guest_email = ?,
+             currency = 'AUD',
              subtotal = ?,
              discount_amount = ?,
              shipping_amount = ?,
@@ -472,20 +481,20 @@ const recordStripeOrder = async (req, res, next) => {
              tracking_number = COALESCE(?, tracking_number),
              updated_at = NOW()
            WHERE id = ?`,
-          [guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null, orderId]
+          [userId, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null, orderId]
         );
       } else {
         const [orderResult] = await db.query(
           `INSERT INTO orders 
-            (uuid, order_number, guest_email, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, placed_at) 
-           VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'paid', 'dispatching', ?, NOW())`,
-          [orderUuid, orderNumber, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null]
+            (uuid, order_number, user_id, guest_email, currency, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, placed_at) 
+           VALUES (?, ?, ?, ?, 'AUD', ?, ?, 0, ?, ?, ?, 'paid', 'dispatching', ?, NOW())`,
+          [orderUuid, orderNumber, userId, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null]
         );
         orderId = orderResult.insertId;
       }
 
       // Record / update shipping address
-      if (order.address || order.city || order.state) {
+      if (orderId && (order.address || order.city || order.state)) {
         const custName = String(order.customer || order.name || '').trim();
         const firstName = custName.split(' ')[0] || 'Valued';
         const lastName = custName.split(' ').slice(1).join(' ') || 'Customer';
@@ -494,14 +503,14 @@ const recordStripeOrder = async (req, res, next) => {
         if (existingAddr.length > 0) {
           await db.query(
             `UPDATE order_addresses SET
-               first_name = ?, last_name = ?, address_line_1 = ?, suburb = ?, state = ?, postcode = ?, phone = ?
+               first_name = ?, last_name = ?, address_line_1 = ?, suburb = ?, state = ?, postcode = ?, country = 'Australia', country_code = 'AU', phone = ?
              WHERE id = ?`,
             [firstName, lastName, order.address || '', order.city || '', order.state || '', order.postcode || '', order.phone || '', existingAddr[0].id]
           );
         } else {
           await db.query(
-            `INSERT INTO order_addresses (order_id, address_type, first_name, last_name, address_line_1, suburb, state, postcode, country, phone) 
-             VALUES (?, 'shipping', ?, ?, ?, ?, ?, ?, 'Australia', ?)`,
+            `INSERT INTO order_addresses (order_id, address_type, first_name, last_name, address_line_1, suburb, state, postcode, country, country_code, phone) 
+             VALUES (?, 'shipping', ?, ?, ?, ?, ?, ?, 'Australia', 'AU', ?)`,
             [orderId, firstName, lastName, order.address || '', order.city || '', order.state || '', order.postcode || '', order.phone || '']
           );
         }

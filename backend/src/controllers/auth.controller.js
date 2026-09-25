@@ -565,6 +565,26 @@ const getAllUsers = async (req, res, next) => {
   }
 };
 
+/**
+ * Reset/Clear customer directory from database
+ */
+const clearUsers = async (req, res, next) => {
+  try {
+    // Delete dependent tables first if any
+    try {
+      await db.query('DELETE FROM auth_sessions');
+      await db.query('DELETE FROM auth_identities');
+      await db.query('DELETE FROM email_verification_tokens');
+      await db.query('DELETE FROM password_reset_tokens');
+    } catch (_) {}
+
+    await db.query("DELETE FROM users WHERE role = 'customer' OR role IS NULL OR role = ''");
+    res.status(200).json({ success: true, message: 'All registered clients cleared from database.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   register,
   verifyEmail,
@@ -573,5 +593,7 @@ module.exports = {
   resetPassword,
   googleLogin,
   logout,
-  getAllUsers
+  getAllUsers,
+  clearUsers
 };
+

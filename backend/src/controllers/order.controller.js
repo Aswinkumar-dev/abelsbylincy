@@ -313,12 +313,22 @@ const syncOrders = async (req, res, next) => {
           }
         }
 
+        let userId = null;
+        if (guestEmail) {
+          try {
+            const [uRows] = await db.query('SELECT id FROM users WHERE email = ?', [guestEmail.trim().toLowerCase()]);
+            if (uRows.length > 0) userId = uRows[0].id;
+          } catch (_) {}
+        }
+
         if (orderDbId) {
           await db.query(
             `UPDATE orders SET 
+               user_id = COALESCE(?, user_id),
                status = ?,
                tracking_number = COALESCE(?, tracking_number),
                guest_email = COALESCE(?, guest_email),
+               currency = 'AUD',
                subtotal = COALESCE(?, subtotal),
                discount_amount = COALESCE(?, discount_amount),
                shipping_amount = COALESCE(?, shipping_amount),
@@ -326,15 +336,15 @@ const syncOrders = async (req, res, next) => {
                payment_status = 'paid',
                updated_at = NOW()
              WHERE id = ?`,
-            [statusVal, order.trackingNumber || null, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, orderDbId]
+            [userId, statusVal, order.trackingNumber || null, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, orderDbId]
           );
         } else {
           isNewOrder = true;
           const [orderResult] = await db.query(
             `INSERT INTO orders 
-              (uuid, order_number, guest_email, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, placed_at) 
-             VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'paid', 'dispatching', ?, NOW())`,
-            [orderUuid, primaryKey, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null]
+              (uuid, order_number, user_id, guest_email, currency, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, placed_at) 
+             VALUES (?, ?, ?, ?, 'AUD', ?, ?, 0, ?, ?, ?, 'paid', 'dispatching', ?, NOW())`,
+            [orderUuid, primaryKey, userId, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null]
           );
           orderDbId = orderResult.insertId;
         }
@@ -349,14 +359,14 @@ const syncOrders = async (req, res, next) => {
           if (existingAddr.length > 0) {
             await db.query(
               `UPDATE order_addresses SET
-                 first_name = ?, last_name = ?, address_line_1 = ?, suburb = ?, state = ?, postcode = ?, phone = ?
+                 first_name = ?, last_name = ?, address_line_1 = ?, suburb = ?, state = ?, postcode = ?, country = 'Australia', country_code = 'AU', phone = ?
                WHERE id = ?`,
               [firstName, lastName, order.address || '', order.city || '', order.state || '', order.postcode || '', order.phone || '', existingAddr[0].id]
             );
           } else {
             await db.query(
-              `INSERT INTO order_addresses (order_id, address_type, first_name, last_name, address_line_1, suburb, state, postcode, country, phone) 
-               VALUES (?, 'shipping', ?, ?, ?, ?, ?, ?, 'Australia', ?)`,
+              `INSERT INTO order_addresses (order_id, address_type, first_name, last_name, address_line_1, suburb, state, postcode, country, country_code, phone) 
+               VALUES (?, 'shipping', ?, ?, ?, ?, ?, ?, 'Australia', 'AU', ?)`,
               [orderDbId, firstName, lastName, order.address || '', order.city || '', order.state || '', order.postcode || '', order.phone || '']
             );
           }
