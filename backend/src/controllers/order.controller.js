@@ -116,119 +116,125 @@ const getOrderDetails = async (req, res, next) => {
 
 const { getStoredOrders, saveStoredOrders } = require('../utils/fileStore');
 
-const getAllOrders = async (req, res, next) => {
+const fetchAllCombinedOrders = async () => {
+  let dbOrders = [];
   try {
-    let dbOrders = [];
-    try {
-      const [rows] = await db.query(
-        `SELECT orders.*, users.email AS user_email, users.first_name AS user_fname, users.last_name AS user_lname 
-         FROM orders 
-         LEFT JOIN users ON orders.user_id = users.id 
-         ORDER BY orders.created_at DESC`
-      );
-      for (const order of rows) {
-        try {
-          const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
-          const [addresses] = await db.query('SELECT * FROM order_addresses WHERE order_id = ?', [order.id]);
-          const [payments] = await db.query('SELECT * FROM payments WHERE order_id = ?', [order.id]);
+    const [rows] = await db.query(
+      `SELECT orders.*, users.email AS user_email, users.first_name AS user_fname, users.last_name AS user_lname 
+       FROM orders 
+       LEFT JOIN users ON orders.user_id = users.id 
+       ORDER BY orders.created_at DESC`
+    );
+    for (const order of rows) {
+      try {
+        const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
+        const [addresses] = await db.query('SELECT * FROM order_addresses WHERE order_id = ?', [order.id]);
+        const [payments] = await db.query('SELECT * FROM payments WHERE order_id = ?', [order.id]);
 
-          const shipAddr = addresses.find(a => a.address_type === 'shipping') || addresses[0] || {};
-          const custName = `${shipAddr.first_name || order.user_fname || ''} ${shipAddr.last_name || order.user_lname || ''}`.trim() || 'Valued Customer';
-          const dateStr = order.placed_at 
-            ? new Date(order.placed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-            : new Date(order.created_at || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const shipAddr = addresses.find(a => a.address_type === 'shipping') || addresses[0] || {};
+        const custName = `${shipAddr.first_name || order.user_fname || ''} ${shipAddr.last_name || order.user_lname || ''}`.trim() || 'Valued Customer';
+        const dateStr = order.placed_at 
+          ? new Date(order.placed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          : new Date(order.created_at || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-          const formattedItems = (items || []).map(i => ({
-            id: i.product_id,
-            name: i.product_name,
-            sku: i.sku,
-            quantity: Number(i.quantity) || 1,
-            price: Number(i.unit_price) || 0,
-            image: i.product_image_url || null
-          }));
+        const formattedItems = (items || []).map(i => ({
+          id: i.product_id,
+          name: i.product_name,
+          sku: i.sku,
+          quantity: Number(i.quantity) || 1,
+          price: Number(i.unit_price) || 0,
+          image: i.product_image_url || null
+        }));
 
-          const primaryProdName = formattedItems.length > 0 
-            ? (formattedItems.length > 1 ? `${formattedItems[0].name} (+${formattedItems.length - 1} items)` : formattedItems[0].name)
-            : 'Fine Jewellery Selection';
+        const primaryProdName = formattedItems.length > 0 
+          ? (formattedItems.length > 1 ? `${formattedItems[0].name} (+${formattedItems.length - 1} items)` : formattedItems[0].name)
+          : 'Fine Jewellery Selection';
 
-          dbOrders.push({
-            id: order.order_number || String(order.id),
-            order_number: order.order_number,
-            dbId: order.id,
-            uuid: order.uuid,
-            customer: custName,
-            email: order.guest_email || order.user_email || '',
-            phone: shipAddr.phone || '',
-            address: shipAddr.address_line_1 || '',
-            city: shipAddr.suburb || '',
-            state: shipAddr.state || '',
-            postcode: shipAddr.postcode || '',
-            product: primaryProdName,
-            items: formattedItems,
-            date: dateStr,
-            status: order.status || 'Confirmed',
-            payment_status: order.payment_status || 'paid',
-            fulfillment_status: order.fulfillment_status || 'unfulfilled',
-            total: `$${parseFloat(order.total_amount || 0).toFixed(2)}`,
-            rawAmount: parseFloat(order.total_amount || 0),
-            subtotal: parseFloat(order.subtotal || 0),
-            discountAmount: parseFloat(order.discount_amount || 0),
-            shippingFee: parseFloat(order.shipping_amount || 0),
-            trackingNumber: order.tracking_number || null,
-            sessionId: payments?.[0]?.stripe_payment_intent_id || null,
-            paymentMethod: payments?.[0]?.payment_method_type || 'Stripe Encrypted Payment'
-          });
-        } catch {}
-      }
-    } catch (e) {
-      // DB offline fallback
+        dbOrders.push({
+          id: order.order_number || String(order.id),
+          order_number: order.order_number,
+          dbId: order.id,
+          uuid: order.uuid,
+          customer: custName,
+          email: order.guest_email || order.user_email || '',
+          phone: shipAddr.phone || '',
+          address: shipAddr.address_line_1 || '',
+          city: shipAddr.suburb || '',
+          state: shipAddr.state || '',
+          postcode: shipAddr.postcode || '',
+          product: primaryProdName,
+          items: formattedItems,
+          date: dateStr,
+          status: order.status || 'Confirmed',
+          payment_status: order.payment_status || 'paid',
+          fulfillment_status: order.fulfillment_status || 'unfulfilled',
+          total: `$${parseFloat(order.total_amount || 0).toFixed(2)}`,
+          rawAmount: parseFloat(order.total_amount || 0),
+          subtotal: parseFloat(order.subtotal || 0),
+          discountAmount: parseFloat(order.discount_amount || 0),
+          shippingFee: parseFloat(order.shipping_amount || 0),
+          trackingNumber: order.tracking_number || null,
+          sessionId: payments?.[0]?.stripe_payment_intent_id || null,
+          paymentMethod: payments?.[0]?.payment_method_type || 'Stripe Encrypted Payment'
+        });
+      } catch {}
     }
+  } catch (e) {
+    // DB offline fallback
+  }
 
-    const fileOrders = getStoredOrders() || [];
-    
-    // Merge unique orders by order number / ID / uuid
-    const mergedList = [];
-    const isSameOrder = (a, b) => {
-      if (!a || !b) return false;
-      const aId = a.id ? String(a.id).trim() : '';
-      const bId = b.id ? String(b.id).trim() : '';
-      const aNum = a.order_number ? String(a.order_number).trim() : '';
-      const bNum = b.order_number ? String(b.order_number).trim() : '';
-      const aUuid = a.uuid ? String(a.uuid).trim() : '';
-      const bUuid = b.uuid ? String(b.uuid).trim() : '';
-      const aDbId = (a.dbId !== undefined && a.dbId !== null) ? String(a.dbId).trim() : '';
-      const bDbId = (b.dbId !== undefined && b.dbId !== null) ? String(b.dbId).trim() : '';
+  const fileOrders = getStoredOrders() || [];
+  
+  // Merge unique orders by order number / ID / uuid
+  const mergedList = [];
+  const isSameOrder = (a, b) => {
+    if (!a || !b) return false;
+    const aId = a.id ? String(a.id).trim() : '';
+    const bId = b.id ? String(b.id).trim() : '';
+    const aNum = a.order_number ? String(a.order_number).trim() : '';
+    const bNum = b.order_number ? String(b.order_number).trim() : '';
+    const aUuid = a.uuid ? String(a.uuid).trim() : '';
+    const bUuid = b.uuid ? String(b.uuid).trim() : '';
+    const aDbId = (a.dbId !== undefined && a.dbId !== null) ? String(a.dbId).trim() : '';
+    const bDbId = (b.dbId !== undefined && b.dbId !== null) ? String(b.dbId).trim() : '';
 
-      if (aId && bId && aId === bId) return true;
-      if (aNum && bNum && aNum === bNum) return true;
-      if (aId && bNum && aId === bNum) return true;
-      if (aNum && bId && aNum === bId) return true;
-      if (aUuid && bUuid && aUuid === bUuid) return true;
-      if (aDbId && bDbId && aDbId === bDbId) return true;
-      return false;
-    };
+    if (aId && bId && aId === bId) return true;
+    if (aNum && bNum && aNum === bNum) return true;
+    if (aId && bNum && aId === bNum) return true;
+    if (aNum && bId && aNum === bId) return true;
+    if (aUuid && bUuid && aUuid === bUuid) return true;
+    if (aDbId && bDbId && aDbId === bDbId) return true;
+    return false;
+  };
 
-    // Base: MySQL DB orders
-    dbOrders.forEach(dbO => {
-      const idx = mergedList.findIndex(m => isSameOrder(m, dbO));
-      if (idx === -1) {
-        mergedList.push({ ...dbO });
-      } else {
-        mergedList[idx] = { ...mergedList[idx], ...dbO };
-      }
-    });
+  // Base: file orders as fallback
+  fileOrders.forEach(fileO => {
+    const idx = mergedList.findIndex(m => isSameOrder(m, fileO));
+    if (idx === -1) {
+      mergedList.push({ ...fileO });
+    } else {
+      mergedList[idx] = { ...mergedList[idx], ...fileO };
+    }
+  });
 
-    // Merge file orders
-    fileOrders.forEach(fileO => {
-      const idx = mergedList.findIndex(m => isSameOrder(m, fileO));
-      if (idx === -1) {
-        mergedList.push({ ...fileO });
-      } else {
-        mergedList[idx] = { ...mergedList[idx], ...fileO, status: fileO.status || mergedList[idx].status };
-      }
-    });
+  // Authoritative MySQL DB orders overwrite
+  dbOrders.forEach(dbO => {
+    const idx = mergedList.findIndex(m => isSameOrder(m, dbO));
+    if (idx === -1) {
+      mergedList.push({ ...dbO });
+    } else {
+      mergedList[idx] = { ...mergedList[idx], ...dbO };
+    }
+  });
 
-    res.status(200).json({ success: true, orders: mergedList });
+  return mergedList;
+};
+
+const getAllOrders = async (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  try {
+    const orders = await fetchAllCombinedOrders();
+    res.status(200).json({ success: true, orders });
   } catch (error) {
     next(error);
   }
@@ -263,7 +269,8 @@ const syncOrders = async (req, res, next) => {
 
     if (Array.isArray(orders)) {
       saveStoredOrders(orders);
-      return res.status(200).json({ success: true, message: 'Orders synchronized successfully.', orders });
+      const allOrders = await fetchAllCombinedOrders();
+      return res.status(200).json({ success: true, message: 'Orders synchronized successfully.', orders: allOrders });
     }
 
     if (deleteId) {
@@ -272,7 +279,8 @@ const syncOrders = async (req, res, next) => {
       try {
         await db.query('DELETE FROM orders WHERE order_number = ? OR uuid = ? OR id = ?', [deleteId, deleteId, (!isNaN(deleteId) && Number(deleteId) > 0) ? Number(deleteId) : -1]);
       } catch (_) {}
-      return res.status(200).json({ success: true, message: 'Order deleted.', orders: currentOrders });
+      const allOrders = await fetchAllCombinedOrders();
+      return res.status(200).json({ success: true, message: 'Order deleted.', orders: allOrders });
     }
 
     if (order) {
@@ -420,10 +428,12 @@ const syncOrders = async (req, res, next) => {
         console.warn('⚠️ Order sync DB note:', dbErr.message);
       }
 
-      return res.status(200).json({ success: true, message: 'Order saved.', orders: currentOrders });
+      const allOrders = await fetchAllCombinedOrders();
+      return res.status(200).json({ success: true, message: 'Order saved.', orders: allOrders });
     }
 
-    res.status(200).json({ success: true, orders: currentOrders });
+    const allOrders = await fetchAllCombinedOrders();
+    res.status(200).json({ success: true, orders: allOrders });
   } catch (error) {
     next(error);
   }

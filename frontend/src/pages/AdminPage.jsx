@@ -1952,13 +1952,13 @@ export default function AdminPage() {
                       <p style={{ fontSize: 14, color: 'var(--onyx)', margin: '8px 0', lineHeight: 1.6 }}>"{r.text}"</p>
                       {r.reply && replyingReviewId !== r.id && (
                         <div style={{ background: 'var(--cream)', padding: 12, borderRadius: 8, marginTop: 8, fontSize: 13, borderLeft: '3px solid var(--gold)' }}>
-                          <strong>Store Reply:</strong> {r.reply}
+                          <strong>Lincy:</strong> {r.reply}
                         </div>
                       )}
 
                       {replyingReviewId === r.id && (
                         <div style={{ marginTop: 12, padding: 14, background: 'var(--cream)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                          <p style={{ fontSize: 12, fontWeight: 700, margin: '0 0 6px 0', color: 'var(--onyx)' }}>Store Reply:</p>
+                          <p style={{ fontSize: 12, fontWeight: 700, margin: '0 0 6px 0', color: 'var(--onyx)' }}>Lincy Reply:</p>
                           <textarea
                             value={reviewReplyText}
                             onChange={(e) => setReviewReplyText(e.target.value)}

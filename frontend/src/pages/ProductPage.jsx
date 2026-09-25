@@ -511,7 +511,7 @@ export default function ProductPage() {
                   {r.text && <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--slate)', margin: 0 }}>{r.text}</p>}
                   {r.reply && (
                     <div style={{ background: 'var(--cream)', padding: 12, borderRadius: 6, marginTop: 10, fontSize: 12.5, borderLeft: '3px solid var(--gold)', lineHeight: 1.5 }}>
-                      <strong style={{ color: 'var(--onyx)', display: 'block', marginBottom: 2 }}>Store Response:</strong>
+                      <strong style={{ color: 'var(--onyx)', display: 'block', marginBottom: 2 }}>Lincy:</strong>
                       <span style={{ color: 'var(--slate)' }}>{r.reply}</span>
                     </div>
                   )}

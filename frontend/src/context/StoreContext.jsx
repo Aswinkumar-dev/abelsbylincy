@@ -1823,8 +1823,18 @@ export function StoreProvider({ children }) {
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.orders)) {
-            setOrdersRaw(data.orders);
-            writeLS('abl_orders_v9', data.orders);
+            setOrdersRaw(prev => {
+              const current = Array.isArray(prev) ? prev : [];
+              const combined = [...data.orders];
+              current.forEach(c => {
+                const cKey = c.id || c.order_number || c.uuid;
+                if (!combined.some(o => matchesOrderId(o, cKey))) {
+                  combined.push(c);
+                }
+              });
+              writeLS('abl_orders_v9', combined);
+              return combined;
+            });
           }
         }
       } catch (err) {
