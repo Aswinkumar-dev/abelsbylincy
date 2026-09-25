@@ -54,36 +54,35 @@ const fetchAllCombinedReviews = async () => {
   const fileReviews = (getStoredReviews() || []).filter(r => !deletedIds.has(String(r.id)));
   const reviewMap = new Map();
 
-  // 1. Add MySQL reviews
-  dbReviews.forEach(r => {
-    const key = String(r.id);
-    if (!deletedIds.has(key)) {
-      reviewMap.set(key, r);
-    }
-  });
-
-  // 2. Add / merge file reviews
+  // 1. Add file reviews first (as baseline fallback)
   fileReviews.forEach(r => {
     const key = String(r.id);
     if (deletedIds.has(key)) return;
-    if (reviewMap.has(key)) {
-      reviewMap.set(key, { ...reviewMap.get(key), ...r });
-    } else {
+    reviewMap.set(key, {
+      id: r.id,
+      productId: String(r.productId || r.product_id),
+      productName: r.productName || r.product_name || '',
+      userId: r.userId || r.user_id || null,
+      userEmail: r.userEmail || r.user_email || '',
+      author: r.author || r.author_name || (r.userEmail || r.user_email || '').split('@')[0] || 'Customer',
+      rating: Number(r.rating) || 5,
+      title: r.title || `${r.rating || 5} Star Rating`,
+      text: r.text || r.review_text || '',
+      is_verified_purchase: r.is_verified_purchase !== undefined ? Boolean(r.is_verified_purchase) : true,
+      status: r.status || 'approved',
+      reply: r.reply || '',
+      createdAt: r.createdAt || r.created_at || new Date().toISOString(),
+      created_at: r.created_at || r.createdAt || new Date().toISOString()
+    });
+  });
+
+  // 2. MySQL database reviews take absolute precedence
+  dbReviews.forEach(r => {
+    const key = String(r.id);
+    if (!deletedIds.has(key)) {
       reviewMap.set(key, {
-        id: r.id,
-        productId: String(r.productId || r.product_id),
-        productName: r.productName || r.product_name || '',
-        userId: r.userId || r.user_id || null,
-        userEmail: r.userEmail || r.user_email || '',
-        author: r.author || r.author_name || (r.userEmail || r.user_email || '').split('@')[0] || 'Customer',
-        rating: Number(r.rating) || 5,
-        title: r.title || `${r.rating || 5} Star Rating`,
-        text: r.text || r.review_text || '',
-        is_verified_purchase: r.is_verified_purchase !== undefined ? Boolean(r.is_verified_purchase) : true,
-        status: r.status || 'approved',
-        reply: r.reply || '',
-        createdAt: r.createdAt || r.created_at || new Date().toISOString(),
-        created_at: r.created_at || r.createdAt || new Date().toISOString()
+        ...(reviewMap.get(key) || {}),
+        ...r
       });
     }
   });
@@ -106,7 +105,30 @@ const getProductReviews = async (req, res, next) => {
   try {
     const { productId } = req.params;
     const allReviews = await fetchAllCombinedReviews();
-    const reviews = allReviews.filter(r => String(r.productId) === String(productId) && r.status === 'approved');
+    const pid = String(productId || '').trim().toLowerCase();
+
+    let identifiers = new Set([pid]);
+    try {
+      const numId = parseInt(pid.replace(/[^0-9]/g, ''), 10);
+      const [prods] = await db.query(
+        'SELECT id, name, slug, sku FROM products WHERE id = ? OR slug = ? OR sku = ? LIMIT 1',
+        [!isNaN(numId) ? numId : -1, pid, pid]
+      );
+      if (prods && prods.length > 0) {
+        const p = prods[0];
+        if (p.id) identifiers.add(String(p.id).toLowerCase());
+        if (p.slug) identifiers.add(String(p.slug).toLowerCase());
+        if (p.sku) identifiers.add(String(p.sku).toLowerCase());
+        if (p.name) identifiers.add(String(p.name).toLowerCase());
+      }
+    } catch (_) {}
+
+    const reviews = allReviews.filter(r => {
+      if (r.status !== 'approved') return false;
+      const rProd = String(r.productId || '').trim().toLowerCase();
+      const rName = String(r.productName || '').trim().toLowerCase();
+      return identifiers.has(rProd) || (rName && identifiers.has(rName));
+    });
     res.status(200).json({ success: true, reviews });
   } catch (error) {
     next(error);
@@ -346,7 +368,11 @@ const updateReviewStatus = async (req, res, next) => {
 
     // 1. Update in MySQL
     try {
-      await db.query('UPDATE reviews SET status = ? WHERE id = ?', [status, id]);
+      const numId = parseInt(id, 10);
+      await db.query(
+        'UPDATE reviews SET status = ? WHERE id = ? OR id = ?',
+        [status, id, !isNaN(numId) ? numId : -1]
+      );
     } catch (dbErr) {
       console.warn('⚠️ Update status DB note:', dbErr.message);
     }
@@ -370,7 +396,11 @@ const replyToReview = async (req, res, next) => {
 
     // 1. Update in MySQL
     try {
-      await db.query('UPDATE reviews SET reply = ? WHERE id = ?', [reply || null, id]);
+      const numId = parseInt(id, 10);
+      await db.query(
+        'UPDATE reviews SET reply = ? WHERE id = ? OR id = ?',
+        [reply || null, id, !isNaN(numId) ? numId : -1]
+      );
     } catch (dbErr) {
       console.warn('⚠️ Review reply DB note:', dbErr.message);
     }
@@ -396,7 +426,8 @@ const deleteReview = async (req, res, next) => {
 
     // 2. Delete and record in MySQL
     try {
-      await db.query('DELETE FROM reviews WHERE id = ?', [id]);
+      const numId = parseInt(id, 10);
+      await db.query('DELETE FROM reviews WHERE id = ? OR id = ?', [id, !isNaN(numId) ? numId : -1]);
       await db.query('INSERT IGNORE INTO deleted_reviews (id) VALUES (?)', [String(id)]);
     } catch (dbErr) {
       console.warn('⚠️ Delete review DB note:', dbErr.message);

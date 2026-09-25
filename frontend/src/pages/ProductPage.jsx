@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingBag, Star, X, ZoomIn, Shield, Truck, RefreshCcw, ChevronDown, ChevronUp } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
+import { useStore, doesReviewMatchProduct } from '../context/StoreContext';
 import ProductCard from '../components/ProductCard';
 
 export default function ProductPage() {
@@ -10,7 +10,7 @@ export default function ProductPage() {
   const navigate = useNavigate();
   const productId = searchParams.get('id');
 
-  const product = products.find(p => p.id === productId);
+  const product = products.find(p => p.id === productId || String(p.dbId) === String(productId) || p.slug === productId || p.sku === productId);
 
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
@@ -25,11 +25,7 @@ export default function ProductPage() {
 
   const productReviews = (globalReviews || []).filter(r => {
     if (r.status === 'hidden') return false;
-    const rProd = String(r.productId || '').trim().toLowerCase();
-    const urlId = String(productId || '').trim().toLowerCase();
-    const prodId = String(product?.id || '').trim().toLowerCase();
-    const prodSku = String(product?.sku || '').trim().toLowerCase();
-    return rProd === urlId || rProd === prodId || (prodSku && rProd === prodSku);
+    return doesReviewMatchProduct(r, product) || (productId && String(r.productId).trim().toLowerCase() === String(productId).trim().toLowerCase());
   });
 
   const userReviewCount = (currentUser && productReviews)
@@ -158,7 +154,7 @@ export default function ProductPage() {
     }
     const authorUsername = currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Verified Buyer');
     const res = await addReview({
-      productId: product.id,
+      productId: product.dbId ? String(product.dbId) : product.id,
       productName: product.name,
       author: authorUsername,
       userEmail: currentUser.email || '',

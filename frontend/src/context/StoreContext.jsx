@@ -26,6 +26,27 @@ export function isAllowedProduct(p) {
   return !REMOVED_MOCK_SKUS.includes(sku) && !REMOVED_MOCK_SKUS.includes(id);
 }
 
+export function doesReviewMatchProduct(r, product) {
+  if (!r || !product) return false;
+  const rProd = String(r.productId || r.product_id || '').trim().toLowerCase();
+  const rName = String(r.productName || r.product_name || '').trim().toLowerCase();
+  
+  const prodId = String(product.id || '').trim().toLowerCase();
+  const prodDbId = product.dbId !== undefined && product.dbId !== null ? String(product.dbId).trim().toLowerCase() : '';
+  const prodSku = String(product.sku || '').trim().toLowerCase();
+  const prodSlug = String(product.slug || '').trim().toLowerCase();
+  const prodName = String(product.name || '').trim().toLowerCase();
+
+  if (prodId && rProd === prodId) return true;
+  if (prodDbId && rProd === prodDbId) return true;
+  if (prodSku && rProd === prodSku) return true;
+  if (prodSlug && rProd === prodSlug) return true;
+  if (prodName && rProd === prodName) return true;
+  if (prodName && rName && (rName === prodName || rName.includes(prodName) || prodName.includes(rName))) return true;
+
+  return false;
+}
+
 const DEFAULT_PRODUCTS = [];
 
 const DEFAULT_CATEGORIES = [

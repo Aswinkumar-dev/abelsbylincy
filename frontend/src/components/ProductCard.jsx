@@ -1,13 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, ShoppingBag, Star } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
+import { useStore, doesReviewMatchProduct } from '../context/StoreContext';
 
 export default function ProductCard({ product }) {
   const { addToCart, toggleWishlist, wishlist, formatMoney, reviews } = useStore();
   const navigate = useNavigate();
   const isWishlisted = wishlist.includes(product.id);
-  const prodReviews = (reviews || []).filter(r => String(r.productId) === String(product.id) && r.status !== 'hidden');
+  const prodReviews = (reviews || []).filter(r => r.status !== 'hidden' && doesReviewMatchProduct(r, product));
   const avgRating = prodReviews.length > 0 ? (prodReviews.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) / prodReviews.length) : 5;
 
   const handleCardClick = () => {
