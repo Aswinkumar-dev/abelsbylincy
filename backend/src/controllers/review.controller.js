@@ -366,17 +366,22 @@ const updateReviewStatus = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Valid status (approved or hidden) is required.' });
     }
 
+    let dbUpdated = false;
+    let dbErrMessage = null;
+
     // 1. Update in MySQL
     try {
       try {
         await db.query("ALTER TABLE reviews ADD COLUMN status VARCHAR(50) DEFAULT 'approved'");
       } catch (_) {}
       const numId = parseInt(id, 10);
-      await db.query(
+      const [sqlRes] = await db.query(
         'UPDATE reviews SET status = ? WHERE id = ? OR id = ?',
         [status, id, !isNaN(numId) ? numId : -1]
       );
+      dbUpdated = sqlRes?.affectedRows > 0;
     } catch (dbErr) {
+      dbErrMessage = dbErr.message;
       console.warn('⚠️ Update status DB note:', dbErr.message);
     }
 
@@ -385,7 +390,12 @@ const updateReviewStatus = async (req, res, next) => {
     const updated = stored.map(r => String(r.id) === String(id) ? { ...r, status } : r);
     saveStoredReviews(updated);
 
-    res.status(200).json({ success: true, message: `Review status updated to ${status}` });
+    res.status(200).json({
+      success: true,
+      message: `Review status updated to ${status}`,
+      dbUpdated,
+      dbError: dbErrMessage
+    });
   } catch (error) {
     next(error);
   }
