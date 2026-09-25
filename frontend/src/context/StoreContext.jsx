@@ -548,139 +548,130 @@ export function StoreProvider({ children }) {
     }
 
     try {
-      // 2. Fetch Products from Server / Database (Authoritative single source of truth)
-      const prodRes = await apiFetch(`/api/products?t=${Date.now()}`);
-      if (prodRes.ok) {
-        const data = await prodRes.json();
-        if (data.success && Array.isArray(data.products)) {
-          const existingProducts = readLS('abl_products_v12', []) || [];
-          const cleanDBProducts = sanitizeProducts(data.products.filter(isAllowedProduct));
+      // Parallel fetch for Products, Reviews, CMS, Messages, Subscribers, Coupons, Inventory
+      const [prodRes, revRes, cmsRes, msgRes, subRes, cpRes, invRes] = await Promise.allSettled([
+        apiFetch(`/api/products?t=${Date.now()}`),
+        apiFetch(`/api/reviews?t=${Date.now()}`),
+        apiFetch(`/api/cms?t=${Date.now()}`),
+        apiFetch(`/api/contact/messages?t=${Date.now()}`),
+        apiFetch(`/api/newsletter/subscribers?t=${Date.now()}`),
+        apiFetch(`/api/coupons?t=${Date.now()}`),
+        apiFetch(`/api/inventory/history?t=${Date.now()}`)
+      ]);
 
-          // Retain stock deductions from local storage if local has confirmed purchase reduction
-          const mergedProducts = cleanDBProducts.map(dbProd => {
-            const localMatch = existingProducts.find(lp => 
-              String(lp.id) === String(dbProd.id) ||
-              (lp.sku && dbProd.sku && String(lp.sku).trim().toUpperCase() === String(dbProd.sku).trim().toUpperCase())
-            );
-            if (localMatch && localMatch.stockQty !== undefined && localMatch.stockQty < dbProd.stockQty) {
-              return { ...dbProd, stockQty: localMatch.stockQty, inStock: localMatch.stockQty > 0 };
-            }
-            return dbProd;
-          });
+      // 2. Products
+      if (prodRes.status === 'fulfilled' && prodRes.value.ok) {
+        try {
+          const data = await prodRes.value.json();
+          if (data.success && Array.isArray(data.products)) {
+            const existingProducts = readLS('abl_products_v12', []) || [];
+            const cleanDBProducts = sanitizeProducts(data.products.filter(isAllowedProduct));
 
-          setProductsRaw(mergedProducts);
-          writeLS('abl_products_v12', mergedProducts);
-        }
+            const mergedProducts = cleanDBProducts.map(dbProd => {
+              const localMatch = existingProducts.find(lp => 
+                String(lp.id) === String(dbProd.id) ||
+                (lp.sku && dbProd.sku && String(lp.sku).trim().toUpperCase() === String(dbProd.sku).trim().toUpperCase())
+              );
+              if (localMatch && localMatch.stockQty !== undefined && localMatch.stockQty < dbProd.stockQty) {
+                return { ...dbProd, stockQty: localMatch.stockQty, inStock: localMatch.stockQty > 0 };
+              }
+              return dbProd;
+            });
+
+            setProductsRaw(mergedProducts);
+            writeLS('abl_products_v12', mergedProducts);
+          }
+        } catch (_) {}
       }
-    } catch (err) {
-      // Server offline fallback
-    }
 
-    try {
-      // 3. Fetch Reviews from Server / Database (Authoritative sync across all browsers)
-      const revRes = await apiFetch(`/api/reviews?t=${Date.now()}`);
-      if (revRes.ok) {
-        const data = await revRes.json();
-        if (data.success && Array.isArray(data.reviews)) {
-          const deletedIds = (readLS('abl_deleted_review_ids', []) || []).map(String);
-          const formatted = data.reviews
-            .filter(r => !deletedIds.includes(String(r.id)))
-            .map(r => ({
-              id: r.id,
-              productId: String(r.productId || r.product_id),
-              productName: r.productName || r.product_name || '',
-              userId: r.userId || r.user_id || null,
-              userEmail: r.userEmail || r.user_email || '',
-              author: r.author || r.author_name || [r.first_name, r.last_name].filter(Boolean).join(' ') || (r.userEmail || r.user_email || '').split('@')[0] || 'Customer',
-              rating: Number(r.rating) || 5,
-              title: r.title || `${r.rating || 5} Star Rating`,
-              text: r.text || r.review_text || '',
-              date: (r.createdAt || r.created_at) ? new Date(r.createdAt || r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (r.date || 'Recent'),
-              status: r.status || 'approved',
-              reply: r.reply || ''
-            }));
-          setReviewsRaw(formatted);
-          writeLS('abl_reviews_v7', formatted);
-        }
+      // 3. Reviews
+      if (revRes.status === 'fulfilled' && revRes.value.ok) {
+        try {
+          const data = await revRes.value.json();
+          if (data.success && Array.isArray(data.reviews)) {
+            const deletedIds = (readLS('abl_deleted_review_ids', []) || []).map(String);
+            const formatted = data.reviews
+              .filter(r => !deletedIds.includes(String(r.id)))
+              .map(r => ({
+                id: r.id,
+                productId: String(r.productId || r.product_id),
+                productName: r.productName || r.product_name || '',
+                userId: r.userId || r.user_id || null,
+                userEmail: r.userEmail || r.user_email || '',
+                author: r.author || r.author_name || [r.first_name, r.last_name].filter(Boolean).join(' ') || (r.userEmail || r.user_email || '').split('@')[0] || 'Customer',
+                rating: Number(r.rating) || 5,
+                title: r.title || `${r.rating || 5} Star Rating`,
+                text: r.text || r.review_text || '',
+                date: (r.createdAt || r.created_at) ? new Date(r.createdAt || r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (r.date || 'Recent'),
+                status: r.status || 'approved',
+                reply: r.reply || ''
+              }));
+            setReviewsRaw(formatted);
+            writeLS('abl_reviews_v7', formatted);
+          }
+        } catch (_) {}
       }
-    } catch (err) {
-      // Offline fallback
-    }
 
-    try {
-      // 4. Fetch CMS Settings, Announcement Banner, & Hero Slides from Server / Database (Authoritative sync across all browsers)
-      const cmsRes = await apiFetch(`/api/cms?t=${Date.now()}`);
-      if (cmsRes.ok) {
-        const data = await cmsRes.json();
-        if (data.success && data.cms && typeof data.cms === 'object') {
-          setCMSRaw(prev => {
-            const merged = { ...DEFAULT_CMS, ...(prev || {}), ...data.cms };
-            if (Array.isArray(data.cms.heroSlides) && data.cms.heroSlides.length > 0) {
-              merged.heroSlides = data.cms.heroSlides;
-            }
-            writeLS('abl_cms_v5', merged);
-            return merged;
-          });
-        }
+      // 4. CMS Settings & Hero Slides
+      if (cmsRes.status === 'fulfilled' && cmsRes.value.ok) {
+        try {
+          const data = await cmsRes.value.json();
+          if (data.success && data.cms && typeof data.cms === 'object') {
+            setCMSRaw(prev => {
+              const merged = { ...DEFAULT_CMS, ...(prev || {}), ...data.cms };
+              if (Array.isArray(data.cms.heroSlides) && data.cms.heroSlides.length > 0) {
+                merged.heroSlides = data.cms.heroSlides;
+              }
+              writeLS('abl_cms_v5', merged);
+              return merged;
+            });
+          }
+        } catch (_) {}
       }
-    } catch (err) {
-      // Offline fallback
-    }
 
-    try {
-      // 5. Fetch Contact Inquiries from MySQL Database
-      const msgRes = await apiFetch(`/api/contact/messages?t=${Date.now()}`);
-      if (msgRes.ok) {
-        const data = await msgRes.json();
-        if (data.success && Array.isArray(data.messages)) {
-          setMessagesRaw(data.messages);
-          writeLS('abl_messages_v2', data.messages);
-        }
+      // 5. Contact Inquiries
+      if (msgRes.status === 'fulfilled' && msgRes.value.ok) {
+        try {
+          const data = await msgRes.value.json();
+          if (data.success && Array.isArray(data.messages)) {
+            setMessagesRaw(data.messages);
+            writeLS('abl_messages_v2', data.messages);
+          }
+        } catch (_) {}
       }
-    } catch (err) {
-      // Offline fallback
-    }
 
-    try {
-      // 6. Fetch Newsletter Subscribers from MySQL Database
-      const subRes = await apiFetch(`/api/newsletter/subscribers?t=${Date.now()}`);
-      if (subRes.ok) {
-        const data = await subRes.json();
-        if (data.success && Array.isArray(data.subscribers)) {
-          setSubscribersRaw(data.subscribers);
-          writeLS('abl_subscribers_v2', data.subscribers);
-        }
+      // 6. Newsletter Subscribers
+      if (subRes.status === 'fulfilled' && subRes.value.ok) {
+        try {
+          const data = await subRes.value.json();
+          if (data.success && Array.isArray(data.subscribers)) {
+            setSubscribersRaw(data.subscribers);
+            writeLS('abl_subscribers_v2', data.subscribers);
+          }
+        } catch (_) {}
       }
-    } catch (err) {
-      // Offline fallback
-    }
 
-    try {
-      // 7. Fetch Coupons from Server / Database (Authoritative sync across all browsers)
-      const cpRes = await apiFetch(`/api/coupons?t=${Date.now()}`);
-      if (cpRes.ok) {
-        const data = await cpRes.json();
-        if (data.success && Array.isArray(data.coupons)) {
-          setCouponsRaw(data.coupons);
-        }
+      // 7. Coupons
+      if (cpRes.status === 'fulfilled' && cpRes.value.ok) {
+        try {
+          const data = await cpRes.value.json();
+          if (data.success && Array.isArray(data.coupons)) {
+            setCouponsRaw(data.coupons);
+          }
+        } catch (_) {}
       }
-    } catch (err) {
-      // Offline fallback
-    }
 
-    try {
-      // 8. Fetch Inventory Movement History from MySQL Database
-      const invRes = await apiFetch(`/api/inventory/history?t=${Date.now()}`);
-      if (invRes.ok) {
-        const data = await invRes.json();
-        if (data.success && Array.isArray(data.history)) {
-          setStockHistoryRaw(data.history);
-          writeLS('abl_stock_history_v6', data.history);
-        }
+      // 8. Inventory History
+      if (invRes.status === 'fulfilled' && invRes.value.ok) {
+        try {
+          const data = await invRes.value.json();
+          if (data.success && Array.isArray(data.history)) {
+            setStockHistoryRaw(data.history);
+            writeLS('abl_stock_history_v6', data.history);
+          }
+        } catch (_) {}
       }
-    } catch (err) {
-      // Offline fallback
-    }
+    } catch (_) {}
   }, []);
 
   useEffect(() => {
@@ -1062,27 +1053,8 @@ export function StoreProvider({ children }) {
           localStorage.setItem('abl_access_token', data.accessToken);
         }
 
-        // Direct MySQL DB cart fetch (no stale localStorage copies)
-        let dbCart = Array.isArray(data.cart) ? data.cart : [];
-        if (dbCart.length === 0) {
-          try {
-            const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(cleanEmail)}&t=${Date.now()}`, {
-              headers: {
-                'Cache-Control': 'no-cache',
-                ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
-              }
-            });
-            if (cartRes.ok) {
-              const cartData = await cartRes.json();
-              if (cartData.success && Array.isArray(cartData.items)) {
-                dbCart = cartData.items;
-              }
-            }
-          } catch (cErr) {
-            console.warn('⚠️ Cart fetch fallback note:', cErr.message);
-          }
-        }
-
+        // Direct MySQL DB cart (no redundant network blocking)
+        const dbCart = Array.isArray(data.cart) ? data.cart : [];
         const guestCart = readLS('abl_cart', []) || [];
         let finalCart = dbCart;
         if (guestCart.length > 0) {
@@ -1099,27 +1071,8 @@ export function StoreProvider({ children }) {
         }
         setCartRaw(finalCart);
 
-        // Direct MySQL DB wishlist fetch & merge guest wishlist on login
-        let dbWishlist = Array.isArray(data.wishlist) ? data.wishlist : [];
-        if (dbWishlist.length === 0) {
-          try {
-            const wRes = await apiFetch(`/api/wishlist?email=${encodeURIComponent(cleanEmail)}&t=${Date.now()}`, {
-              headers: {
-                'Cache-Control': 'no-cache',
-                ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
-              }
-            });
-            if (wRes.ok) {
-              const wData = await wRes.json();
-              if (wData.success && Array.isArray(wData.items)) {
-                dbWishlist = wData.items;
-              }
-            }
-          } catch (wErr) {
-            console.warn('⚠️ Wishlist fetch fallback note:', wErr.message);
-          }
-        }
-
+        // Direct MySQL DB wishlist & merge guest wishlist (pure database authority)
+        const dbWishlist = Array.isArray(data.wishlist) ? data.wishlist : [];
         const guestWishlist = Array.isArray(wishlist) ? wishlist : [];
         const finalWishlist = Array.from(new Set([...dbWishlist, ...guestWishlist].map(String).filter(Boolean)));
         setWishlistRaw(finalWishlist);
@@ -1407,25 +1360,8 @@ export function StoreProvider({ children }) {
         return [userObj, ...current];
       });
 
-      // 2. Direct MySQL DB Cart
-      let dbCart = Array.isArray(authData.cart) ? authData.cart : [];
-      if (dbCart.length === 0) {
-        try {
-          const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
-            headers: {
-              'Cache-Control': 'no-cache',
-              ...(authData.accessToken ? { 'Authorization': `Bearer ${authData.accessToken}` } : {})
-            }
-          });
-          if (cartRes.ok) {
-            const cartData = await cartRes.json();
-            if (cartData.success && Array.isArray(cartData.items)) {
-              dbCart = cartData.items;
-            }
-          }
-        } catch (_) {}
-      }
-
+      // 2. Direct MySQL DB Cart (instant, authoritative)
+      const dbCart = Array.isArray(authData.cart) ? authData.cart : [];
       const guestCart = readLS('abl_cart', []) || [];
       let finalCart = dbCart;
       if (guestCart.length > 0) {
@@ -1443,24 +1379,7 @@ export function StoreProvider({ children }) {
       setCartRaw(finalCart);
 
       // 3. Direct MySQL DB Wishlist & merge guest wishlist (pure database authority)
-      let dbWishlist = Array.isArray(authData.wishlist) ? authData.wishlist : [];
-      if (dbWishlist.length === 0) {
-        try {
-          const wRes = await apiFetch(`/api/wishlist?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
-            headers: {
-              'Cache-Control': 'no-cache',
-              ...(authData.accessToken ? { 'Authorization': `Bearer ${authData.accessToken}` } : {})
-            }
-          });
-          if (wRes.ok) {
-            const wData = await wRes.json();
-            if (wData.success && Array.isArray(wData.items)) {
-              dbWishlist = wData.items;
-            }
-          }
-        } catch (_) {}
-      }
-
+      const dbWishlist = Array.isArray(authData.wishlist) ? authData.wishlist : [];
       const guestWishlist = Array.isArray(wishlist) ? wishlist : [];
       const finalWishlist = Array.from(new Set([...dbWishlist, ...guestWishlist].map(String).filter(Boolean)));
       setWishlistRaw(finalWishlist);
@@ -1497,49 +1416,59 @@ export function StoreProvider({ children }) {
 
     // 1. Trigger Real Google OAuth 2.0 Popup (accounts.google.com)
     if (window.google?.accounts?.oauth2) {
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: 'email profile openid',
-        callback: async (tokenResponse) => {
-          if (tokenResponse && tokenResponse.access_token) {
-            try {
-              const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-              });
-              if (res.ok) {
-                const profile = await res.json();
-                await loginWithGoogleProfile(profile);
-                return;
+      return new Promise((resolve) => {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'email profile openid',
+          callback: async (tokenResponse) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              try {
+                const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                });
+                if (res.ok) {
+                  const profile = await res.json();
+                  const ok = await loginWithGoogleProfile(profile);
+                  resolve(Boolean(ok));
+                  return;
+                }
+              } catch (e) {
+                console.error('Failed to fetch Google profile', e);
               }
-            } catch (e) {
-              console.error('Failed to fetch Google profile', e);
             }
+            showToast('Google Sign-In was cancelled.', 'alert-circle');
+            resolve(false);
           }
-          showToast('Google Sign-In was cancelled.', 'alert-circle');
-        }
+        });
+        client.requestAccessToken();
       });
-      client.requestAccessToken();
-      return;
     }
 
     // 2. Fallback to GIS One Tap prompt if initialized
     if (window.google?.accounts?.id) {
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: async (response) => {
-          if (response.credential) {
-            const profile = parseJwt(response.credential);
-            if (profile) await loginWithGoogleProfile(profile);
+      return new Promise((resolve) => {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (response) => {
+            if (response.credential) {
+              const profile = parseJwt(response.credential);
+              if (profile) {
+                const ok = await loginWithGoogleProfile(profile);
+                resolve(Boolean(ok));
+                return;
+              }
+            }
+            resolve(false);
           }
-        }
+        });
+        window.google.accounts.id.prompt();
       });
-      window.google.accounts.id.prompt();
-      return;
     }
 
     // 3. Fallback to Google OAuth 2.0 Auth URL redirect
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(window.location.origin + '/account')}&response_type=token&scope=${encodeURIComponent('email profile openid')}`;
     window.location.href = googleAuthUrl;
+    return false;
   }, [loginWithGoogleProfile, showToast]);
 
   // Handle Google OAuth Redirect Hash if returned via URL redirect

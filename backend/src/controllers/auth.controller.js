@@ -285,8 +285,6 @@ const login = async (req, res, next) => {
       } catch (_) {}
     }
 
-    await updateUserLastLogin(user.id);
-
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
@@ -294,40 +292,36 @@ const login = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    try {
-      await db.query(
-        'INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE expires_at = VALUES(expires_at)',
-        [user.id, refreshHash, expiresAt]
-      );
-    } catch (_) {}
+    const sessionPromise = db.query(
+      'INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE expires_at = VALUES(expires_at)',
+      [user.id, refreshHash, expiresAt]
+    ).catch(() => {});
 
-    // Fetch user's cart from DB or fileStore
+    const updateLoginPromise = updateUserLastLogin(user.id).catch(() => {});
+
+    // Fetch user's cart & wishlist from DB in parallel
+    const [cartResult, wResult] = await Promise.allSettled([
+      db.query('SELECT cart_json FROM user_carts WHERE LOWER(TRIM(user_email)) = ?', [user.email.toLowerCase()]),
+      db.query('SELECT wishlist_json FROM user_wishlists WHERE LOWER(TRIM(user_email)) = ?', [user.email.toLowerCase()])
+    ]);
+
     let userCart = [];
-    try {
-      const [cartRows] = await db.query(
-        'SELECT cart_json FROM user_carts WHERE LOWER(TRIM(user_email)) = ?',
-        [user.email.toLowerCase()]
-      );
-      if (cartRows && cartRows.length > 0 && cartRows[0].cart_json) {
-        userCart = typeof cartRows[0].cart_json === 'string' ? JSON.parse(cartRows[0].cart_json) : cartRows[0].cart_json;
-      }
-    } catch (_) {}
+    if (cartResult.status === 'fulfilled' && cartResult.value && cartResult.value[0] && cartResult.value[0].length > 0) {
+      const raw = cartResult.value[0][0].cart_json;
+      userCart = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    }
     if (!Array.isArray(userCart) || userCart.length === 0) {
       userCart = getStoredCart(user.email) || [];
     }
 
-    // Fetch user's wishlist strictly from user_wishlists table in DB
     let userWishlist = [];
-    try {
-      const [wRows] = await db.query(
-        'SELECT wishlist_json FROM user_wishlists WHERE LOWER(TRIM(user_email)) = ?',
-        [user.email.toLowerCase()]
-      );
-      if (wRows && wRows.length > 0 && wRows[0].wishlist_json) {
-        userWishlist = typeof wRows[0].wishlist_json === 'string' ? JSON.parse(wRows[0].wishlist_json) : wRows[0].wishlist_json;
-      }
-    } catch (_) {}
+    if (wResult.status === 'fulfilled' && wResult.value && wResult.value[0] && wResult.value[0].length > 0) {
+      const raw = wResult.value[0][0].wishlist_json;
+      userWishlist = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    }
     if (!Array.isArray(userWishlist)) userWishlist = [];
+
+    await Promise.allSettled([sessionPromise, updateLoginPromise]);
 
     res.status(200).json({
       success: true,
@@ -616,32 +610,26 @@ const googleLogin = async (req, res, next) => {
 
     await connection.commit();
 
-    // Fetch user's cart from DB or fileStore
+    // Fetch user's cart & wishlist from DB in parallel
+    const [cartResult, wResult] = await Promise.allSettled([
+      db.query('SELECT cart_json FROM user_carts WHERE LOWER(TRIM(user_email)) = ?', [user.email.toLowerCase()]),
+      db.query('SELECT wishlist_json FROM user_wishlists WHERE LOWER(TRIM(user_email)) = ?', [user.email.toLowerCase()])
+    ]);
+
     let userCart = [];
-    try {
-      const [cartRows] = await db.query(
-        'SELECT cart_json FROM user_carts WHERE LOWER(TRIM(user_email)) = ?',
-        [user.email.toLowerCase()]
-      );
-      if (cartRows && cartRows.length > 0 && cartRows[0].cart_json) {
-        userCart = typeof cartRows[0].cart_json === 'string' ? JSON.parse(cartRows[0].cart_json) : cartRows[0].cart_json;
-      }
-    } catch (_) {}
+    if (cartResult.status === 'fulfilled' && cartResult.value && cartResult.value[0] && cartResult.value[0].length > 0) {
+      const raw = cartResult.value[0][0].cart_json;
+      userCart = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    }
     if (!Array.isArray(userCart) || userCart.length === 0) {
       userCart = getStoredCart(user.email) || [];
     }
 
-    // Fetch user's wishlist strictly from user_wishlists table in DB
     let userWishlist = [];
-    try {
-      const [wRows] = await db.query(
-        'SELECT wishlist_json FROM user_wishlists WHERE LOWER(TRIM(user_email)) = ?',
-        [user.email.toLowerCase()]
-      );
-      if (wRows && wRows.length > 0 && wRows[0].wishlist_json) {
-        userWishlist = typeof wRows[0].wishlist_json === 'string' ? JSON.parse(wRows[0].wishlist_json) : wRows[0].wishlist_json;
-      }
-    } catch (_) {}
+    if (wResult.status === 'fulfilled' && wResult.value && wResult.value[0] && wResult.value[0].length > 0) {
+      const raw = wResult.value[0][0].wishlist_json;
+      userWishlist = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    }
     if (!Array.isArray(userWishlist)) userWishlist = [];
 
     res.status(200).json({
