@@ -224,31 +224,7 @@ export default function CheckoutPage() {
     } catch {}
   }, [appliedCoupon]);
 
-  // Resolve cart items immediately from state or localStorage cache to prevent false "empty bag" on refresh
-  const resolvedCart = (cart && cart.length > 0) ? cart : (() => {
-    try {
-      const saved = localStorage.getItem('abl_cart');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      const pending = localStorage.getItem('abl_pending_checkout_items');
-      if (pending) {
-        const parsed2 = JSON.parse(pending);
-        if (Array.isArray(parsed2) && parsed2.length > 0) return parsed2;
-      }
-    } catch {}
-    return [];
-  })();
-
-  // Synchronize back into StoreContext if cart was empty on initial mount but cached in storage
-  useEffect(() => {
-    if (cart.length === 0 && resolvedCart.length > 0 && !completedOrder) {
-      setCart(resolvedCart);
-    }
-  }, [cart.length, resolvedCart, completedOrder, setCart]);
-
-  const activeCartItems = (cart && cart.length > 0) ? cart : resolvedCart;
+  const activeCartItems = cart || [];
   const subtotal = activeCartItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const shippingFee = shippingMethod === 'express' ? 15 : (subtotal >= 60 ? 0 : 10);
 
@@ -605,46 +581,7 @@ export default function CheckoutPage() {
     }
   }, []);
 
-  // Restore cart items automatically if browser is refreshed or Back button pressed from Stripe
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const isSuccess = searchParams.get('success');
 
-    if (isSuccess !== 'true' && cart.length === 0) {
-      const savedCart = localStorage.getItem('abl_pre_checkout_cart');
-      if (savedCart) {
-        try {
-          const parsed = JSON.parse(savedCart);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setCart(parsed);
-          }
-        } catch (e) {}
-      }
-    }
-  }, [cart.length, setCart]);
-
-  // Mobile app-switching & screen-lock resilience listener (Requirement 39)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && cart.length === 0) {
-        try {
-          const savedPending = localStorage.getItem('abl_pending_checkout_items');
-          if (savedPending) {
-            const parsed = JSON.parse(savedPending);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setCart(parsed);
-            }
-          }
-        } catch {}
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
-    };
-  }, [cart.length, setCart]);
 
   const handleRedirectToStripe = async (e) => {
     if (e) e.preventDefault();

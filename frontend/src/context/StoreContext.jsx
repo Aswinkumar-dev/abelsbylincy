@@ -433,14 +433,6 @@ export function StoreProvider({ children }) {
   const [settings, setSettingsRaw] = useState(() => readLS('abl_settings', DEFAULT_SETTINGS));
   const [cms, setCMSRaw] = useState(() => readLS('abl_cms_v5', DEFAULT_CMS));
   const [cart, setCartRaw] = useState(() => {
-    const savedUser = readLS('abl_current_user', null);
-    if (savedUser?.email) {
-      const userKey = `abl_cart_${savedUser.email.trim().toLowerCase()}`;
-      const userCart = readLS(userKey, null);
-      if (Array.isArray(userCart) && userCart.length > 0) {
-        return userCart;
-      }
-    }
     return readLS('abl_cart', []);
   });
   const [cartLoading, setCartLoading] = useState(false);
@@ -451,12 +443,14 @@ export function StoreProvider({ children }) {
   const [messages, setMessagesRaw] = useState(() => readLS('abl_messages_v2', DEFAULT_MESSAGES));
   const [subscribers, setSubscribersRaw] = useState(() => readLS('abl_subscribers_v2', DEFAULT_SUBSCRIBERS));
 
-  // Purge any legacy client-side wishlist storage keys so DB is 100% authoritative
+  // Purge any stale client-side wishlist & cart storage keys so DB is 100% authoritative
   useEffect(() => {
     try {
       localStorage.removeItem('abl_wishlist');
       Object.keys(localStorage).forEach(k => {
-        if (k.startsWith('abl_wishlist_')) localStorage.removeItem(k);
+        if (k.startsWith('abl_wishlist_') || k.startsWith('abl_cart_') || k === 'abl_pending_checkout_items' || k === 'abl_pre_checkout_cart') {
+          localStorage.removeItem(k);
+        }
       });
     } catch (_) {}
   }, []);
@@ -800,12 +794,12 @@ export function StoreProvider({ children }) {
     setCartRaw(prev => {
       const nextItems = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
       const cleanList = Array.isArray(nextItems) ? nextItems : [];
-      writeLS('abl_cart', cleanList);
 
       const user = readLS('abl_current_user', null) || currentUser;
       const email = user?.email?.trim().toLowerCase();
-      if (email) {
-        writeLS(`abl_cart_${email}`, cleanList);
+      if (!email) {
+        writeLS('abl_cart', cleanList);
+      } else {
         const token = localStorage.getItem('abl_access_token');
         apiFetch('/api/cart/sync', {
           method: 'POST',
@@ -854,26 +848,7 @@ export function StoreProvider({ children }) {
     });
   }, []);
 
-  // Continuous auto-sync: when cart changes or user logs in, persist cart to DB
-  useEffect(() => {
-    const userEmail = currentUser?.email?.trim().toLowerCase();
-    if (!userEmail || !Array.isArray(cart)) return;
-
-    writeLS(`abl_cart_${userEmail}`, cart);
-    writeLS('abl_cart', cart);
-
-    const token = localStorage.getItem('abl_access_token');
-    apiFetch('/api/cart/sync', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({ email: userEmail, items: cart })
-    }).catch(() => {});
-  }, [cart, currentUser?.email]);
-
-  // Long-term multi-device & Incognito Cart preservation: sync account cart from MySQL DB
+  // Long-term multi-device & Incognito Cart preservation: strictly fetch from MySQL user_carts table
   useEffect(() => {
     const userEmail = currentUser?.email?.trim().toLowerCase();
     if (!userEmail) return;
@@ -892,15 +867,8 @@ export function StoreProvider({ children }) {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success && isMounted) {
-            const dbList = Array.isArray(data.items) ? data.items : [];
-            const userSavedList = readLS(`abl_cart_${userEmail}`, []) || [];
-
-            const finalList = Array.isArray(data.items) ? dbList : userSavedList;
-
-            setCartRaw(finalList);
-            writeLS('abl_cart', finalList);
-            writeLS(`abl_cart_${userEmail}`, finalList);
+          if (data.success && isMounted && Array.isArray(data.items)) {
+            setCartRaw(data.items);
           }
         }
       } catch (err) {
@@ -1094,12 +1062,9 @@ export function StoreProvider({ children }) {
           localStorage.setItem('abl_access_token', data.accessToken);
         }
 
-        // Direct MySQL DB cart fetch or payload cart on login (ensures immediate cart visibility and auto-merges guest cart)
-        const localItems = readLS('abl_cart', []) || [];
-        const userSavedItems = readLS(`abl_cart_${cleanEmail}`, []) || [];
-        let dbItems = Array.isArray(data.cart) ? data.cart : null;
-
-        if (!dbItems || dbItems.length === 0) {
+        // Direct MySQL DB cart fetch (no stale localStorage copies)
+        let dbCart = Array.isArray(data.cart) ? data.cart : [];
+        if (dbCart.length === 0) {
           try {
             const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(cleanEmail)}&t=${Date.now()}`, {
               headers: {
@@ -1110,7 +1075,7 @@ export function StoreProvider({ children }) {
             if (cartRes.ok) {
               const cartData = await cartRes.json();
               if (cartData.success && Array.isArray(cartData.items)) {
-                dbItems = cartData.items;
+                dbCart = cartData.items;
               }
             }
           } catch (cErr) {
@@ -1118,27 +1083,25 @@ export function StoreProvider({ children }) {
           }
         }
 
-        let finalList = mergeCartLists(dbItems || [], userSavedItems);
-        finalList = mergeCartLists(finalList, localItems);
-        setCartRaw(finalList);
-        writeLS('abl_cart', finalList);
-        writeLS(`abl_cart_${cleanEmail}`, finalList);
-
-        if (finalList.length > 0) {
+        const guestCart = readLS('abl_cart', []) || [];
+        let finalCart = dbCart;
+        if (guestCart.length > 0) {
+          finalCart = mergeCartLists(dbCart, guestCart);
+          writeLS('abl_cart', []); // Clear guest cart
           apiFetch('/api/cart/sync', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
             },
-            body: JSON.stringify({ email: cleanEmail, items: finalList })
+            body: JSON.stringify({ email: cleanEmail, items: finalCart })
           }).catch(() => {});
         }
+        setCartRaw(finalCart);
 
-        // Direct MySQL DB wishlist fetch on login (no localStorage)
-        let dbWishlist = Array.isArray(data.wishlist) ? data.wishlist : null;
-
-        if (!dbWishlist) {
+        // Direct MySQL DB wishlist fetch on login (pure database authority)
+        let dbWishlist = Array.isArray(data.wishlist) ? data.wishlist : [];
+        if (dbWishlist.length === 0) {
           try {
             const wRes = await apiFetch(`/api/wishlist?email=${encodeURIComponent(cleanEmail)}&t=${Date.now()}`, {
               headers: {
@@ -1156,8 +1119,7 @@ export function StoreProvider({ children }) {
             console.warn('⚠️ Wishlist fetch fallback note:', wErr.message);
           }
         }
-
-        setWishlistRaw(Array.isArray(dbWishlist) ? dbWishlist : []);
+        setWishlistRaw(dbWishlist);
 
         setCurrentUser(userObj);
         writeLS('abl_current_user', userObj);
@@ -1344,156 +1306,127 @@ export function StoreProvider({ children }) {
 
     const { name, email, picture, sub, given_name, family_name } = profile;
     const lowerEmail = email.trim().toLowerCase();
-    const existing = customers.find(c => c.email?.toLowerCase() === lowerEmail);
+    const firstName = given_name || (name ? name.split(' ')[0] : '') || '';
+    const lastName = family_name || (name ? name.split(' ').slice(1).join(' ') : '') || '';
 
-    const firstName = given_name || (name ? name.split(' ')[0] : '') || existing?.firstName || '';
-    const lastName = family_name || (name ? name.split(' ').slice(1).join(' ') : '') || existing?.lastName || '';
+    try {
+      // 1. Authenticate with backend MySQL database
+      const authRes = await apiFetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: lowerEmail,
+          googleSub: sub || profile.id || `g_${Date.now()}`,
+          firstName,
+          lastName,
+          avatarUrl: picture || ''
+        })
+      });
 
-    const userObj = {
-      id: existing ? existing.id : `c_google_${sub || Date.now()}`,
-      name: name || (firstName ? `${firstName} ${lastName}`.trim() : '') || existing?.name || email.split('@')[0],
-      firstName: firstName,
-      lastName: lastName,
-      email: lowerEmail,
-      avatar: picture || existing?.avatar || '',
-      provider: 'google',
-      joined: existing ? existing.joined : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      spent: existing ? existing.spent : '$0',
-      orders: existing ? existing.orders : 0
-    };
-
-    // Immediately set currentUser & write localStorage so authentication takes effect with zero delay
-    setCurrentUser(userObj);
-    writeLS('abl_current_user', userObj);
-    writeLS('abl_user_token', { email: lowerEmail, name: userObj.name, provider: 'google' });
-
-    if (!existing) {
-      setCustomers(prev => [userObj, ...(prev || [])]);
-    } else {
-      setCustomers(prev => (prev || []).map(c => c.email?.toLowerCase() === lowerEmail ? { ...c, avatar: userObj.avatar || c.avatar } : c));
-    }
-
-    // Immediately restore user's saved cart & guest items into state
-    const userSavedCart = readLS(`abl_cart_${lowerEmail}`, []) || [];
-    const localGuestCart = readLS('abl_cart', []) || [];
-    let immediateList = mergeCartLists(userSavedCart, localGuestCart);
-    if (immediateList.length > 0) {
-      setCartRaw(immediateList);
-      writeLS('abl_cart', immediateList);
-      writeLS(`abl_cart_${lowerEmail}`, immediateList);
-    }
-
-    showToast(`Welcome back, ${userObj.name}!`, 'check');
-
-    // If currently on /account, redirect immediately to target destination or home
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/account')) {
-      const params = new URLSearchParams(window.location.search);
-      const target = params.get('redirect') || '/';
-      setTimeout(() => {
-        if (window.location.pathname.startsWith('/account')) {
-          window.location.href = target;
-        }
-      }, 50);
-    }
-
-    // Background asynchronous account linking & MySQL cart sync
-    (async () => {
-      let backendCart = [];
-      try {
-        const authRes = await apiFetch('/api/auth/google', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: lowerEmail,
-            googleSub: sub || profile.id || `g_${Date.now()}`,
-            firstName,
-            lastName,
-            avatarUrl: picture || ''
-          })
-        });
-        if (authRes.ok) {
-          const authData = await authRes.json();
-          if (authData.accessToken) {
-            localStorage.setItem('abl_access_token', authData.accessToken);
-          }
-          if (Array.isArray(authData.cart) && authData.cart.length > 0) {
-            backendCart = authData.cart;
-          }
-        }
-      } catch (authErr) {
-        console.warn('⚠️ Google Auth backend sync note:', authErr.message);
+      let authData = {};
+      if (authRes.ok) {
+        authData = await authRes.json();
       }
 
-      if (backendCart.length === 0) {
+      if (authData.accessToken) {
+        localStorage.setItem('abl_access_token', authData.accessToken);
+      }
+
+      const backendUser = authData.user || {};
+      const userObj = {
+        id: backendUser.uuid || `c_google_${sub || Date.now()}`,
+        name: name || [backendUser.firstName, backendUser.lastName].filter(Boolean).join(' ') || (firstName ? `${firstName} ${lastName}`.trim() : '') || lowerEmail.split('@')[0],
+        firstName: backendUser.firstName || firstName,
+        lastName: backendUser.lastName || lastName,
+        email: lowerEmail,
+        avatar: picture || '',
+        provider: 'google',
+        role: backendUser.role || 'customer',
+        joined: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        spent: '$0',
+        orders: 0
+      };
+
+      setCurrentUser(userObj);
+      writeLS('abl_current_user', userObj);
+      writeLS('abl_user_token', { email: lowerEmail, name: userObj.name, provider: 'google' });
+
+      setCustomers(prev => {
+        const current = Array.isArray(prev) ? prev : [];
+        if (current.some(c => c.email?.toLowerCase() === lowerEmail)) {
+          return current.map(c => c.email?.toLowerCase() === lowerEmail ? { ...c, ...userObj } : c);
+        }
+        return [userObj, ...current];
+      });
+
+      // 2. Direct MySQL DB Cart
+      let dbCart = Array.isArray(authData.cart) ? authData.cart : [];
+      if (dbCart.length === 0) {
         try {
-          const token = localStorage.getItem('abl_access_token');
           const cartRes = await apiFetch(`/api/cart?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
             headers: {
               'Cache-Control': 'no-cache',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              ...(authData.accessToken ? { 'Authorization': `Bearer ${authData.accessToken}` } : {})
             }
           });
           if (cartRes.ok) {
             const cartData = await cartRes.json();
             if (cartData.success && Array.isArray(cartData.items)) {
-              backendCart = cartData.items;
+              dbCart = cartData.items;
             }
           }
         } catch (_) {}
       }
 
-      let combinedList = mergeCartLists(backendCart, userSavedCart);
-      combinedList = mergeCartLists(combinedList, localGuestCart);
-
-      if (combinedList.length > 0) {
-        setCartRaw(combinedList);
-        writeLS('abl_cart', combinedList);
-        writeLS(`abl_cart_${lowerEmail}`, combinedList);
-
-        const token = localStorage.getItem('abl_access_token');
+      const guestCart = readLS('abl_cart', []) || [];
+      let finalCart = dbCart;
+      if (guestCart.length > 0) {
+        finalCart = mergeCartLists(dbCart, guestCart);
+        writeLS('abl_cart', []);
         apiFetch('/api/cart/sync', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            ...(authData.accessToken ? { 'Authorization': `Bearer ${authData.accessToken}` } : {})
           },
-          body: JSON.stringify({ email: lowerEmail, items: combinedList })
+          body: JSON.stringify({ email: lowerEmail, items: finalCart })
         }).catch(() => {});
       }
+      setCartRaw(finalCart);
 
-      // Restore wishlist strictly from MySQL DB
-      let backendWishlist = [];
-      if (authData && Array.isArray(authData.wishlist) && authData.wishlist.length > 0) {
-        backendWishlist = authData.wishlist;
-      }
-      if (backendWishlist.length === 0) {
+      // 3. Direct MySQL DB Wishlist (pure database authority)
+      let dbWishlist = Array.isArray(authData.wishlist) ? authData.wishlist : [];
+      if (dbWishlist.length === 0) {
         try {
-          const token = localStorage.getItem('abl_access_token');
           const wRes = await apiFetch(`/api/wishlist?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
             headers: {
               'Cache-Control': 'no-cache',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              ...(authData.accessToken ? { 'Authorization': `Bearer ${authData.accessToken}` } : {})
             }
           });
           if (wRes.ok) {
             const wData = await wRes.json();
             if (wData.success && Array.isArray(wData.items)) {
-              backendWishlist = wData.items;
+              dbWishlist = wData.items;
             }
           }
         } catch (_) {}
       }
+      setWishlistRaw(dbWishlist);
 
-      setWishlistRaw(Array.isArray(backendWishlist) ? backendWishlist : []);
-    })();
+      showToast(`Welcome back, ${userObj.name}!`, 'check');
+      return true;
+    } catch (err) {
+      console.error('⚠️ Google sign-in error:', err);
+      showToast('Google sign-in error. Please try again.', 'alert-circle');
+      return false;
+    }
+  }, [setCustomers, setCurrentUser, showToast]);
 
-    return true;
-  }, [customers, setCustomers, setCurrentUser, showToast]);
-
-  const loginWithGoogle = useCallback((credentialOrEvent) => {
+  const loginWithGoogle = useCallback(async (credentialOrEvent) => {
     if (typeof credentialOrEvent === 'string') {
       const profile = parseJwt(credentialOrEvent);
-      if (profile) return loginWithGoogleProfile(profile);
+      if (profile) return await loginWithGoogleProfile(profile);
       showToast('Invalid Google credential token', 'alert-circle');
       return false;
     }
@@ -1513,7 +1446,7 @@ export function StoreProvider({ children }) {
               });
               if (res.ok) {
                 const profile = await res.json();
-                loginWithGoogleProfile(profile);
+                await loginWithGoogleProfile(profile);
                 return;
               }
             } catch (e) {
@@ -1531,10 +1464,10 @@ export function StoreProvider({ children }) {
     if (window.google?.accounts?.id) {
       window.google.accounts.id.initialize({
         client_id: clientId,
-        callback: (response) => {
+        callback: async (response) => {
           if (response.credential) {
             const profile = parseJwt(response.credential);
-            if (profile) loginWithGoogleProfile(profile);
+            if (profile) await loginWithGoogleProfile(profile);
           }
         }
       });
@@ -1557,9 +1490,9 @@ export function StoreProvider({ children }) {
           headers: { Authorization: `Bearer ${accessToken}` }
         })
           .then(res => res.json())
-          .then(profile => {
+          .then(async profile => {
             if (profile && profile.email) {
-              loginWithGoogleProfile(profile);
+              await loginWithGoogleProfile(profile);
               window.history.replaceState(null, '', window.location.pathname);
             }
           })
