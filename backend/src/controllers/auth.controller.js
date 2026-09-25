@@ -2,8 +2,7 @@ const crypto = require('crypto');
 const { findUserByEmail, createUser, updateUserLastLogin, findUserById } = require('../services/auth.service');
 const { hashPassword, comparePassword } = require('../utils/password');
 const { generateAccessToken, generateRefreshToken } = require('../utils/token');
-const { sendEmail } = require('../services/email.service');
-const { getStoredCart } = require('../utils/fileStore');
+const { getStoredCart, getStoredWishlist } = require('../utils/fileStore');
 const db = require('../config/database');
 
 
@@ -240,11 +239,40 @@ const login = async (req, res, next) => {
       userCart = getStoredCart(user.email) || [];
     }
 
+    // Fetch user's wishlist from DB or fileStore
+    let userWishlist = [];
+    try {
+      const [wRows] = await db.query(
+        'SELECT wishlist_json FROM user_wishlists WHERE LOWER(TRIM(user_email)) = ?',
+        [user.email.toLowerCase()]
+      );
+      if (wRows && wRows.length > 0 && wRows[0].wishlist_json) {
+        userWishlist = typeof wRows[0].wishlist_json === 'string' ? JSON.parse(wRows[0].wishlist_json) : wRows[0].wishlist_json;
+      }
+      if (!Array.isArray(userWishlist) || userWishlist.length === 0) {
+        const [relRows] = await db.query(
+          `SELECT wi.product_id 
+           FROM wishlist_items wi
+           JOIN wishlists w ON wi.wishlist_id = w.id
+           WHERE LOWER(TRIM(w.user_email)) = ? OR (w.user_id IS NOT NULL AND w.user_id = ?)
+           ORDER BY wi.created_at DESC`,
+          [user.email.toLowerCase(), user.id]
+        );
+        if (relRows && relRows.length > 0) {
+          userWishlist = relRows.map(r => String(r.product_id));
+        }
+      }
+    } catch (_) {}
+    if (!Array.isArray(userWishlist) || userWishlist.length === 0) {
+      userWishlist = (typeof getStoredWishlist === 'function' ? getStoredWishlist(user.email) : []) || [];
+    }
+
     res.status(200).json({
       success: true,
       accessToken,
       refreshToken,
       cart: Array.isArray(userCart) ? userCart : [],
+      wishlist: Array.isArray(userWishlist) ? userWishlist : [],
       user: {
         uuid: user.uuid,
         email: user.email,
@@ -539,11 +567,40 @@ const googleLogin = async (req, res, next) => {
       userCart = getStoredCart(user.email) || [];
     }
 
+    // Fetch user's wishlist from DB or fileStore
+    let userWishlist = [];
+    try {
+      const [wRows] = await db.query(
+        'SELECT wishlist_json FROM user_wishlists WHERE LOWER(TRIM(user_email)) = ?',
+        [user.email.toLowerCase()]
+      );
+      if (wRows && wRows.length > 0 && wRows[0].wishlist_json) {
+        userWishlist = typeof wRows[0].wishlist_json === 'string' ? JSON.parse(wRows[0].wishlist_json) : wRows[0].wishlist_json;
+      }
+      if (!Array.isArray(userWishlist) || userWishlist.length === 0) {
+        const [relRows] = await db.query(
+          `SELECT wi.product_id 
+           FROM wishlist_items wi
+           JOIN wishlists w ON wi.wishlist_id = w.id
+           WHERE LOWER(TRIM(w.user_email)) = ? OR (w.user_id IS NOT NULL AND w.user_id = ?)
+           ORDER BY wi.created_at DESC`,
+          [user.email.toLowerCase(), userId]
+        );
+        if (relRows && relRows.length > 0) {
+          userWishlist = relRows.map(r => String(r.product_id));
+        }
+      }
+    } catch (_) {}
+    if (!Array.isArray(userWishlist) || userWishlist.length === 0) {
+      userWishlist = (typeof getStoredWishlist === 'function' ? getStoredWishlist(user.email) : []) || [];
+    }
+
     res.status(200).json({
       success: true,
       accessToken,
       refreshToken,
       cart: Array.isArray(userCart) ? userCart : [],
+      wishlist: Array.isArray(userWishlist) ? userWishlist : [],
       user: {
         uuid: user.uuid,
         email: user.email,

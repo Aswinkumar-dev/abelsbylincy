@@ -896,25 +896,6 @@ export function StoreProvider({ children }) {
     };
   }, [currentUser?.email]);
 
-  // Continuous auto-sync: when wishlist changes or user logs in, persist wishlist to DB
-  useEffect(() => {
-    const userEmail = currentUser?.email?.trim().toLowerCase();
-    if (!userEmail || !Array.isArray(wishlist)) return;
-
-    writeLS(`abl_wishlist_${userEmail}`, wishlist);
-    writeLS('abl_wishlist', wishlist);
-
-    const token = localStorage.getItem('abl_access_token');
-    apiFetch('/api/wishlist/sync', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({ email: userEmail, items: wishlist })
-    }).catch(() => {});
-  }, [wishlist, currentUser?.email]);
-
   // Multi-device Wishlist preservation: sync account wishlist from MySQL DB
   useEffect(() => {
     const userEmail = currentUser?.email?.trim().toLowerCase();
@@ -937,11 +918,13 @@ export function StoreProvider({ children }) {
             const dbList = Array.isArray(data.items) ? data.items : [];
             const userSavedList = readLS(`abl_wishlist_${userEmail}`, []) || [];
 
-            const finalList = Array.isArray(data.items) ? dbList : userSavedList;
+            const finalList = Array.isArray(data.items) && data.items.length > 0 ? dbList : userSavedList;
 
-            setWishlistRaw(finalList);
-            writeLS('abl_wishlist', finalList);
-            writeLS(`abl_wishlist_${userEmail}`, finalList);
+            if (finalList.length > 0 || (data.success && Array.isArray(data.items))) {
+              setWishlistRaw(finalList);
+              writeLS('abl_wishlist', finalList);
+              writeLS(`abl_wishlist_${userEmail}`, finalList);
+            }
           }
         }
       } catch (err) {
@@ -1119,6 +1102,51 @@ export function StoreProvider({ children }) {
               ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
             },
             body: JSON.stringify({ email: cleanEmail, items: finalList })
+          }).catch(() => {});
+        }
+
+        // Direct MySQL DB wishlist fetch or payload wishlist on login
+        const localWishlist = readLS('abl_wishlist', []) || [];
+        const userSavedWishlist = readLS(`abl_wishlist_${cleanEmail}`, []) || [];
+        let dbWishlist = Array.isArray(data.wishlist) ? data.wishlist : null;
+
+        if (!dbWishlist || dbWishlist.length === 0) {
+          try {
+            const wRes = await apiFetch(`/api/wishlist?email=${encodeURIComponent(cleanEmail)}&t=${Date.now()}`, {
+              headers: {
+                'Cache-Control': 'no-cache',
+                ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
+              }
+            });
+            if (wRes.ok) {
+              const wData = await wRes.json();
+              if (wData.success && Array.isArray(wData.items)) {
+                dbWishlist = wData.items;
+              }
+            }
+          } catch (wErr) {
+            console.warn('⚠️ Wishlist fetch fallback note:', wErr.message);
+          }
+        }
+
+        const combinedWishlist = Array.from(new Set([
+          ...(Array.isArray(dbWishlist) ? dbWishlist : []),
+          ...userSavedWishlist,
+          ...localWishlist
+        ]));
+
+        setWishlistRaw(combinedWishlist);
+        writeLS('abl_wishlist', combinedWishlist);
+        writeLS(`abl_wishlist_${cleanEmail}`, combinedWishlist);
+
+        if (combinedWishlist.length > 0) {
+          apiFetch('/api/wishlist/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(data.accessToken ? { 'Authorization': `Bearer ${data.accessToken}` } : {})
+            },
+            body: JSON.stringify({ email: cleanEmail, items: combinedWishlist })
           }).catch(() => {});
         }
 
@@ -1423,6 +1451,53 @@ export function StoreProvider({ children }) {
           body: JSON.stringify({ email: lowerEmail, items: combinedList })
         }).catch(() => {});
       }
+
+      // Restore wishlist
+      let backendWishlist = [];
+      if (authData && Array.isArray(authData.wishlist) && authData.wishlist.length > 0) {
+        backendWishlist = authData.wishlist;
+      }
+      if (backendWishlist.length === 0) {
+        try {
+          const token = localStorage.getItem('abl_access_token');
+          const wRes = await apiFetch(`/api/wishlist?email=${encodeURIComponent(lowerEmail)}&t=${Date.now()}`, {
+            headers: {
+              'Cache-Control': 'no-cache',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            }
+          });
+          if (wRes.ok) {
+            const wData = await wRes.json();
+            if (wData.success && Array.isArray(wData.items)) {
+              backendWishlist = wData.items;
+            }
+          }
+        } catch (_) {}
+      }
+
+      const userSavedWishlist = readLS(`abl_wishlist_${lowerEmail}`, []) || [];
+      const localGuestWishlist = readLS('abl_wishlist', []) || [];
+      const combinedWishlist = Array.from(new Set([
+        ...backendWishlist,
+        ...userSavedWishlist,
+        ...localGuestWishlist
+      ]));
+
+      if (combinedWishlist.length > 0) {
+        setWishlistRaw(combinedWishlist);
+        writeLS('abl_wishlist', combinedWishlist);
+        writeLS(`abl_wishlist_${lowerEmail}`, combinedWishlist);
+
+        const token = localStorage.getItem('abl_access_token');
+        apiFetch('/api/wishlist/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ email: lowerEmail, items: combinedWishlist })
+        }).catch(() => {});
+      }
     })();
 
     return true;
@@ -1511,6 +1586,8 @@ export function StoreProvider({ children }) {
     writeLS('abl_current_user', null);
     setCartRaw([]);
     writeLS('abl_cart', []);
+    setWishlistRaw([]);
+    writeLS('abl_wishlist', []);
     try {
       localStorage.removeItem('abl_access_token');
       localStorage.removeItem('abl_user_token');

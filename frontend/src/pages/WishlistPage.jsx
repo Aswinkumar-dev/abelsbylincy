@@ -15,7 +15,16 @@ export default function WishlistPage() {
 
   if (!currentUser) return null;
 
-  const wishlistedProducts = products.filter(p => wishlist.includes(p.id));
+  const wishlistedProducts = products.filter(p => {
+    if (!p) return false;
+    const pId = p.id !== undefined && p.id !== null ? String(p.id).trim() : '';
+    const pSku = p.sku ? String(p.sku).trim() : '';
+    const pUuid = p.uuid ? String(p.uuid).trim() : '';
+    return wishlist.some(wId => {
+      const itemKey = String(wId).trim();
+      return (pId && itemKey === pId) || (pSku && itemKey === pSku) || (pUuid && itemKey === pUuid);
+    });
+  });
 
   return (
     <>
