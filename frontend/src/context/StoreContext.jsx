@@ -1890,7 +1890,7 @@ export function StoreProvider({ children }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productId: prod?.uuid || prodId,
+          productId: prod?.dbId || prod?.uuid || prodId,
           sku: prodSku,
           delta: deltaNum,
           newQty: calculatedStock,
@@ -1899,6 +1899,17 @@ export function StoreProvider({ children }) {
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.newStock !== undefined) {
+          setProducts(prev => {
+            const current = Array.isArray(prev) ? prev : [];
+            return current.map(p => {
+              if (p.id === prodId || (prodSku && p.sku === prodSku)) {
+                return { ...p, stockQty: data.newStock, inStock: data.newStock > 0 };
+              }
+              return p;
+            });
+          });
+        }
         if (data.movement) {
           setStockHistory(prev => {
             const list = Array.isArray(prev) ? prev.filter(h => h.id !== tempHistory.id) : [];

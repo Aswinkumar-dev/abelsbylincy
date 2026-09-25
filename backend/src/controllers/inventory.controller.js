@@ -48,28 +48,32 @@ const adjustStock = async (req, res, next) => {
     try {
       const cleanId = String(productId || '').trim();
       const cleanSku = String(sku || '').trim();
+      const numId = (!isNaN(cleanId) && Number(cleanId) > 0) ? Number(cleanId) : -1;
 
       const [pRows] = await db.query(
-        `SELECT p.id, p.uuid, p.name, p.sku, p.slug, pv.id as variant_id, pv.stock_quantity as variant_stock, pv.sku as variant_sku
+        `SELECT p.id, p.uuid, p.name, p.sku, p.slug, p.stock_quantity as prod_stock, 
+                pv.id as variant_id, pv.stock_quantity as variant_stock, pv.sku as variant_sku
          FROM products p
          LEFT JOIN product_variants pv ON p.id = pv.product_id
-         WHERE p.id = ? OR p.uuid = ? OR p.sku = ? OR p.slug = ? OR pv.id = ? OR pv.sku = ?
+         WHERE (p.id = ?)
+            OR (p.uuid IS NOT NULL AND p.uuid = ?)
+            OR (p.sku IS NOT NULL AND LOWER(TRIM(p.sku)) = LOWER(?))
+            OR (cleanSku != '' AND p.sku IS NOT NULL AND LOWER(TRIM(p.sku)) = LOWER(?))
+            OR (p.slug IS NOT NULL AND LOWER(TRIM(p.slug)) = LOWER(?))
+            OR (pv.id = ?)
+            OR (pv.sku IS NOT NULL AND LOWER(TRIM(pv.sku)) = LOWER(?))
+            OR (cleanSku != '' AND pv.sku IS NOT NULL AND LOWER(TRIM(pv.sku)) = LOWER(?))
          ORDER BY pv.is_default DESC, pv.id ASC LIMIT 1`,
-        [
-          (!isNaN(cleanId) && Number(cleanId) > 0) ? Number(cleanId) : -1,
-          cleanId,
-          cleanSku,
-          cleanId,
-          (!isNaN(cleanId) && Number(cleanId) > 0) ? Number(cleanId) : -1,
-          cleanSku
-        ]
+        [numId, cleanId, cleanId, cleanSku, cleanId, numId, cleanId, cleanSku]
       );
 
       if (pRows.length > 0) {
         const row = pRows[0];
         targetProductId = row.id;
         targetVariantId = row.variant_id;
-        currentVarStock = Number(row.variant_stock !== null && row.variant_stock !== undefined ? row.variant_stock : 10);
+        const vStock = row.variant_stock !== null && row.variant_stock !== undefined ? Number(row.variant_stock) : null;
+        const pStock = row.prod_stock !== null && row.prod_stock !== undefined ? Number(row.prod_stock) : null;
+        currentVarStock = vStock !== null ? vStock : (pStock !== null ? pStock : 10);
         productName = row.name || productName;
         productSku = row.sku || row.variant_sku || productSku;
         productUuid = row.uuid || productUuid;
@@ -88,15 +92,26 @@ const adjustStock = async (req, res, next) => {
     const effectiveDelta = deltaNum !== 0 ? deltaNum : (calculatedStock - currentVarStock);
 
     // 2. Update stock in MySQL product_variants and products tables
-    if (targetVariantId) {
-      try {
-        await db.query('UPDATE product_variants SET stock_quantity = ? WHERE id = ?', [calculatedStock, targetVariantId]);
-      } catch (_) {}
-    }
     if (targetProductId) {
       try {
         await db.query('UPDATE products SET stock_quantity = ? WHERE id = ?', [calculatedStock, targetProductId]);
-        await db.query('UPDATE product_variants SET stock_quantity = ? WHERE product_id = ?', [calculatedStock, targetProductId]);
+        await db.query('UPDATE product_variants SET stock_quantity = ?, is_active = TRUE WHERE product_id = ?', [calculatedStock, targetProductId]);
+      } catch (_) {}
+
+      // If no variant row existed, insert one now so variants are always active
+      if (!targetVariantId) {
+        try {
+          const [newVar] = await db.query(
+            `INSERT INTO product_variants (product_id, sku, variant_name, price, stock_quantity, is_default, is_active)
+             VALUES (?, ?, 'Default', 0, ?, 1, TRUE)`,
+            [targetProductId, productSku || 'ABL-JEW', calculatedStock]
+          );
+          targetVariantId = newVar.insertId;
+        } catch (_) {}
+      }
+    } else if (targetVariantId) {
+      try {
+        await db.query('UPDATE product_variants SET stock_quantity = ?, is_active = TRUE WHERE id = ?', [calculatedStock, targetVariantId]);
       } catch (_) {}
     }
 
