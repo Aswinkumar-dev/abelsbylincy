@@ -1131,58 +1131,70 @@ export function StoreProvider({ children }) {
       }
 
       // Server responded but login failed (wrong email/password)
+      showToast(data.message || 'Invalid email or password credentials.', 'alert-circle');
       return false;
     } catch (err) {
-      // Network error / server offline — try local fallback
-      const found = customers.find(c => c.email.toLowerCase() === cleanEmail);
-      if (found) {
-        setCurrentUser({ ...found });
-        writeLS('abl_current_user', { ...found });
-        showToast(`Welcome back, ${found.name}!`, 'check');
-        return true;
-      }
-      const stored = readLS('abl_user_token', null);
-      if (stored && stored.email?.toLowerCase() === cleanEmail && stored.password === password) {
-        setCurrentUser(stored);
-        writeLS('abl_current_user', stored);
-        showToast(`Welcome back, ${stored.name}!`, 'check');
-        return true;
-      }
+      console.warn('⚠️ Login network note:', err.message);
+      showToast('Login server unreachable. Please check your internet connection.', 'alert-circle');
       return false;
     }
-  }, [customers, setCurrentUser, showToast]);
+  }, [setCurrentUser, showToast]);
 
   const registerUser = useCallback(async (name, email, password) => {
     const cleanEmail = email.trim().toLowerCase();
-    const exists = customers.find(c => c.email.toLowerCase() === cleanEmail);
-    if (exists) {
-      showToast('An account with this email already exists', 'alert-circle');
-      return false;
-    }
-    const newUser = { id: `c${Date.now()}`, name, email: cleanEmail, orders: 0, spent: '$0', joined: new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }), status: 'New' };
-    setCustomers(prev => [...prev, newUser]);
-    setCurrentUser(newUser);
-    writeLS('abl_current_user', newUser);
-    writeLS('abl_user_token', { ...newUser, password });
+    const cleanName = (name || '').trim();
 
-    // Sync with backend API (creates MySQL record)
     try {
       const res = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password, firstName: name })
+        body: JSON.stringify({ email: cleanEmail, password, firstName: cleanName })
       });
+
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data.accessToken) {
+
+      if (!res.ok || !data.success) {
+        showToast(data.message || 'An account with this email address already exists.', 'alert-circle');
+        return false;
+      }
+
+      const u = data.user || {};
+      const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ') || cleanName || cleanEmail.split('@')[0];
+      const newUser = {
+        id: u.uuid || u.id || `c${Date.now()}`,
+        name: fullName,
+        email: cleanEmail,
+        role: u.role || 'customer',
+        orders: 0,
+        spent: '$0.00',
+        joined: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        status: 'Active'
+      };
+
+      if (data.accessToken) {
         localStorage.setItem('abl_access_token', data.accessToken);
       }
-    } catch (err) {
-      console.warn('⚠️ Register DB sync note:', err.message);
-    }
 
-    showToast(`Welcome to Abel's By Lincy, ${name}!`, 'check');
-    return true;
-  }, [customers, setCustomers, setCurrentUser, showToast]);
+      setCustomers(prev => {
+        const current = Array.isArray(prev) ? prev : [];
+        if (current.some(c => c.email?.toLowerCase() === cleanEmail)) {
+          return current.map(c => c.email?.toLowerCase() === cleanEmail ? { ...c, ...newUser } : c);
+        }
+        return [...current, newUser];
+      });
+
+      setCurrentUser(newUser);
+      writeLS('abl_current_user', newUser);
+      writeLS('abl_user_token', { ...newUser, password });
+
+      showToast(`Welcome to Abel's By Lincy, ${fullName}!`, 'check');
+      return true;
+    } catch (err) {
+      console.warn('⚠️ Register DB error:', err.message);
+      showToast('Registration service temporarily unavailable. Please try again.', 'alert-circle');
+      return false;
+    }
+  }, [setCustomers, setCurrentUser, showToast]);
 
   const requestPasswordReset = useCallback(async (email) => {
     const cleanEmail = (email || '').trim().toLowerCase();

@@ -80,15 +80,41 @@ const register = async (req, res, next) => {
     const userId = userResult.insertId;
 
     // Track initial identity provider record
-    await connection.query(
-      "INSERT INTO auth_identities (user_id, provider, provider_email, provider_email_verified) VALUES (?, 'email', ?, TRUE)",
-      [userId, email]
-    );
+    try {
+      await connection.query(
+        "INSERT INTO auth_identities (user_id, provider, provider_email, provider_email_verified) VALUES (?, 'email', ?, TRUE)",
+        [userId, email]
+      );
+    } catch (_) {}
+
+    const userObj = {
+      id: userId,
+      uuid,
+      email,
+      firstName: firstName || null,
+      lastName: lastName || null,
+      role: 'customer'
+    };
+    const accessToken = generateAccessToken(userObj);
+    const refreshToken = generateRefreshToken(userObj);
+
+    try {
+      const refreshHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      await connection.query(
+        'INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?)',
+        [userId, refreshHash, expiresAt]
+      );
+    } catch (_) {}
 
     await connection.commit();
     res.status(201).json({
       success: true,
-      message: 'Registration successful! You can now sign in.'
+      message: 'Registration successful! Welcome to Abel\'s By Lincy.',
+      accessToken,
+      refreshToken,
+      user: userObj
     });
   } catch (error) {
     await connection.rollback();
