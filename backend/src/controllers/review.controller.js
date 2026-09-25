@@ -368,6 +368,9 @@ const updateReviewStatus = async (req, res, next) => {
 
     // 1. Update in MySQL
     try {
+      try {
+        await db.query("ALTER TABLE reviews ADD COLUMN status VARCHAR(50) DEFAULT 'approved'");
+      } catch (_) {}
       const numId = parseInt(id, 10);
       await db.query(
         'UPDATE reviews SET status = ? WHERE id = ? OR id = ?',
@@ -396,6 +399,9 @@ const replyToReview = async (req, res, next) => {
 
     // 1. Update in MySQL
     try {
+      try {
+        await db.query('ALTER TABLE reviews ADD COLUMN reply TEXT NULL');
+      } catch (_) {}
       const numId = parseInt(id, 10);
       await db.query(
         'UPDATE reviews SET reply = ? WHERE id = ? OR id = ?',

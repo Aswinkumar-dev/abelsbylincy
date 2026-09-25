@@ -365,6 +365,10 @@ async function runMigrations(connection) {
         await connection.query('ALTER TABLE reviews ADD COLUMN author_name VARCHAR(255) NULL AFTER user_email');
         console.log('Migrated: Added author_name column to reviews table.');
       }
+      if (!revColNames.includes('status')) {
+        await connection.query("ALTER TABLE reviews ADD COLUMN status VARCHAR(50) DEFAULT 'approved'");
+        console.log('Migrated: Added status column to reviews table.');
+      }
       if (!revColNames.includes('reply')) {
         await connection.query('ALTER TABLE reviews ADD COLUMN reply TEXT NULL AFTER status');
         console.log('Migrated: Added reply column to reviews table.');
