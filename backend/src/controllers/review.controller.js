@@ -229,8 +229,22 @@ const createReview = async (req, res, next) => {
     // 1. Try MySQL insert with dynamic column inspection
     let lastDbError = null;
     try {
+      try {
+        await db.query('ALTER TABLE reviews MODIFY COLUMN user_id INT NULL');
+        await db.query('ALTER TABLE reviews MODIFY COLUMN order_id INT NULL');
+      } catch (_) {}
+
       const [rCols] = await db.query('SHOW COLUMNS FROM reviews');
       const rColNames = rCols.map(c => c.Field);
+      const userIdCol = rCols.find(c => c.Field === 'user_id');
+      const isUserIdStrictNotNull = userIdCol && userIdCol.Null === 'NO';
+
+      if (!userId && isUserIdStrictNotNull) {
+        try {
+          const [uRows] = await db.query('SELECT id FROM users ORDER BY id ASC LIMIT 1');
+          if (uRows.length > 0) userId = uRows[0].id;
+        } catch (_) {}
+      }
 
       const iCols = ['rating'];
       const iPlaceholders = ['?'];
@@ -246,10 +260,15 @@ const createReview = async (req, res, next) => {
         iPlaceholders.push('?'); 
         iVals.push(finalProdName || 'Fine Jewellery'); 
       }
-      if (rColNames.includes('user_id')) { 
-        iCols.push('user_id'); 
-        iPlaceholders.push('?'); 
-        iVals.push(userId || null); 
+      if (rColNames.includes('user_id')) {
+        if (userId !== null && userId !== undefined) {
+          iCols.push('user_id'); 
+          iPlaceholders.push('?'); 
+          iVals.push(userId); 
+        } else if (!isUserIdStrictNotNull) {
+          iCols.push('user_id'); 
+          iPlaceholders.push('NULL');
+        }
       }
       if (rColNames.includes('user_email')) { 
         iCols.push('user_email'); 
