@@ -1853,19 +1853,35 @@ export function StoreProvider({ children }) {
   }, [showToast]);
 
   const adjustStockQty = useCallback(async (idOrProduct, delta, reason = '') => {
-    const prod = typeof idOrProduct === 'object' ? idOrProduct : (products || []).find(p => p.id === idOrProduct || p.sku === idOrProduct || p.uuid === idOrProduct);
+    const prod = typeof idOrProduct === 'object' ? idOrProduct : (products || []).find(p => p.id === idOrProduct || p.sku === idOrProduct || p.uuid === idOrProduct || p.dbId === idOrProduct);
     const prodId = prod?.id || (typeof idOrProduct === 'string' ? idOrProduct : '');
+    const prodDbId = prod?.dbId;
+    const prodUuid = prod?.uuid;
     const prodSku = prod?.sku || '';
     const deltaNum = parseInt(delta, 10) || 0;
 
-    let calculatedStock = 0;
+    const matchesTarget = (p) => {
+      if (!p) return false;
+      if (prodId && (p.id === prodId || p.uuid === prodId)) return true;
+      if (prodDbId && p.dbId && String(p.dbId) === String(prodDbId)) return true;
+      if (prodUuid && p.uuid && String(p.uuid) === String(prodUuid)) return true;
+      if (prodSku && p.sku && String(p.sku).trim().toLowerCase() === String(prodSku).trim().toLowerCase()) return true;
+      return false;
+    };
+
+    let currentQty = prod?.stockQty !== undefined ? Number(prod.stockQty) : 0;
+    const targetInList = (products || []).find(matchesTarget);
+    if (targetInList && targetInList.stockQty !== undefined) {
+      currentQty = Number(targetInList.stockQty);
+    }
+
+    const calculatedStock = Math.max(0, currentQty + deltaNum);
+
     setProducts(prev => {
       const current = Array.isArray(prev) ? prev : [];
       return current.map(p => {
-        if (p.id === prodId || (prodSku && p.sku === prodSku)) {
-          const nextQty = Math.max(0, (p.stockQty || 0) + deltaNum);
-          calculatedStock = nextQty;
-          return { ...p, stockQty: nextQty, inStock: nextQty > 0 };
+        if (matchesTarget(p)) {
+          return { ...p, stockQty: calculatedStock, inStock: calculatedStock > 0 };
         }
         return p;
       });
@@ -1874,7 +1890,7 @@ export function StoreProvider({ children }) {
     const note = reason || (deltaNum > 0 ? `Stock intake (+${deltaNum})` : `Stock reduction (${deltaNum})`);
     const tempHistory = {
       id: `sh_${Date.now()}`,
-      productId: prod?.uuid || prodId,
+      productId: prodUuid || prodId,
       sku: prodSku || 'ABL-JEW',
       productName: prod?.name || 'Jewellery Piece',
       change: deltaNum,
@@ -1890,7 +1906,7 @@ export function StoreProvider({ children }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productId: prod?.dbId || prod?.uuid || prodId,
+          productId: prodDbId || prodUuid || prodId,
           sku: prodSku,
           delta: deltaNum,
           newQty: calculatedStock,
@@ -1903,7 +1919,7 @@ export function StoreProvider({ children }) {
           setProducts(prev => {
             const current = Array.isArray(prev) ? prev : [];
             return current.map(p => {
-              if (p.id === prodId || (prodSku && p.sku === prodSku)) {
+              if (matchesTarget(p)) {
                 return { ...p, stockQty: data.newStock, inStock: data.newStock > 0 };
               }
               return p;

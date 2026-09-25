@@ -32,7 +32,7 @@ const fetchAllProductsFromDB = async () => {
 
     for (const product of rows) {
       const [images] = await db.query('SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC', [product.id]);
-      const [variants] = await db.query('SELECT * FROM product_variants WHERE product_id = ? AND is_active = TRUE', [product.id]);
+      const [variants] = await db.query('SELECT * FROM product_variants WHERE product_id = ?', [product.id]);
       product.images = images;
       product.variants = variants;
     }

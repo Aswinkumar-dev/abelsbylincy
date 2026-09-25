@@ -50,33 +50,62 @@ const adjustStock = async (req, res, next) => {
       const cleanSku = String(sku || '').trim();
       const numId = (!isNaN(cleanId) && Number(cleanId) > 0) ? Number(cleanId) : -1;
 
-      const [pRows] = await db.query(
-        `SELECT p.id, p.uuid, p.name, p.sku, p.slug, p.stock_quantity as prod_stock, 
-                pv.id as variant_id, pv.stock_quantity as variant_stock, pv.sku as variant_sku
-         FROM products p
-         LEFT JOIN product_variants pv ON p.id = pv.product_id
-         WHERE (p.id = ?)
-            OR (p.uuid IS NOT NULL AND p.uuid = ?)
-            OR (p.sku IS NOT NULL AND LOWER(TRIM(p.sku)) = LOWER(?))
-            OR (cleanSku != '' AND p.sku IS NOT NULL AND LOWER(TRIM(p.sku)) = LOWER(?))
-            OR (p.slug IS NOT NULL AND LOWER(TRIM(p.slug)) = LOWER(?))
-            OR (pv.id = ?)
-            OR (pv.sku IS NOT NULL AND LOWER(TRIM(pv.sku)) = LOWER(?))
-            OR (cleanSku != '' AND pv.sku IS NOT NULL AND LOWER(TRIM(pv.sku)) = LOWER(?))
-         ORDER BY pv.is_default DESC, pv.id ASC LIMIT 1`,
-        [numId, cleanId, cleanId, cleanSku, cleanId, numId, cleanId, cleanSku]
-      );
+      let pRows = [];
+      if (numId > 0) {
+        [pRows] = await db.query(
+          `SELECT id, uuid, name, sku, slug, stock_quantity as prod_stock FROM products WHERE id = ? LIMIT 1`,
+          [numId]
+        );
+      }
+      if (pRows.length === 0 && cleanId) {
+        [pRows] = await db.query(
+          `SELECT id, uuid, name, sku, slug, stock_quantity as prod_stock FROM products WHERE uuid = ? OR LOWER(TRIM(sku)) = LOWER(?) OR LOWER(TRIM(slug)) = LOWER(?) LIMIT 1`,
+          [cleanId, cleanId, cleanId]
+        );
+      }
+      if (pRows.length === 0 && cleanSku) {
+        [pRows] = await db.query(
+          `SELECT id, uuid, name, sku, slug, stock_quantity as prod_stock FROM products WHERE LOWER(TRIM(sku)) = LOWER(?) LIMIT 1`,
+          [cleanSku]
+        );
+      }
 
       if (pRows.length > 0) {
         const row = pRows[0];
         targetProductId = row.id;
-        targetVariantId = row.variant_id;
-        const vStock = row.variant_stock !== null && row.variant_stock !== undefined ? Number(row.variant_stock) : null;
-        const pStock = row.prod_stock !== null && row.prod_stock !== undefined ? Number(row.prod_stock) : null;
-        currentVarStock = vStock !== null ? vStock : (pStock !== null ? pStock : 10);
         productName = row.name || productName;
-        productSku = row.sku || row.variant_sku || productSku;
+        productSku = row.sku || productSku;
         productUuid = row.uuid || productUuid;
+
+        const [varRows] = await db.query(
+          `SELECT id, stock_quantity, sku, is_default FROM product_variants WHERE product_id = ? ORDER BY is_default DESC, id ASC`,
+          [targetProductId]
+        );
+
+        if (varRows.length > 0) {
+          targetVariantId = varRows[0].id;
+          const vStock = varRows[0].stock_quantity !== null && varRows[0].stock_quantity !== undefined ? Number(varRows[0].stock_quantity) : null;
+          const pStock = row.prod_stock !== null && row.prod_stock !== undefined ? Number(row.prod_stock) : null;
+          currentVarStock = vStock !== null ? vStock : (pStock !== null ? pStock : 10);
+        } else {
+          currentVarStock = row.prod_stock !== null && row.prod_stock !== undefined ? Number(row.prod_stock) : 10;
+        }
+      } else if (cleanSku) {
+        const [vRows] = await db.query(
+          `SELECT pv.id as variant_id, pv.product_id, pv.stock_quantity as variant_stock, pv.sku as variant_sku, p.name, p.uuid, p.sku as prod_sku
+           FROM product_variants pv
+           JOIN products p ON pv.product_id = p.id
+           WHERE LOWER(TRIM(pv.sku)) = LOWER(?) LIMIT 1`,
+          [cleanSku]
+        );
+        if (vRows.length > 0) {
+          targetProductId = vRows[0].product_id;
+          targetVariantId = vRows[0].variant_id;
+          currentVarStock = vRows[0].variant_stock !== null ? Number(vRows[0].variant_stock) : 10;
+          productName = vRows[0].name;
+          productSku = vRows[0].variant_sku || vRows[0].prod_sku || productSku;
+          productUuid = vRows[0].uuid;
+        }
       }
     } catch (findErr) {
       console.warn('⚠️ Product lookup in adjustStock note:', findErr.message);
