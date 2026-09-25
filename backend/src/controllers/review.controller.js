@@ -95,13 +95,16 @@ const getAllReviews = async (req, res, next) => {
   try {
     const reviews = await fetchAllCombinedReviews();
     let rawDbRows = [];
+    let columns = [];
     try {
+      const [cols] = await db.query('SHOW FULL COLUMNS FROM reviews');
+      columns = cols;
       const [rows] = await db.query('SELECT id, product_id, status, reply, review_text FROM reviews');
       rawDbRows = rows;
     } catch (e) {
       rawDbRows = [{ error: e.message }];
     }
-    res.status(200).json({ success: true, reviews, rawDbRows });
+    res.status(200).json({ success: true, reviews, rawDbRows, columns });
   } catch (error) {
     next(error);
   }
@@ -379,8 +382,12 @@ const updateReviewStatus = async (req, res, next) => {
     // 1. Update in MySQL
     try {
       try {
-        await db.query("ALTER TABLE reviews ADD COLUMN status VARCHAR(50) DEFAULT 'approved'");
-      } catch (_) {}
+        await db.query("ALTER TABLE reviews MODIFY COLUMN status VARCHAR(50) DEFAULT 'approved'");
+      } catch (_) {
+        try {
+          await db.query("ALTER TABLE reviews ADD COLUMN status VARCHAR(50) DEFAULT 'approved'");
+        } catch (_) {}
+      }
       const numId = parseInt(id, 10);
       const [sqlRes] = await db.query(
         'UPDATE reviews SET status = ? WHERE id = ? OR id = ?',

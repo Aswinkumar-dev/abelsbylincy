@@ -368,6 +368,8 @@ async function runMigrations(connection) {
       if (!revColNames.includes('status')) {
         await connection.query("ALTER TABLE reviews ADD COLUMN status VARCHAR(50) DEFAULT 'approved'");
         console.log('Migrated: Added status column to reviews table.');
+      } else {
+        await connection.query("ALTER TABLE reviews MODIFY COLUMN status VARCHAR(50) DEFAULT 'approved'");
       }
       if (!revColNames.includes('reply')) {
         await connection.query('ALTER TABLE reviews ADD COLUMN reply TEXT NULL AFTER status');
