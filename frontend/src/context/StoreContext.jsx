@@ -327,7 +327,9 @@ export function mergeOrdersAuthoritatively(serverOrders = [], localOrders = []) 
         status: merged[idx].status || lo.status || 'Confirmed',
         trackingNumber: merged[idx].trackingNumber || lo.trackingNumber || null,
         refundAmount: merged[idx].refundAmount !== undefined ? merged[idx].refundAmount : lo.refundAmount,
-        refundStatus: merged[idx].refundStatus || lo.refundStatus
+        refundStatus: merged[idx].refundStatus || lo.refundStatus,
+        refundReason: merged[idx].refundReason || lo.refundReason,
+        refunds: Array.isArray(merged[idx].refunds) && merged[idx].refunds.length > 0 ? merged[idx].refunds : (lo.refunds || [])
       };
     }
   });
@@ -559,27 +561,14 @@ export function StoreProvider({ children }) {
         apiFetch(`/api/inventory/history?t=${Date.now()}`)
       ]);
 
-      // 2. Products
+      // 2. Products (authoritative database inventory)
       if (prodRes.status === 'fulfilled' && prodRes.value.ok) {
         try {
           const data = await prodRes.value.json();
           if (data.success && Array.isArray(data.products)) {
-            const existingProducts = readLS('abl_products_v12', []) || [];
             const cleanDBProducts = sanitizeProducts(data.products.filter(isAllowedProduct));
-
-            const mergedProducts = cleanDBProducts.map(dbProd => {
-              const localMatch = existingProducts.find(lp => 
-                String(lp.id) === String(dbProd.id) ||
-                (lp.sku && dbProd.sku && String(lp.sku).trim().toUpperCase() === String(dbProd.sku).trim().toUpperCase())
-              );
-              if (localMatch && localMatch.stockQty !== undefined && localMatch.stockQty < dbProd.stockQty) {
-                return { ...dbProd, stockQty: localMatch.stockQty, inStock: localMatch.stockQty > 0 };
-              }
-              return dbProd;
-            });
-
-            setProductsRaw(mergedProducts);
-            writeLS('abl_products_v12', mergedProducts);
+            setProductsRaw(cleanDBProducts);
+            writeLS('abl_products_v12', cleanDBProducts);
           }
         } catch (_) {}
       }

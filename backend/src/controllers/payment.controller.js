@@ -169,12 +169,50 @@ const processAdminRefund = async (req, res, next) => {
     }
 
     const refund = await stripeService.createRefundForOrder(orderId, amount, reason);
+    const amountRefunded = refund.amount / 100;
+
+    // Persist into MySQL orders and refunds table
+    try {
+      const [orderRows] = await db.query(
+        'SELECT id, total_amount FROM orders WHERE id = ? OR order_number = ? OR uuid = ? LIMIT 1',
+        [orderId, orderId, orderId]
+      );
+      if (orderRows.length > 0) {
+        const orderDbId = orderRows[0].id;
+        const totalAmount = parseFloat(orderRows[0].total_amount) || 0;
+        const isFull = amountRefunded >= totalAmount && totalAmount > 0;
+        const statusText = isFull ? 'refunded' : 'partially_refunded';
+        const refundStatusText = isFull ? 'Full Refund Processed' : 'Partial Refund Processed';
+
+        await db.query(
+          `UPDATE orders SET 
+             status = ?, 
+             payment_status = ?, 
+             refund_amount = ?, 
+             refund_status = ?, 
+             refund_reason = ? 
+           WHERE id = ?`,
+          [statusText, statusText, amountRefunded, refundStatusText, reason || 'Stripe Gateway Refund', orderDbId]
+        );
+
+        const [pRows] = await db.query('SELECT id FROM payments WHERE order_id = ? LIMIT 1', [orderDbId]);
+        const paymentId = pRows.length > 0 ? pRows[0].id : null;
+
+        await db.query(
+          `INSERT INTO refunds (order_id, payment_id, stripe_refund_id, amount, status, reason)
+           VALUES (?, ?, ?, ?, 'succeeded', ?)`,
+          [orderDbId, paymentId, refund.id, amountRefunded, reason || 'requested_by_customer']
+        );
+      }
+    } catch (dbErr) {
+      console.warn('⚠️ DB refund log note:', dbErr.message);
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Refund initiated successfully via Stripe.',
+      message: 'Refund processed successfully via Stripe and stored in database.',
       refundId: refund.id,
-      amountRefunded: refund.amount / 100
+      amountRefunded
     });
   } catch (error) {
     next(error);

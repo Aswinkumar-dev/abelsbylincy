@@ -96,6 +96,7 @@ const adjustStock = async (req, res, next) => {
     if (targetProductId) {
       try {
         await db.query('UPDATE products SET stock_quantity = ? WHERE id = ?', [calculatedStock, targetProductId]);
+        await db.query('UPDATE product_variants SET stock_quantity = ? WHERE product_id = ?', [calculatedStock, targetProductId]);
       } catch (_) {}
     }
 

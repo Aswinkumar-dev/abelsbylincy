@@ -60,16 +60,21 @@ const fetchAllProductsFromDB = async () => {
       });
       const uuid = p.uuid ? String(p.uuid) : '';
       const stableId = uuid.startsWith('p_') ? uuid : (p.sku || uuid || String(p.id));
-        const directStock = (p.stock_quantity !== undefined && p.stock_quantity !== null) ? Number(p.stock_quantity) : null;
-        // Sum all active variant stock (real inventory source — product_variants is authoritative)
-        const totalVariantStock = Array.isArray(p.variants) && p.variants.length > 0
-          ? p.variants.reduce((sum, v) => sum + (v.stock_quantity !== null && v.stock_quantity !== undefined ? Number(v.stock_quantity) : 0), 0)
-          : null;
-        // Variants are the single source of truth for stock. Product-level stock is only a fallback
-        // when there are no variants (and only if it is > 0, since DB default is 0).
-        const finalStock = totalVariantStock !== null
-          ? totalVariantStock
-          : (directStock !== null && directStock > 0 ? directStock : 10);
+      const directStock = (p.stock_quantity !== undefined && p.stock_quantity !== null) ? Number(p.stock_quantity) : null;
+      const totalVariantStock = Array.isArray(p.variants) && p.variants.length > 0
+        ? p.variants.reduce((sum, v) => sum + (v.stock_quantity !== null && v.stock_quantity !== undefined ? Number(v.stock_quantity) : 0), 0)
+        : null;
+
+      let finalStock = 0;
+      if (directStock !== null && totalVariantStock !== null) {
+        finalStock = Math.max(directStock, totalVariantStock);
+      } else if (totalVariantStock !== null) {
+        finalStock = totalVariantStock;
+      } else if (directStock !== null) {
+        finalStock = directStock;
+      } else {
+        finalStock = 10;
+      }
 
 
         prodMap.set(String(stableId), {

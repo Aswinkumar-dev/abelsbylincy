@@ -103,6 +103,18 @@ async function runMigrations(connection) {
         if (oColNames.includes('guest_email')) {
           await connection.query("ALTER TABLE orders MODIFY COLUMN guest_email VARCHAR(255) NULL");
         }
+        if (!oColNames.includes('refund_amount')) {
+          await connection.query("ALTER TABLE orders ADD COLUMN refund_amount DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER total_amount");
+          console.log('Migrated: Added refund_amount column to orders table.');
+        }
+        if (!oColNames.includes('refund_status')) {
+          await connection.query("ALTER TABLE orders ADD COLUMN refund_status VARCHAR(100) NULL AFTER refund_amount");
+          console.log('Migrated: Added refund_status column to orders table.');
+        }
+        if (!oColNames.includes('refund_reason')) {
+          await connection.query("ALTER TABLE orders ADD COLUMN refund_reason TEXT NULL AFTER refund_status");
+          console.log('Migrated: Added refund_reason column to orders table.');
+        }
       } catch (oErr) {
         console.warn('Orders column migration note:', oErr.message);
       }

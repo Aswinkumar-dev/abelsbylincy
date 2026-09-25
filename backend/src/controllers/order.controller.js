@@ -130,6 +130,11 @@ const fetchAllCombinedOrders = async () => {
         const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
         const [addresses] = await db.query('SELECT * FROM order_addresses WHERE order_id = ?', [order.id]);
         const [payments] = await db.query('SELECT * FROM payments WHERE order_id = ?', [order.id]);
+        let refunds = [];
+        try {
+          const [rRows] = await db.query('SELECT * FROM refunds WHERE order_id = ? ORDER BY created_at DESC', [order.id]);
+          refunds = rRows;
+        } catch (_) {}
 
         const shipAddr = addresses.find(a => a.address_type === 'shipping') || addresses[0] || {};
         const custName = `${shipAddr.first_name || order.user_fname || ''} ${shipAddr.last_name || order.user_lname || ''}`.trim() || 'Valued Customer';
@@ -150,6 +155,10 @@ const fetchAllCombinedOrders = async () => {
           ? (formattedItems.length > 1 ? `${formattedItems[0].name} (+${formattedItems.length - 1} items)` : formattedItems[0].name)
           : 'Fine Jewellery Selection';
 
+        const totalRefundedFromTable = refunds.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+        const orderRefundAmount = order.refund_amount !== undefined && order.refund_amount !== null ? parseFloat(order.refund_amount) : 0;
+        const finalRefundAmount = Math.max(orderRefundAmount, totalRefundedFromTable);
+
         dbOrders.push({
           id: order.order_number || String(order.id),
           order_number: order.order_number,
@@ -166,7 +175,7 @@ const fetchAllCombinedOrders = async () => {
           items: formattedItems,
           date: dateStr,
           status: order.status || 'Confirmed',
-          payment_status: order.payment_status || 'paid',
+          payment_status: order.payment_status || (finalRefundAmount >= parseFloat(order.total_amount || 0) && parseFloat(order.total_amount || 0) > 0 ? 'refunded' : (finalRefundAmount > 0 ? 'partially_refunded' : 'paid')),
           fulfillment_status: order.fulfillment_status || 'unfulfilled',
           total: `$${parseFloat(order.total_amount || 0).toFixed(2)}`,
           rawAmount: parseFloat(order.total_amount || 0),
@@ -174,6 +183,17 @@ const fetchAllCombinedOrders = async () => {
           discountAmount: parseFloat(order.discount_amount || 0),
           shippingFee: parseFloat(order.shipping_amount || 0),
           trackingNumber: order.tracking_number || null,
+          refundAmount: finalRefundAmount,
+          refundStatus: order.refund_status || (finalRefundAmount >= parseFloat(order.total_amount || 0) && parseFloat(order.total_amount || 0) > 0 ? 'Full Refund Processed' : (finalRefundAmount > 0 ? 'Partial Refund Processed' : null)),
+          refundReason: order.refund_reason || (refunds.length > 0 ? refunds[0].reason : null),
+          refunds: refunds.map(r => ({
+            id: r.id,
+            stripeRefundId: r.stripe_refund_id,
+            amount: parseFloat(r.amount) || 0,
+            status: r.status,
+            reason: r.reason,
+            createdAt: r.created_at
+          })),
           sessionId: payments?.[0]?.stripe_payment_intent_id || null,
           paymentMethod: payments?.[0]?.payment_method_type || 'Stripe Encrypted Payment'
         });
@@ -329,6 +349,11 @@ const syncOrders = async (req, res, next) => {
           } catch (_) {}
         }
 
+        const refundAmt = order.refundAmount !== undefined && order.refundAmount !== null ? parseFloat(order.refundAmount) : 0;
+        const refundStatusVal = order.refundStatus || (refundAmt >= totalAmount && totalAmount > 0 ? 'Full Refund Processed' : (refundAmt > 0 ? 'Partial Refund Processed' : null));
+        const refundReasonVal = order.refundReason || order.cancelReason || (refundAmt > 0 ? 'Customer Refund' : null);
+        const paymentStatusVal = order.payment_status || (refundAmt >= totalAmount && totalAmount > 0 ? 'refunded' : (refundAmt > 0 ? 'partially_refunded' : (statusVal === 'Cancelled' ? 'cancelled' : 'paid')));
+
         if (orderDbId) {
           await db.query(
             `UPDATE orders SET 
@@ -341,20 +366,43 @@ const syncOrders = async (req, res, next) => {
                discount_amount = COALESCE(?, discount_amount),
                shipping_amount = COALESCE(?, shipping_amount),
                total_amount = COALESCE(?, total_amount),
-               payment_status = 'paid',
+               payment_status = ?,
+               refund_amount = ?,
+               refund_status = ?,
+               refund_reason = ?,
                updated_at = NOW()
              WHERE id = ?`,
-            [userId, statusVal, order.trackingNumber || null, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, orderDbId]
+            [userId, statusVal, order.trackingNumber || null, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, paymentStatusVal, refundAmt, refundStatusVal, refundReasonVal, orderDbId]
           );
         } else {
           isNewOrder = true;
           const [orderResult] = await db.query(
             `INSERT INTO orders 
-              (uuid, order_number, user_id, guest_email, currency, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, placed_at) 
-             VALUES (?, ?, ?, ?, 'AUD', ?, ?, 0, ?, ?, ?, 'paid', 'dispatching', ?, NOW())`,
-            [orderUuid, primaryKey, userId, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, order.trackingNumber || null]
+              (uuid, order_number, user_id, guest_email, currency, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, refund_amount, refund_status, refund_reason, placed_at) 
+             VALUES (?, ?, ?, ?, 'AUD', ?, ?, 0, ?, ?, ?, ?, 'dispatching', ?, ?, ?, ?, NOW())`,
+            [orderUuid, primaryKey, userId, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, paymentStatusVal, order.trackingNumber || null, refundAmt, refundStatusVal, refundReasonVal]
           );
           orderDbId = orderResult.insertId;
+        }
+
+        // Ensure refund record is inserted into refunds table if refund amount is specified
+        if (orderDbId && refundAmt > 0) {
+          try {
+            const [pRows] = await db.query('SELECT id, stripe_payment_intent_id FROM payments WHERE order_id = ? LIMIT 1', [orderDbId]);
+            const paymentId = pRows.length > 0 ? pRows[0].id : null;
+            const stripeRefundId = order.stripeRefundId || (pRows.length > 0 ? pRows[0].stripe_payment_intent_id : null);
+
+            const [existingRefunds] = await db.query('SELECT id FROM refunds WHERE order_id = ? AND amount = ? LIMIT 1', [orderDbId, refundAmt]);
+            if (existingRefunds.length === 0) {
+              await db.query(
+                `INSERT INTO refunds (order_id, payment_id, stripe_refund_id, amount, status, reason)
+                 VALUES (?, ?, ?, ?, 'succeeded', ?)`,
+                [orderDbId, paymentId, stripeRefundId, refundAmt, refundReasonVal || 'customer_requested']
+              );
+            }
+          } catch (rErr) {
+            console.warn('⚠️ Refunds table insert note:', rErr.message);
+          }
         }
 
         // Record addresses if provided
