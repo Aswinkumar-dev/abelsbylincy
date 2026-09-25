@@ -94,17 +94,7 @@ const getAllReviews = async (req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   try {
     const reviews = await fetchAllCombinedReviews();
-    let rawDbRows = [];
-    let columns = [];
-    try {
-      const [cols] = await db.query('SHOW FULL COLUMNS FROM reviews');
-      columns = cols;
-      const [rows] = await db.query('SELECT id, product_id, status, reply, review_text FROM reviews');
-      rawDbRows = rows;
-    } catch (e) {
-      rawDbRows = [{ error: e.message }];
-    }
-    res.status(200).json({ success: true, reviews, rawDbRows, columns });
+    res.status(200).json({ success: true, reviews });
   } catch (error) {
     next(error);
   }
