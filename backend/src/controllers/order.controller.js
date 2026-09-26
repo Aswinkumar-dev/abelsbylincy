@@ -321,6 +321,14 @@ const syncOrders = async (req, res, next) => {
 
       // Persist full order, addresses, items into MySQL
       try {
+        // Ensure status column in orders table is VARCHAR(50) so it supports any lifecycle status
+        try {
+          await db.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'Confirmed'");
+        } catch (_) {}
+
+        const [oCols] = await db.query('SHOW COLUMNS FROM orders');
+        const oColNames = oCols.map(c => c.Field);
+
         const orderUuid = order.uuid || require('crypto').randomUUID();
         const guestEmail = order.email || order.guest_email || 'customer@abelsbylincy.com';
         const totalAmount = parseFloat(order.rawAmount !== undefined ? order.rawAmount : String(order.total || '0').replace(/[^0-9.]/g, '')) || 0;
@@ -356,32 +364,56 @@ const syncOrders = async (req, res, next) => {
         const paymentStatusVal = order.payment_status || (refundAmt >= totalAmount && totalAmount > 0 ? 'refunded' : (refundAmt > 0 ? 'partially_refunded' : (statusVal === 'Cancelled' ? 'cancelled' : 'paid')));
 
         if (orderDbId) {
-          await db.query(
-            `UPDATE orders SET 
-               user_id = COALESCE(?, user_id),
-               status = ?,
-               tracking_number = COALESCE(?, tracking_number),
-               guest_email = COALESCE(?, guest_email),
-               currency = 'AUD',
-               subtotal = COALESCE(?, subtotal),
-               discount_amount = COALESCE(?, discount_amount),
-               shipping_amount = COALESCE(?, shipping_amount),
-               total_amount = COALESCE(?, total_amount),
-               payment_status = ?,
-               refund_amount = ?,
-               refund_status = ?,
-               refund_reason = ?,
-               updated_at = NOW()
-             WHERE id = ?`,
-            [userId, statusVal, order.trackingNumber || null, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, paymentStatusVal, refundAmt, refundStatusVal, refundReasonVal, orderDbId]
-          );
+          const updateSets = [];
+          const updateVals = [];
+
+          if (oColNames.includes('status')) { updateSets.push('status = ?'); updateVals.push(statusVal); }
+          if (oColNames.includes('tracking_number') && order.trackingNumber !== undefined) { updateSets.push('tracking_number = ?'); updateVals.push(order.trackingNumber || null); }
+          if (oColNames.includes('user_id') && userId !== null) { updateSets.push('user_id = COALESCE(?, user_id)'); updateVals.push(userId); }
+          if (oColNames.includes('guest_email') && guestEmail) { updateSets.push('guest_email = ?'); updateVals.push(guestEmail); }
+          if (oColNames.includes('currency')) { updateSets.push("currency = 'AUD'"); }
+          if (oColNames.includes('subtotal') && (order.subtotal !== undefined || order.rawAmount !== undefined || order.total !== undefined)) { updateSets.push('subtotal = ?'); updateVals.push(subtotal); }
+          if (oColNames.includes('discount_amount') && order.discountAmount !== undefined) { updateSets.push('discount_amount = ?'); updateVals.push(discountAmount); }
+          if (oColNames.includes('shipping_amount') && (order.shippingFee !== undefined || order.shippingAmount !== undefined)) { updateSets.push('shipping_amount = ?'); updateVals.push(shippingAmount); }
+          if (oColNames.includes('total_amount') && (order.rawAmount !== undefined || order.total !== undefined)) { updateSets.push('total_amount = ?'); updateVals.push(totalAmount); }
+          if (oColNames.includes('payment_status')) { updateSets.push('payment_status = ?'); updateVals.push(paymentStatusVal); }
+          if (oColNames.includes('refund_amount') && order.refundAmount !== undefined) { updateSets.push('refund_amount = ?'); updateVals.push(refundAmt); }
+          if (oColNames.includes('refund_status') && refundStatusVal !== null) { updateSets.push('refund_status = ?'); updateVals.push(refundStatusVal); }
+          if (oColNames.includes('refund_reason') && refundReasonVal !== null) { updateSets.push('refund_reason = ?'); updateVals.push(refundReasonVal); }
+          if (oColNames.includes('updated_at')) { updateSets.push('updated_at = NOW()'); }
+
+          if (updateSets.length > 0) {
+            updateVals.push(orderDbId);
+            await db.query(`UPDATE orders SET ${updateSets.join(', ')} WHERE id = ?`, updateVals);
+          }
         } else {
           isNewOrder = true;
+          const insertCols = [];
+          const insertPlaceholders = [];
+          const insertVals = [];
+
+          if (oColNames.includes('uuid')) { insertCols.push('uuid'); insertPlaceholders.push('?'); insertVals.push(orderUuid); }
+          if (oColNames.includes('order_number')) { insertCols.push('order_number'); insertPlaceholders.push('?'); insertVals.push(primaryKey); }
+          if (oColNames.includes('user_id')) { insertCols.push('user_id'); insertPlaceholders.push('?'); insertVals.push(userId); }
+          if (oColNames.includes('guest_email')) { insertCols.push('guest_email'); insertPlaceholders.push('?'); insertVals.push(guestEmail); }
+          if (oColNames.includes('currency')) { insertCols.push('currency'); insertPlaceholders.push("'AUD'"); }
+          if (oColNames.includes('subtotal')) { insertCols.push('subtotal'); insertPlaceholders.push('?'); insertVals.push(subtotal); }
+          if (oColNames.includes('discount_amount')) { insertCols.push('discount_amount'); insertPlaceholders.push('?'); insertVals.push(discountAmount); }
+          if (oColNames.includes('tax_amount')) { insertCols.push('tax_amount'); insertPlaceholders.push('0'); }
+          if (oColNames.includes('shipping_amount')) { insertCols.push('shipping_amount'); insertPlaceholders.push('?'); insertVals.push(shippingAmount); }
+          if (oColNames.includes('total_amount')) { insertCols.push('total_amount'); insertPlaceholders.push('?'); insertVals.push(totalAmount); }
+          if (oColNames.includes('status')) { insertCols.push('status'); insertPlaceholders.push('?'); insertVals.push(statusVal); }
+          if (oColNames.includes('payment_status')) { insertCols.push('payment_status'); insertPlaceholders.push('?'); insertVals.push(paymentStatusVal); }
+          if (oColNames.includes('fulfillment_status')) { insertCols.push('fulfillment_status'); insertPlaceholders.push("'dispatching'"); }
+          if (oColNames.includes('tracking_number')) { insertCols.push('tracking_number'); insertPlaceholders.push('?'); insertVals.push(order.trackingNumber || null); }
+          if (oColNames.includes('refund_amount')) { insertCols.push('refund_amount'); insertPlaceholders.push('?'); insertVals.push(refundAmt); }
+          if (oColNames.includes('refund_status')) { insertCols.push('refund_status'); insertPlaceholders.push('?'); insertVals.push(refundStatusVal); }
+          if (oColNames.includes('refund_reason')) { insertCols.push('refund_reason'); insertPlaceholders.push('?'); insertVals.push(refundReasonVal); }
+          if (oColNames.includes('placed_at')) { insertCols.push('placed_at'); insertPlaceholders.push('NOW()'); }
+
           const [orderResult] = await db.query(
-            `INSERT INTO orders 
-              (uuid, order_number, user_id, guest_email, currency, subtotal, discount_amount, tax_amount, shipping_amount, total_amount, status, payment_status, fulfillment_status, tracking_number, refund_amount, refund_status, refund_reason, placed_at) 
-             VALUES (?, ?, ?, ?, 'AUD', ?, ?, 0, ?, ?, ?, ?, 'dispatching', ?, ?, ?, ?, NOW())`,
-            [orderUuid, primaryKey, userId, guestEmail, subtotal, discountAmount, shippingAmount, totalAmount, statusVal, paymentStatusVal, order.trackingNumber || null, refundAmt, refundStatusVal, refundReasonVal]
+            `INSERT INTO orders (${insertCols.join(', ')}) VALUES (${insertPlaceholders.join(', ')})`,
+            insertVals
           );
           orderDbId = orderResult.insertId;
         }
@@ -438,7 +470,6 @@ const syncOrders = async (req, res, next) => {
             const cleanId = item.id || item.productId;
             const cleanSku = item.sku || null;
             const cleanName = (item.name || item.productName || '').trim();
-            const cleanSlug = (item.slug || cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '').trim();
 
             await db.query(
               `INSERT INTO order_items (order_id, product_id, sku, product_name, variant_name, quantity, unit_price, total_amount, product_image_url) 
@@ -479,10 +510,64 @@ const syncOrders = async (req, res, next) => {
   }
 };
 
+const updateOrderStatus = async (req, res, next) => {
+  try {
+    const { orderId, orderNumber, status, trackingNumber } = req.body;
+    const targetKey = orderId || orderNumber || req.params.orderId;
+    if (!targetKey || !status) {
+      return res.status(400).json({ success: false, message: 'Order identifier and status are required.' });
+    }
+
+    try {
+      await db.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'Confirmed'");
+    } catch (_) {}
+
+    const [oCols] = await db.query('SHOW COLUMNS FROM orders');
+    const oColNames = oCols.map(c => c.Field);
+
+    const updateSets = ['status = ?'];
+    const updateVals = [status];
+
+    if (oColNames.includes('tracking_number') && trackingNumber !== undefined) {
+      updateSets.push('tracking_number = ?');
+      updateVals.push(trackingNumber || null);
+    }
+    if (oColNames.includes('updated_at')) {
+      updateSets.push('updated_at = NOW()');
+    }
+
+    const numKey = (!isNaN(targetKey) && Number(targetKey) > 0) ? Number(targetKey) : -1;
+    updateVals.push(targetKey, targetKey, numKey);
+
+    await db.query(
+      `UPDATE orders SET ${updateSets.join(', ')} WHERE order_number = ? OR uuid = ? OR id = ?`,
+      updateVals
+    );
+
+    // Also update file store
+    try {
+      const fileOrders = getStoredOrders() || [];
+      const updatedFileOrders = fileOrders.map(o => {
+        if (o.id === targetKey || o.order_number === targetKey || o.uuid === targetKey || String(o.dbId) === String(targetKey)) {
+          return { ...o, status, ...(trackingNumber !== undefined ? { trackingNumber } : {}) };
+        }
+        return o;
+      });
+      saveStoredOrders(updatedFileOrders);
+    } catch (_) {}
+
+    const allOrders = await fetchAllCombinedOrders();
+    res.status(200).json({ success: true, message: `Order status updated to ${status}`, orders: allOrders });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createOrder,
   getOrderHistory,
   getOrderDetails,
   getAllOrders,
-  syncOrders
+  syncOrders,
+  updateOrderStatus
 };
