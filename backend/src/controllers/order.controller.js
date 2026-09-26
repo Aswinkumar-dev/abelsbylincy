@@ -120,6 +120,37 @@ const { getStoredOrders, saveStoredOrders } = require('../utils/fileStore');
 const fetchAllCombinedOrders = async () => {
   let dbOrders = [];
   try {
+    try {
+      await db.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'Confirmed'");
+      await db.query("ALTER TABLE orders MODIFY COLUMN payment_status VARCHAR(50) NOT NULL DEFAULT 'paid'");
+      await db.query("ALTER TABLE orders MODIFY COLUMN fulfillment_status VARCHAR(50) NULL DEFAULT 'unfulfilled'");
+    } catch (_) {}
+
+    try {
+      const [oCols] = await db.query('SHOW COLUMNS FROM orders');
+      const oColNames = oCols.map(c => c.Field);
+      if (!oColNames.includes('refund_amount')) {
+        await db.query("ALTER TABLE orders ADD COLUMN refund_amount DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER total_amount");
+      }
+      if (!oColNames.includes('refund_status')) {
+        await db.query("ALTER TABLE orders ADD COLUMN refund_status VARCHAR(100) NULL AFTER refund_amount");
+      }
+      if (!oColNames.includes('refund_reason')) {
+        await db.query("ALTER TABLE orders ADD COLUMN refund_reason TEXT NULL AFTER refund_status");
+      }
+    } catch (_) {}
+
+    try {
+      const [rCols] = await db.query('SHOW COLUMNS FROM refunds');
+      const rColNames = rCols.map(c => c.Field);
+      if (!rColNames.includes('order_id')) {
+        await db.query("ALTER TABLE refunds ADD COLUMN order_id INT NULL AFTER id");
+      }
+      if (!rColNames.includes('currency')) {
+        await db.query("ALTER TABLE refunds ADD COLUMN currency VARCHAR(10) DEFAULT 'AUD' AFTER amount");
+      }
+    } catch (_) {}
+
     const [rows] = await db.query(
       `SELECT orders.*, users.email AS user_email, users.first_name AS user_fname, users.last_name AS user_lname 
        FROM orders 
@@ -133,9 +164,21 @@ const fetchAllCombinedOrders = async () => {
         const [payments] = await db.query('SELECT * FROM payments WHERE order_id = ?', [order.id]);
         let refunds = [];
         try {
-          const [rRows] = await db.query('SELECT * FROM refunds WHERE order_id = ? ORDER BY created_at DESC', [order.id]);
+          const [rRows] = await db.query(
+            `SELECT r.* FROM refunds r 
+             LEFT JOIN payments p ON r.payment_id = p.id 
+             WHERE (p.order_id IS NOT NULL AND p.order_id = ?) 
+                OR (r.order_id IS NOT NULL AND r.order_id = ?) 
+             ORDER BY r.created_at DESC`,
+            [order.id, order.id]
+          );
           refunds = rRows;
-        } catch (_) {}
+        } catch (_) {
+          try {
+            const [rRows] = await db.query('SELECT * FROM refunds WHERE order_id = ? ORDER BY created_at DESC', [order.id]);
+            refunds = rRows;
+          } catch (_) {}
+        }
 
         const shipAddr = addresses.find(a => a.address_type === 'shipping') || addresses[0] || {};
         const custName = `${shipAddr.first_name || order.user_fname || ''} ${shipAddr.last_name || order.user_lname || ''}`.trim() || 'Valued Customer';

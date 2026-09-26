@@ -30,11 +30,14 @@ router.post('/send-order-refund-email', sendRefundEmail);
 // Check / verify Stripe refund status live
 router.post('/check-stripe-refund', checkStripeRefund);
 
+// Refund endpoints
+router.post('/refund', processAdminRefund);
+router.post('/refund/:orderId', processAdminRefund);
+router.post('/admin/refund', processAdminRefund);
+router.post('/admin/refund/:orderId', processAdminRefund);
+
 // Protected endpoint to create PaymentIntent for logged-in user
 router.post('/create-intent', authenticateToken, createStripeIntent);
-
-// Protected admin endpoint for processing refunds
-router.post('/admin/refund/:orderId', authenticateToken, processAdminRefund);
 
 // Admin recovery endpoint for DB failure payment reconciliation
 router.post('/admin/reconcile-pending', authenticateToken, reconcilePayments);

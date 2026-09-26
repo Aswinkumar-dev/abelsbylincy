@@ -279,26 +279,53 @@ const handleWebhookEvent = async (event) => {
  */
 const createRefundForOrder = async (orderId, amount, reason = 'requested_by_customer') => {
   const [payments] = await db.query(
-    "SELECT stripe_payment_intent_id FROM payments WHERE order_id = ? AND status = 'succeeded'",
-    [orderId]
+    `SELECT p.* FROM payments p 
+     WHERE (p.order_id = ? OR p.order_id IN (SELECT id FROM orders WHERE order_number = ? OR uuid = ?))
+       AND p.stripe_payment_intent_id IS NOT NULL
+     ORDER BY p.id DESC LIMIT 1`,
+    [orderId, orderId, orderId]
   );
 
-  if (payments.length === 0 || !payments[0].stripe_payment_intent_id) {
-    throw new Error('No succeeded Stripe payment found for this order.');
+  let paymentIntentId = payments.length > 0 ? payments[0].stripe_payment_intent_id : null;
+
+  if (!paymentIntentId) {
+    // Check orders table sessionId
+    const [orders] = await db.query(
+      'SELECT id, uuid, order_number FROM orders WHERE id = ? OR order_number = ? OR uuid = ? LIMIT 1',
+      [orderId, orderId, orderId]
+    );
+    if (orders.length === 0) {
+      throw new Error(`Order ${orderId} not found.`);
+    }
   }
 
-  const paymentIntentId = payments[0].stripe_payment_intent_id;
-  const idempotencyKey = `ref_${orderId}_${Date.now()}`;
+  // If the identifier is a Stripe Checkout Session (cs_test_... or cs_...), retrieve PaymentIntent ID from Stripe
+  if (paymentIntentId && paymentIntentId.startsWith('cs_')) {
+    try {
+      const session = await stripe.checkout.sessions.retrieve(paymentIntentId);
+      if (session && session.payment_intent) {
+        paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id;
+      }
+    } catch (sErr) {
+      console.warn('⚠️ Stripe Checkout Session lookup note:', sErr.message);
+    }
+  }
 
-  const refund = await stripe.refunds.create(
-    {
-      payment_intent: paymentIntentId,
-      amount: amount ? Math.round(parseFloat(amount) * 100) : undefined, // full refund if undefined
-      reason
-    },
-    { idempotencyKey }
-  );
+  if (!paymentIntentId) {
+    throw new Error('No succeeded Stripe payment reference found for this order.');
+  }
 
+  const idempotencyKey = `ref_${String(orderId).replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
+  const refundParams = {
+    payment_intent: paymentIntentId,
+    reason: reason || 'requested_by_customer'
+  };
+
+  if (amount && parseFloat(amount) > 0) {
+    refundParams.amount = Math.round(parseFloat(amount) * 100);
+  }
+
+  const refund = await stripe.refunds.create(refundParams, { idempotencyKey });
   return refund;
 };
 

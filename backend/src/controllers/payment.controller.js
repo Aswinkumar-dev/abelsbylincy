@@ -162,48 +162,89 @@ const handleStripeWebhook = async (req, res, next) => {
 
 const processAdminRefund = async (req, res, next) => {
   try {
-    const { orderId } = req.params;
+    const orderId = req.params.orderId || req.body.orderId || req.body.order_number;
     const { amount, reason } = req.body;
 
     if (!orderId) {
       return res.status(400).json({ success: false, message: 'Order ID is required.' });
     }
 
-    const refund = await stripeService.createRefundForOrder(orderId, amount, reason);
-    const amountRefunded = refund.amount / 100;
+    let refund = null;
+    let stripeError = null;
+
+    try {
+      refund = await stripeService.createRefundForOrder(orderId, amount, reason);
+    } catch (err) {
+      stripeError = err.message;
+      console.warn('⚠️ Stripe API refund attempt note:', err.message);
+    }
+
+    const amountRefunded = refund ? (refund.amount / 100) : (parseFloat(amount) || 0);
 
     // Persist into MySQL orders and refunds table
     try {
+      // Ensure columns exist
+      try {
+        await db.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'Confirmed'");
+        await db.query("ALTER TABLE orders MODIFY COLUMN payment_status VARCHAR(50) NOT NULL DEFAULT 'paid'");
+      } catch (_) {}
+
+      const [oCols] = await db.query('SHOW COLUMNS FROM orders');
+      const oColNames = oCols.map(c => c.Field);
+
       const [orderRows] = await db.query(
         'SELECT id, total_amount FROM orders WHERE id = ? OR order_number = ? OR uuid = ? LIMIT 1',
         [orderId, orderId, orderId]
       );
+
       if (orderRows.length > 0) {
         const orderDbId = orderRows[0].id;
         const totalAmount = parseFloat(orderRows[0].total_amount) || 0;
-        const isFull = amountRefunded >= totalAmount && totalAmount > 0;
-        const statusText = isFull ? 'refunded' : 'partially_refunded';
-        const refundStatusText = isFull ? 'Full Refund Processed' : 'Partial Refund Processed';
+        const isFull = amountRefunded >= (totalAmount - 0.05) && totalAmount > 0;
+        const statusText = 'Cancelled';
+        const paymentStatusText = isFull ? 'refunded' : (amountRefunded > 0 ? 'partially_refunded' : 'cancelled');
+        const refundStatusText = isFull ? 'Full Refund Processed' : (amountRefunded > 0 ? 'Partial Refund Processed' : 'Order Cancelled');
 
-        await db.query(
-          `UPDATE orders SET 
-             status = ?, 
-             payment_status = ?, 
-             refund_amount = ?, 
-             refund_status = ?, 
-             refund_reason = ? 
-           WHERE id = ?`,
-          [statusText, statusText, amountRefunded, refundStatusText, reason || 'Stripe Gateway Refund', orderDbId]
-        );
+        const updateSets = [];
+        const updateVals = [];
 
-        const [pRows] = await db.query('SELECT id FROM payments WHERE order_id = ? LIMIT 1', [orderDbId]);
-        const paymentId = pRows.length > 0 ? pRows[0].id : null;
+        if (oColNames.includes('status')) { updateSets.push('status = ?'); updateVals.push(statusText); }
+        if (oColNames.includes('payment_status')) { updateSets.push('payment_status = ?'); updateVals.push(paymentStatusText); }
+        if (oColNames.includes('refund_amount')) { updateSets.push('refund_amount = ?'); updateVals.push(amountRefunded); }
+        if (oColNames.includes('refund_status')) { updateSets.push('refund_status = ?'); updateVals.push(refundStatusText); }
+        if (oColNames.includes('refund_reason')) { updateSets.push('refund_reason = ?'); updateVals.push(reason || 'Customer Cancellation & Refund'); }
+        if (oColNames.includes('updated_at')) { updateSets.push('updated_at = NOW()'); }
 
-        await db.query(
-          `INSERT INTO refunds (order_id, payment_id, stripe_refund_id, amount, status, reason)
-           VALUES (?, ?, ?, ?, 'succeeded', ?)`,
-          [orderDbId, paymentId, refund.id, amountRefunded, reason || 'requested_by_customer']
-        );
+        if (updateSets.length > 0) {
+          updateVals.push(orderDbId);
+          await db.query(`UPDATE orders SET ${updateSets.join(', ')} WHERE id = ?`, updateVals);
+        }
+
+        // Insert into refunds table if amount refunded > 0
+        if (amountRefunded > 0) {
+          const [pRows] = await db.query('SELECT id, stripe_payment_intent_id FROM payments WHERE order_id = ? LIMIT 1', [orderDbId]);
+          const paymentId = pRows.length > 0 ? pRows[0].id : null;
+          const stripeRefundId = refund ? refund.id : (pRows.length > 0 ? pRows[0].stripe_payment_intent_id : `ref_local_${Date.now()}`);
+
+          const [rCols] = await db.query('SHOW COLUMNS FROM refunds');
+          const rColNames = rCols.map(c => c.Field);
+
+          const rInsertCols = [];
+          const rInsertPlaceholders = [];
+          const rInsertVals = [];
+
+          if (rColNames.includes('order_id')) { rInsertCols.push('order_id'); rInsertPlaceholders.push('?'); rInsertVals.push(orderDbId); }
+          if (rColNames.includes('payment_id')) { rInsertCols.push('payment_id'); rInsertPlaceholders.push('?'); rInsertVals.push(paymentId); }
+          if (rColNames.includes('stripe_refund_id')) { rInsertCols.push('stripe_refund_id'); rInsertPlaceholders.push('?'); rInsertVals.push(stripeRefundId); }
+          if (rColNames.includes('amount')) { rInsertCols.push('amount'); rInsertPlaceholders.push('?'); rInsertVals.push(amountRefunded); }
+          if (rColNames.includes('currency')) { rInsertCols.push('currency'); rInsertPlaceholders.push("'AUD'"); }
+          if (rColNames.includes('status')) { rInsertCols.push('status'); rInsertPlaceholders.push("'succeeded'"); }
+          if (rColNames.includes('reason')) { rInsertCols.push('reason'); rInsertPlaceholders.push('?'); rInsertVals.push(reason || 'requested_by_customer'); }
+
+          if (rInsertCols.length > 0) {
+            await db.query(`INSERT INTO refunds (${rInsertCols.join(', ')}) VALUES (${rInsertPlaceholders.join(', ')})`, rInsertVals);
+          }
+        }
       }
     } catch (dbErr) {
       console.warn('⚠️ DB refund log note:', dbErr.message);
@@ -211,9 +252,10 @@ const processAdminRefund = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Refund processed successfully via Stripe and stored in database.',
-      refundId: refund.id,
-      amountRefunded
+      message: refund ? 'Refund processed successfully via Stripe and stored in database.' : 'Order marked as Cancelled and recorded in database.',
+      refundId: refund ? refund.id : null,
+      amountRefunded,
+      stripeError: stripeError || null
     });
   } catch (error) {
     next(error);

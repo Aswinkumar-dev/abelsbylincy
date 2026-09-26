@@ -340,14 +340,36 @@ export default function AdminPage() {
     const isFullRefund = parsedRefundAmt >= (orderTotalAmt - 0.05);
     const refundStatusText = parsedRefundAmt > 0 ? (isFullRefund ? 'Full Refund Processed' : 'Partial Refund Processed') : 'Order Cancelled (No Refund)';
 
-    // 1. Update order status and exact refund amount in StoreContext
     const targetKey = targetOrder.id || targetOrder.order_number || targetOrder.uuid;
+
+    // 1. Process Stripe live refund & MySQL record via backend API
+    let stripeRefundId = null;
+    try {
+      const refundRes = await apiFetch('/api/payments/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: targetKey,
+          amount: parsedRefundAmt,
+          reason: cancelRefundReason || 'Customer requested cancellation'
+        })
+      });
+      if (refundRes.ok) {
+        const refundData = await refundRes.json();
+        stripeRefundId = refundData.refundId || null;
+      }
+    } catch (refErr) {
+      console.warn('Backend refund endpoint note:', refErr);
+    }
+
+    // 2. Update order status and exact refund amount in StoreContext & MySQL
     if (updateOrderStatus) {
       updateOrderStatus(targetKey, 'Cancelled', {
         refundAmount: parsedRefundAmt,
         isFullRefund,
         refundStatus: refundStatusText,
-        refundTimeline: cancelRefundTimeline
+        refundTimeline: cancelRefundTimeline,
+        stripeRefundId
       });
     }
 
@@ -358,11 +380,12 @@ export default function AdminPage() {
         refundAmount: parsedRefundAmt,
         isFullRefund,
         refundStatus: refundStatusText,
-        refundTimeline: cancelRefundTimeline
+        refundTimeline: cancelRefundTimeline,
+        stripeRefundId
       }));
     }
 
-    // 2. Dispatch Customer Refund Email via backend API if enabled and refund amount > 0
+    // 3. Dispatch Customer Refund Email via backend API if enabled and refund amount > 0
     if (sendCustomerRefundEmail && parsedRefundAmt > 0 && targetOrder.email) {
       try {
         await apiFetch('/api/payments/send-order-refund-email', {
