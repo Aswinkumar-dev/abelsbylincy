@@ -292,9 +292,13 @@ async function runMigrations(connection) {
       if (!catSlugs.includes('pair-collections')) {
         await connection.query(
           `INSERT INTO categories (name, slug, description, image_url, sort_order, is_active)
-           VALUES ('Pair Collections', 'pair-collections', 'Curated pair collections, matching sets, and coordinated fine jewellery.', 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png', 9, TRUE)`
+           VALUES ('Pair Collections', 'pair-collections', 'Curated pair collections, matching sets, and coordinated fine jewellery.', 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png', 9, TRUE)`
         );
         console.log('Migrated: Seeded Pair Collections into categories table.');
+      } else {
+        await connection.query(
+          `UPDATE categories SET image_url = 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png' WHERE slug = 'pair-collections'`
+        );
       }
     } catch (catErr) {
       // ignore if categories table is not created yet

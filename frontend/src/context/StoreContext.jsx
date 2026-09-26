@@ -58,7 +58,7 @@ const DEFAULT_CATEGORIES = [
   { id: 'charms', name: 'Charms', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp' },
   { id: 'silver-collections', name: 'Silver Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp' },
   { id: 'seasonal-collections', name: 'Seasonal Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png' },
-  { id: 'pair-collections', name: 'Pair Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png' },
+  { id: 'pair-collections', name: 'Pair Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png' },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -178,8 +178,8 @@ export const CAT_FALLBACK_IMAGES = {
   charms: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp',
   'silver-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp',
   'seasonal-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png',
-  'pair-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png',
-  'pair collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png',
+  'pair-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png',
+  'pair collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png',
 };
 
 export function sanitizeProduct(p) {
@@ -415,7 +415,14 @@ export function StoreProvider({ children }) {
     if (Array.isArray(saved) && saved.length > 0) {
       const catMap = new Map();
       DEFAULT_CATEGORIES.forEach(c => catMap.set(c.id, c));
-      saved.forEach(c => catMap.set(c.id, { ...(catMap.get(c.id) || {}), ...c }));
+      saved.forEach(c => {
+        const existing = catMap.get(c.id) || {};
+        let merged = { ...existing, ...c };
+        if (c.id === 'pair-collections' && (!c.image || c.image.includes('Sesonal_collections_category'))) {
+          merged.image = 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png';
+        }
+        catMap.set(c.id, merged);
+      });
       const list = Array.from(catMap.values());
       writeLS('abl_categories_v6', list);
       return list;

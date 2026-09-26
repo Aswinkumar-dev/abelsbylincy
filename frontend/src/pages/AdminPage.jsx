@@ -2589,7 +2589,7 @@ export default function AdminPage() {
                 charms: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp',
                 'silver-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp',
                 'seasonal-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png',
-                'pair-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png'
+                'pair-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png'
               };
               const defaultCatImg = catFallbacks[catSlug] || catFallbacks.necklaces;
 
