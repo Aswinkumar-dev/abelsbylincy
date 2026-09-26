@@ -315,10 +315,19 @@ const createRefundForOrder = async (orderId, amount, reason = 'requested_by_cust
     throw new Error('No succeeded Stripe payment reference found for this order.');
   }
 
+  const validStripeReasons = ['duplicate', 'fraudulent', 'requested_by_customer'];
+  const stripeReason = validStripeReasons.includes(String(reason).trim().toLowerCase()) 
+    ? String(reason).trim().toLowerCase() 
+    : 'requested_by_customer';
+
   const idempotencyKey = `ref_${String(orderId).replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
   const refundParams = {
     payment_intent: paymentIntentId,
-    reason: reason || 'requested_by_customer'
+    reason: stripeReason,
+    metadata: {
+      order_id: String(orderId),
+      custom_reason: String(reason || 'requested_by_customer')
+    }
   };
 
   if (amount && parseFloat(amount) > 0) {
