@@ -7,7 +7,7 @@ import {
   ArrowUp, ArrowDown, Download, Upload, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
   User, Mail, Phone, MapPin, Printer, Truck, LogOut
 } from 'lucide-react';
-import { useStore, CAT_FALLBACK_IMAGES, apiFetch, matchesOrderId } from '../context/StoreContext';
+import { useStore, CAT_FALLBACK_IMAGES, apiFetch, matchesOrderId, isAdminAccount } from '../context/StoreContext';
 
 export default function AdminPage() {
   const {
@@ -998,33 +998,8 @@ export default function AdminPage() {
             });
             const dashItemsCount = activeDashOrders.reduce((sum, o) => sum + (o.itemsCount || o.items?.length || 1), 0);
 
-            const adminEmails = new Set([
-              'lincytitus8@gmail.com',
-              'abelsbylincy@gmail.com',
-              (settings?.storeEmail || '').trim().toLowerCase(),
-              ...roles.map(r => (r.email || r.user || '').trim().toLowerCase()).filter(Boolean)
-            ]);
-
-            const uniqueClientEmails = new Set();
-            (customers || []).forEach(c => {
-              const email = String(c?.email || '').trim().toLowerCase();
-              const role = String(c?.role || '').trim().toLowerCase();
-              if (email && !adminEmails.has(email) && role !== 'admin' && role !== 'super_admin' && role !== 'super admin') {
-                uniqueClientEmails.add(email);
-              }
-            });
-            (orders || []).forEach(o => {
-              const email = String(o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '').trim().toLowerCase();
-              if (email && !adminEmails.has(email)) {
-                uniqueClientEmails.add(email);
-              }
-            });
-            const filteredCusts = (customers || []).filter(c => {
-              const email = String(c?.email || '').trim().toLowerCase();
-              const role = String(c?.role || '').trim().toLowerCase();
-              return email && !adminEmails.has(email) && role !== 'admin' && role !== 'super_admin' && role !== 'super admin';
-            });
-            const totalClientsCount = Math.max(filteredCusts.length, uniqueClientEmails.size);
+            const filteredCusts = (customers || []).filter(c => !isAdminAccount(c));
+            const totalClientsCount = filteredCusts.length;
 
             const dashConfirmed = filteredDashOrders.filter(o => {
               const s = String(o.status || '').trim().toLowerCase();

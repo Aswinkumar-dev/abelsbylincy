@@ -182,6 +182,22 @@ export const CAT_FALLBACK_IMAGES = {
   'pair collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png',
 };
 
+export function isAdminAccount(c) {
+  if (!c) return false;
+  if (typeof c === 'string') {
+    const s = c.trim().toLowerCase();
+    return s.includes('lincy') || s === 'abelsbylincy@gmail.com' || s === 'lincytitus8@gmail.com' || s.includes('admin');
+  }
+  const email = String(c.email || '').trim().toLowerCase();
+  const name = String(c.name || c.first_name || c.user || c.customer || '').trim().toLowerCase();
+  const role = String(c.role || '').trim().toLowerCase();
+
+  if (role.includes('admin')) return true;
+  if (email.includes('lincy') || email === 'abelsbylincy@gmail.com' || email === 'lincytitus8@gmail.com') return true;
+  if (name.includes('lincy') || name.includes('admin') || name.includes('super admin')) return true;
+  return false;
+}
+
 export function sanitizeProduct(p) {
   if (!p || typeof p !== 'object') return p;
   const cat = (p.category || 'necklaces').trim().toLowerCase();
@@ -431,13 +447,8 @@ export function StoreProvider({ children }) {
   });
   const [customers, setCustomersRaw] = useState(() => {
     const saved = readLS('abl_customers_v7', DEFAULT_CUSTOMERS);
-    const adminEmails = new Set(['lincytitus8@gmail.com', 'abelsbylincy@gmail.com', (DEFAULT_SETTINGS?.storeEmail || '').toLowerCase()]);
     if (Array.isArray(saved)) {
-      return saved.filter(c => {
-        const email = String(c?.email || '').trim().toLowerCase();
-        const role = String(c?.role || '').trim().toLowerCase();
-        return email && !adminEmails.has(email) && role !== 'admin' && role !== 'super_admin' && role !== 'super admin';
-      });
+      return saved.filter(c => !isAdminAccount(c));
     }
     return DEFAULT_CUSTOMERS;
   });
@@ -503,21 +514,11 @@ export function StoreProvider({ children }) {
         }
       }
 
-      // Authoritative synchronization of unique client directory directly from MySQL (Users + Orders)
+      // Authoritative synchronization of unique registered client directory directly from MySQL users table
       const customerMap = new Map();
-      const adminEmails = new Set([
-        'lincytitus8@gmail.com',
-        'abelsbylincy@gmail.com',
-        (DEFAULT_SETTINGS?.storeEmail || '').toLowerCase(),
-        ...DEFAULT_ROLES.map(r => (r.email || r.user || '').toLowerCase()).filter(Boolean)
-      ]);
 
-      // Populate from registered MySQL users (excluding admin store owners)
-      dbUsers.filter(u => {
-        const email = (u.email || '').trim().toLowerCase();
-        const role = String(u.role || '').trim().toLowerCase();
-        return email && !adminEmails.has(email) && role !== 'admin' && role !== 'super_admin' && role !== 'super admin';
-      }).forEach(u => {
+      // Populate ONLY from registered non-admin MySQL users
+      dbUsers.filter(u => !isAdminAccount(u)).forEach(u => {
         const email = (u.email || '').trim().toLowerCase();
         const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Registered User';
         customerMap.set(email, {
@@ -533,38 +534,24 @@ export function StoreProvider({ children }) {
         });
       });
 
-      // Augment / add order statistics from MySQL orders (excluding admin emails)
+      // Augment order statistics ONLY for registered client accounts in customerMap
       dbOrders.forEach(o => {
         const email = (o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '').trim().toLowerCase();
-        if (email && !adminEmails.has(email)) {
+        if (email && customerMap.has(email)) {
+          const existing = customerMap.get(email);
           const name = (o.customer && typeof o.customer === 'string' && o.customer !== 'Valued Customer')
             ? o.customer
-            : (o.shippingAddress ? `${o.shippingAddress.first_name || ''} ${o.shippingAddress.last_name || ''}`.trim() : 'Valued Customer');
+            : (o.shippingAddress ? `${o.shippingAddress.first_name || ''} ${o.shippingAddress.last_name || ''}`.trim() : existing.name);
           const spentNum = o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0;
-          const dateStr = o.date || 'Recent';
 
-          if (customerMap.has(email)) {
-            const existing = customerMap.get(email);
-            const currentSpent = parseFloat(String(existing.spent || '0').replace(/[^0-9.]/g, '')) || 0;
-            customerMap.set(email, {
-              ...existing,
-              name: (existing.name && existing.name !== 'Valued Customer' && existing.name !== 'Registered User') ? existing.name : (name || existing.name),
-              orders: (existing.orders || 0) + 1,
-              spent: `$${(currentSpent + spentNum).toFixed(2)}`,
-              status: 'Active'
-            });
-          } else {
-            customerMap.set(email, {
-              id: `cust_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
-              name: name || 'Valued Customer',
-              email: email,
-              phone: o.phone || '',
-              orders: 1,
-              spent: `$${spentNum.toFixed(2)}`,
-              joined: dateStr,
-              status: 'Active'
-            });
-          }
+          const currentSpent = parseFloat(String(existing.spent || '0').replace(/[^0-9.]/g, '')) || 0;
+          customerMap.set(email, {
+            ...existing,
+            name: (existing.name && existing.name !== 'Valued Customer' && existing.name !== 'Registered User') ? existing.name : (name || existing.name),
+            orders: (existing.orders || 0) + 1,
+            spent: `$${(currentSpent + spentNum).toFixed(2)}`,
+            status: 'Active'
+          });
         }
       });
 
