@@ -11,7 +11,7 @@ import { useStore, CAT_FALLBACK_IMAGES, apiFetch, matchesOrderId } from '../cont
 
 export default function AdminPage() {
   const {
-    adminLoggedIn, adminUser, adminLogin, adminLogout, roles,
+    adminLoggedIn, adminUser, adminLogin, adminLogout, roles, settings,
     products, categories, orders, customers, coupons, reviews, stockHistory, cms, messages, subscribers,
     setProducts, setCategories, setOrders, setCustomers, setCoupons, setReviews, setStockHistory, setCMS, setMessages,
     formatMoney, saveProduct, deleteProduct, adjustStockQty, restockAllLowStock,
