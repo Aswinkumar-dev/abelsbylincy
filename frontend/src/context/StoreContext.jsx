@@ -429,7 +429,18 @@ export function StoreProvider({ children }) {
     }
     return DEFAULT_CATEGORIES;
   });
-  const [customers, setCustomersRaw] = useState(() => readLS('abl_customers_v7', DEFAULT_CUSTOMERS));
+  const [customers, setCustomersRaw] = useState(() => {
+    const saved = readLS('abl_customers_v7', DEFAULT_CUSTOMERS);
+    const adminEmails = new Set(['lincytitus8@gmail.com', 'abelsbylincy@gmail.com', (DEFAULT_SETTINGS?.storeEmail || '').toLowerCase()]);
+    if (Array.isArray(saved)) {
+      return saved.filter(c => {
+        const email = String(c?.email || '').trim().toLowerCase();
+        const role = String(c?.role || '').trim().toLowerCase();
+        return email && !adminEmails.has(email) && role !== 'admin' && role !== 'super_admin' && role !== 'super admin';
+      });
+    }
+    return DEFAULT_CUSTOMERS;
+  });
   const [coupons, setCouponsRaw] = useState([]);
   const [reviews, setReviewsRaw] = useState(() => {
     const saved = readLS('abl_reviews_v7', null);
@@ -494,30 +505,38 @@ export function StoreProvider({ children }) {
 
       // Authoritative synchronization of unique client directory directly from MySQL (Users + Orders)
       const customerMap = new Map();
+      const adminEmails = new Set([
+        'lincytitus8@gmail.com',
+        'abelsbylincy@gmail.com',
+        (DEFAULT_SETTINGS?.storeEmail || '').toLowerCase(),
+        ...DEFAULT_ROLES.map(r => (r.email || r.user || '').toLowerCase()).filter(Boolean)
+      ]);
 
       // Populate from registered MySQL users (excluding admin store owners)
-      dbUsers.filter(u => u.role !== 'admin' && u.role !== 'super_admin' && u.role !== 'Super Admin').forEach(u => {
+      dbUsers.filter(u => {
         const email = (u.email || '').trim().toLowerCase();
-        if (email) {
-          const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Registered User';
-          customerMap.set(email, {
-            id: u.uuid || `cust_${u.id}`,
-            name: fullName,
-            email: email,
-            phone: u.phone || '',
-            role: u.role || 'customer',
-            orders: 0,
-            spent: '$0.00',
-            joined: u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
-            status: 'Active'
-          });
-        }
+        const role = String(u.role || '').trim().toLowerCase();
+        return email && !adminEmails.has(email) && role !== 'admin' && role !== 'super_admin' && role !== 'super admin';
+      }).forEach(u => {
+        const email = (u.email || '').trim().toLowerCase();
+        const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Registered User';
+        customerMap.set(email, {
+          id: u.uuid || `cust_${u.id}`,
+          name: fullName,
+          email: email,
+          phone: u.phone || '',
+          role: u.role || 'customer',
+          orders: 0,
+          spent: '$0.00',
+          joined: u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
+          status: 'Active'
+        });
       });
 
-      // Augment / add order statistics from MySQL orders
+      // Augment / add order statistics from MySQL orders (excluding admin emails)
       dbOrders.forEach(o => {
         const email = (o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '').trim().toLowerCase();
-        if (email) {
+        if (email && !adminEmails.has(email)) {
           const name = (o.customer && typeof o.customer === 'string' && o.customer !== 'Valued Customer')
             ? o.customer
             : (o.shippingAddress ? `${o.shippingAddress.first_name || ''} ${o.shippingAddress.last_name || ''}`.trim() : 'Valued Customer');

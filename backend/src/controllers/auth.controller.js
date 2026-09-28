@@ -659,6 +659,8 @@ const getAllUsers = async (req, res, next) => {
     const [rows] = await db.query(
       `SELECT id, uuid, email, first_name, last_name, role, created_at 
        FROM users 
+       WHERE LOWER(email) NOT IN ('lincytitus8@gmail.com')
+         AND (role NOT IN ('admin', 'super_admin', 'Super Admin') OR role IS NULL)
        ORDER BY created_at DESC`
     );
     res.status(200).json({ success: true, users: rows || [] });

@@ -267,6 +267,10 @@ async function runMigrations(connection) {
         await connection.query('ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255) NULL AFTER profile_image_url, ADD UNIQUE KEY uq_users_stripe_customer_id (stripe_customer_id)');
         console.log('Migrated: Added stripe_customer_id column to users table.');
       }
+      if (!userColNames.includes('role')) {
+        await connection.query("ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT 'customer' AFTER email");
+      }
+      await connection.query("UPDATE users SET role = 'super_admin' WHERE LOWER(email) = 'lincytitus8@gmail.com'");
     } catch (userErr) {
       console.warn('⚠️ Users table migration note:', userErr.message);
     }

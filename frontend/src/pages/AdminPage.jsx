@@ -998,13 +998,33 @@ export default function AdminPage() {
             });
             const dashItemsCount = activeDashOrders.reduce((sum, o) => sum + (o.itemsCount || o.items?.length || 1), 0);
 
+            const adminEmails = new Set([
+              'lincytitus8@gmail.com',
+              'abelsbylincy@gmail.com',
+              (settings?.storeEmail || '').trim().toLowerCase(),
+              ...roles.map(r => (r.email || r.user || '').trim().toLowerCase()).filter(Boolean)
+            ]);
+
             const uniqueClientEmails = new Set();
-            (customers || []).forEach(c => { if (c.email) uniqueClientEmails.add(String(c.email).trim().toLowerCase()); });
-            (orders || []).forEach(o => {
-              const email = (o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '');
-              if (email && typeof email === 'string') uniqueClientEmails.add(email.trim().toLowerCase());
+            (customers || []).forEach(c => {
+              const email = String(c?.email || '').trim().toLowerCase();
+              const role = String(c?.role || '').trim().toLowerCase();
+              if (email && !adminEmails.has(email) && role !== 'admin' && role !== 'super_admin' && role !== 'super admin') {
+                uniqueClientEmails.add(email);
+              }
             });
-            const totalClientsCount = Math.max((customers || []).length, uniqueClientEmails.size);
+            (orders || []).forEach(o => {
+              const email = String(o.email || o.customerEmail || o.guest_email || o.shippingAddress?.email || (typeof o.customer === 'object' && o.customer?.email) || '').trim().toLowerCase();
+              if (email && !adminEmails.has(email)) {
+                uniqueClientEmails.add(email);
+              }
+            });
+            const filteredCusts = (customers || []).filter(c => {
+              const email = String(c?.email || '').trim().toLowerCase();
+              const role = String(c?.role || '').trim().toLowerCase();
+              return email && !adminEmails.has(email) && role !== 'admin' && role !== 'super_admin' && role !== 'super admin';
+            });
+            const totalClientsCount = Math.max(filteredCusts.length, uniqueClientEmails.size);
 
             const dashConfirmed = filteredDashOrders.filter(o => {
               const s = String(o.status || '').trim().toLowerCase();
@@ -2484,16 +2504,74 @@ export default function AdminPage() {
 
               {/* Analytics Metrics Cards */}
               {(() => {
-                const totalGrossRev = orders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0);
-                const totalRefunds = orders.reduce((sum, o) => {
+                const parseAnalyticsDate = (dStr) => {
+                  if (!dStr) return new Date();
+                  if (typeof dStr !== 'string') return new Date(dStr);
+                  if (dStr.toLowerCase().includes('today')) return new Date();
+                  const direct = new Date(dStr);
+                  if (!isNaN(direct.getTime()) && direct.getFullYear() > 2000) return direct;
+                  const clean = dStr.replace(/today/gi, '').replace(/,/g, '').trim();
+                  const parts = clean.split(/\s+/);
+                  if (parts.length >= 3) {
+                    const months = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+                    const day = parseInt(parts[0], 10) || 1;
+                    const month = months[parts[1]?.toLowerCase().slice(0, 3)] ?? 8;
+                    const year = parseInt(parts[2], 10) || 2026;
+                    return new Date(year, month, day);
+                  }
+                  return new Date();
+                };
+
+                const now = new Date();
+                const filteredAnalyticsOrders = (orders || []).filter(o => {
+                  if (!analyticsPreset || analyticsPreset === 'all') return true;
+                  const orderDate = parseAnalyticsDate(o.date || o.created_at || o.placed_at);
+                  const isTodayString = String(o.date || '').toLowerCase().includes('today');
+
+                  if (analyticsPreset === 'today') {
+                    if (isTodayString) return true;
+                    return orderDate.getFullYear() === now.getFullYear() &&
+                           orderDate.getMonth() === now.getMonth() &&
+                           orderDate.getDate() === now.getDate();
+                  }
+                  if (analyticsPreset === '7days') {
+                    if (isTodayString) return true;
+                    const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    return orderDate >= cutoff;
+                  }
+                  if (analyticsPreset === '30days') {
+                    if (isTodayString) return true;
+                    const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    return orderDate >= cutoff;
+                  }
+                  if (analyticsPreset === '3months') {
+                    if (isTodayString) return true;
+                    const cutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                    return orderDate >= cutoff;
+                  }
+                  if (analyticsPreset === '6months') {
+                    if (isTodayString) return true;
+                    const cutoff = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+                    return orderDate >= cutoff;
+                  }
+                  if (analyticsPreset === '1year') {
+                    if (isTodayString) return true;
+                    const cutoff = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+                    return orderDate >= cutoff;
+                  }
+                  return true;
+                });
+
+                const totalGrossRev = filteredAnalyticsOrders.reduce((sum, o) => sum + (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0), 0);
+                const totalRefunds = filteredAnalyticsOrders.reduce((sum, o) => {
                   if (o.status === 'Cancelled' || o.status === 'Refunded') {
                     return sum + (o.refundAmount !== undefined ? Number(o.refundAmount) : (o.rawAmount || parseFloat(String(o.total || '0').replace(/[^0-9.]/g, '')) || 0));
                   }
                   return sum + Number(o.refundAmount || 0);
                 }, 0);
                 const netRev = Math.max(0, totalGrossRev - totalRefunds);
-                const orderCnt = orders.length;
-                const activeOrders = orders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
+                const orderCnt = filteredAnalyticsOrders.length;
+                const activeOrders = filteredAnalyticsOrders.filter(o => o.status !== 'Cancelled' && o.status !== 'Refunded');
                 const aovVal = activeOrders.length > 0 ? (netRev / activeOrders.length) : 0;
                 const custCounts = activeOrders.reduce((acc, o) => { if (o.email) acc[o.email] = (acc[o.email] || 0) + 1; return acc; }, {});
                 const repeatCusts = Object.values(custCounts).filter(c => c > 1).length;
@@ -2514,7 +2592,7 @@ export default function AdminPage() {
                           {totalRefunds > 0 ? `-${formatMoney(totalRefunds)}` : '$0.00'}
                         </span>
                         <span className="kpi-trend" style={{ color: '#C5221F' }}>
-                          {orders.filter(o => o.status === 'Cancelled' || o.status === 'Refunded').length} Cancelled / Refunded
+                          {filteredAnalyticsOrders.filter(o => o.status === 'Cancelled' || o.status === 'Refunded').length} Cancelled / Refunded
                         </span>
                       </div>
                       <div className="kpi-card">
