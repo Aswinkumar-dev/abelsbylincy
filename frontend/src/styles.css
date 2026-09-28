@@ -258,7 +258,7 @@ input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 72px;
+  height: 76px;
   gap: 20px;
 }
 
@@ -269,11 +269,12 @@ input, select, textarea {
   text-align: left;
   padding: 0;
   flex-shrink: 0;
-  margin-left: -8px;
+  margin-left: -4px;
 }
 
 .brand-logo-img {
-  height: 64px;
+  height: 68px;
+  max-height: 70px;
   width: auto;
   max-width: 260px;
   object-fit: contain;
@@ -3420,19 +3421,29 @@ input[type="number"] {
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .header-inner {
+    height: 72px;
+  }
+  .brand-logo-img {
+    height: 62px;
+    max-height: 64px;
+    max-width: 210px;
+    width: auto;
+    object-fit: contain;
+  }
 }
 
 @media (max-width: 768px) {
   :root {
-    --header-height: 64px;
+    --header-height: 68px;
   }
   body, html {
     overflow-x: hidden;
     max-width: 100vw;
   }
-  .container {
-    padding-left: 16px !important;
-    padding-right: 16px !important;
+  .site-header .container {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
   }
   .site-header {
     position: sticky;
@@ -3444,38 +3455,51 @@ input[type="number"] {
   }
   
   .header-inner {
-    gap: 8px !important;
-    padding: 0 4px !important;
+    height: 68px !important;
+    gap: 6px !important;
+    padding: 0 !important;
+  }
+
+  .mobile-menu-btn {
+    display: flex !important;
+    margin-left: -2px !important;
+    padding: 6px !important;
+    flex-shrink: 0;
+  }
+
+  /* Brand Logo — prominently sized and positioned in place */
+  .brand-logo-btn {
+    margin-right: auto;
+    margin-left: 6px !important;
+    padding: 0;
+    display: flex;
+    align-items: center;
+  }
+  .brand-logo-img {
+    height: 48px;
+    max-height: 50px;
+    max-width: 150px;
+    width: auto;
+    object-fit: contain;
   }
 
   .header-actions {
-    gap: 12px !important;
+    gap: 10px !important;
     display: flex !important;
     align-items: center !important;
+    margin-left: auto;
+    margin-right: -2px !important;
+    flex-shrink: 0;
   }
 
   .header-actions .action-btn,
   .header-actions .user-menu-wrapper {
     display: inline-flex !important;
+    padding: 6px !important;
   }
 
-  /* Brand Logo — moved further left towards hamburger button on mobile */
-  .brand-logo-btn {
-    margin-right: auto;
-    margin-left: -14px !important;
-    padding: 0;
-  }
-  .brand-logo-img {
-    height: 54px;
-    max-width: 170px;
-    width: auto;
-    object-fit: contain;
-  }
   .nav-links {
     display: none !important;
-  }
-  .mobile-menu-btn {
-    display: flex !important;
   }
 
   /* Responsive Newsletter Form on Mobile (Zero Overflow) */

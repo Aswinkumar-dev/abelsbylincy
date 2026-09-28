@@ -69,7 +69,7 @@ export default function Header() {
 
             {/* Brand Logo */}
             <Link to="/" className="brand-logo-btn">
-              <img src="/assets/logo.svg" alt="Abel's By Lincy Logo" className="brand-logo-img" />
+              <img src="/assets/lincy-logo.png" alt="Abel's By Lincy Logo" className="brand-logo-img" />
             </Link>
 
             {/* Navigation Links */}
