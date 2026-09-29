@@ -49,6 +49,22 @@ export default function ProductPage() {
 
   if (!product) return null;
 
+  const isRingProduct = (() => {
+    if (!product) return false;
+    const cat = String(product.category || '').trim().toLowerCase();
+    const name = String(product.name || '').trim().toLowerCase();
+    if (
+      cat.includes('earring') || name.includes('earring') ||
+      cat.includes('necklace') || name.includes('necklace') ||
+      cat.includes('bracelet') || name.includes('bracelet') ||
+      cat.includes('bangle') || name.includes('bangle') ||
+      cat.includes('charm') || name.includes('charm')
+    ) {
+      return false;
+    }
+    return cat === 'rings' || cat === 'ring' || /\brings?\b/i.test(cat) || /\brings?\b/i.test(name);
+  })();
+
   const isWishlisted = wishlist.includes(product.id);
 
   // Dynamic & future-proof related products selection algorithm
@@ -321,13 +337,13 @@ export default function ProductPage() {
             )}
 
             {/* Size Options & Ring Size Guide */}
-            {(product.sizes?.length > 0 || ((product.category && String(product.category).toLowerCase().includes('ring')) || (product.name && String(product.name).toLowerCase().includes('ring')))) && (
+            {(product.sizes?.length > 0 || isRingProduct) && (
               <div className="pdp-option-group" style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
                   <span className="pdp-option-label" style={{ margin: 0, fontWeight: 700 }}>
                     {product.sizes?.length > 0 ? `SIZE: ${selectedSize || product.sizes[0]}` : 'SIZE: STANDARD / ADJUSTABLE FIT'}
                   </span>
-                  {((product.category && String(product.category).toLowerCase().includes('ring')) || (product.name && String(product.name).toLowerCase().includes('ring'))) && (
+                  {isRingProduct && (
                     <button
                       type="button"
                       onClick={() => setSizeModalOpen(true)}
