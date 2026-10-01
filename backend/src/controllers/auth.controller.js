@@ -3,6 +3,7 @@ const { findUserByEmail, createUser, updateUserLastLogin, findUserById } = requi
 const { hashPassword, comparePassword } = require('../utils/password');
 const { generateAccessToken, generateRefreshToken } = require('../utils/token');
 const { getStoredCart, getStoredWishlist } = require('../utils/fileStore');
+const { sendEmail } = require('../services/email.service');
 const db = require('../config/database');
 
 
@@ -360,17 +361,17 @@ const forgotPassword = async (req, res, next) => {
       console.warn('⚠️ DB user lookup note:', dbErr.message);
     }
 
-    // Rate Limit: Maximum 3 password reset attempts per user in a 24-hour window
+    // Rate Limit: Maximum 10 password reset attempts per user in an hour window
     if (user && user.id) {
       try {
         const [attemptRows] = await db.query(
-          'SELECT COUNT(*) as attempt_count FROM password_reset_tokens WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)',
+          'SELECT COUNT(*) as attempt_count FROM password_reset_tokens WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)',
           [user.id]
         );
-        if (attemptRows && attemptRows[0] && attemptRows[0].attempt_count >= 3) {
+        if (attemptRows && attemptRows[0] && attemptRows[0].attempt_count >= 10) {
           return res.status(429).json({
             success: false,
-            message: 'You have reached the maximum limit of 3 password reset requests per day. Please try again tomorrow or contact support.'
+            message: 'Too many password reset requests. Please wait a little while before trying again.'
           });
         }
       } catch (rlErr) {

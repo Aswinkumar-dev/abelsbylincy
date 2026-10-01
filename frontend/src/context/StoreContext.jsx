@@ -1247,13 +1247,13 @@ export function StoreProvider({ children }) {
       return { success: false, message: 'Email address is required.' };
     }
 
-    // Client-side 24-hour rate limit check (max 3 attempts per day)
+    // Client-side rate limit check (max 10 attempts per hour)
     const storageKey = `abl_pwd_reset_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
-    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    const existingAttempts = readLS(storageKey, []).filter(ts => typeof ts === 'number' && ts > oneDayAgo);
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const existingAttempts = readLS(storageKey, []).filter(ts => typeof ts === 'number' && ts > oneHourAgo);
 
-    if (existingAttempts.length >= 3) {
-      const msg = 'You have reached the maximum limit of 3 password reset requests per day. Please try again tomorrow or contact support.';
+    if (existingAttempts.length >= 10) {
+      const msg = 'Too many password reset requests. Please wait a little while before trying again.';
       showToast(msg, 'alert-circle');
       return { success: false, message: msg };
     }
@@ -1267,8 +1267,8 @@ export function StoreProvider({ children }) {
 
       const data = await res.json().catch(() => ({}));
 
-      if (res.status === 429 || (!res.ok && data.message?.includes('limit of 3'))) {
-        const msg = data.message || 'Maximum 3 password reset requests allowed per day.';
+      if (res.status === 429 || (!res.ok && data.message?.includes('Too many'))) {
+        const msg = data.message || 'Too many password reset requests. Please wait a little while.';
         showToast(msg, 'alert-circle');
         return { success: false, message: msg };
       }
