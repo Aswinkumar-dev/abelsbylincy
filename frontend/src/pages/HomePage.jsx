@@ -243,9 +243,24 @@ export default function HomePage() {
                   loading="lazy"
                   decoding="async"
                   onError={(e) => {
-                    const filename = cat.image.split('/').pop();
                     e.target.onerror = null;
-                    e.target.src = `/assets/${decodeURIComponent(filename)}`;
+                    const catSlug = (cat.slug || cat.id || '').toLowerCase();
+                    const localMap = {
+                      'bangles': '/assets/Bangle Category.webp',
+                      'bracelets': '/assets/Bracelet - category.webp',
+                      'charms': '/assets/charm collection category.webp',
+                      'earrings': '/assets/Earrings Category.webp',
+                      'necklaces': '/assets/necklace collection category.webp',
+                      'pair-collection': '/assets/pair collections category.png',
+                      'pair-collections': '/assets/pair collections category.png',
+                      'rings': '/assets/Ring Category.png',
+                      'seasonal-collections': '/assets/Sesonal collections category.png',
+                      'silver-collection': '/assets/silver collection category.webp',
+                      'silver-collections': '/assets/silver collection category.webp'
+                    };
+                    if (localMap[catSlug]) {
+                      e.target.src = localMap[catSlug];
+                    }
                   }}
                 />
                 <div className="collection-overlay">

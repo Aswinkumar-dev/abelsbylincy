@@ -50,15 +50,15 @@ export function doesReviewMatchProduct(r, product) {
 const DEFAULT_PRODUCTS = [];
 
 const DEFAULT_CATEGORIES = [
-  { id: 'rings', name: 'Rings', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796753/abels_by_lincy/Ring_Category.png' },
-  { id: 'necklaces', name: 'Necklaces', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp' },
-  { id: 'earrings', name: 'Earrings', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796736/abels_by_lincy/Earrings_Category.webp' },
-  { id: 'bracelets', name: 'Bracelets', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796726/abels_by_lincy/Bracelet_-_category.webp' },
-  { id: 'bangles', name: 'Bangles', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796721/abels_by_lincy/Bangle_Category.webp' },
-  { id: 'charms', name: 'Charms', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp' },
-  { id: 'silver-collections', name: 'Silver Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp' },
-  { id: 'seasonal-collections', name: 'Seasonal Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png' },
-  { id: 'pair-collections', name: 'Pair Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png' },
+  { id: 'rings', slug: 'rings', name: 'Rings', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820746/abels_by_lincy/categories/rings_category.png', description: 'Handcrafted statement rings and everyday fine bands.', sort_order: 1 },
+  { id: 'necklaces', slug: 'necklaces', name: 'Necklaces', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820629/abels_by_lincy/categories/necklaces_category.webp', description: 'Timeless pendants, layered chains, and elegant necklaces.', sort_order: 2 },
+  { id: 'earrings', slug: 'earrings', name: 'Earrings', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820585/abels_by_lincy/categories/earrings_category.webp', description: 'Artisanal studs, hoops, and chandelier drop earrings.', sort_order: 3 },
+  { id: 'bracelets', slug: 'bracelets', name: 'Bracelets', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820574/abels_by_lincy/categories/bracelets_category.webp', description: 'Delicate chain bracelets, charms, and tennis cuffs.', sort_order: 4 },
+  { id: 'bangles', slug: 'bangles', name: 'Bangles', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820521/abels_by_lincy/categories/bangles_category.webp', description: 'Sculptural wrist cuffs, stackable bangles, and statement pieces.', sort_order: 5 },
+  { id: 'charms', slug: 'charms', name: 'Charms', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820580/abels_by_lincy/categories/charms_category.webp', description: 'Meaningful talisman pendants, symbolic charms, and keepsakes.', sort_order: 6 },
+  { id: 'silver-collections', slug: 'silver-collections', name: 'Silver Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820777/abels_by_lincy/categories/silver-collection_category.webp', description: 'Exquisite sterling silver jewellery and artisanal pieces.', sort_order: 7 },
+  { id: 'seasonal-collections', slug: 'seasonal-collections', name: 'Seasonal Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820772/abels_by_lincy/categories/seasonal-collections_category.png', description: 'Curated seasonal jewellery pieces and limited releases.', sort_order: 8 },
+  { id: 'pair-collections', slug: 'pair-collections', name: 'Pair Collections', image: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820739/abels_by_lincy/categories/pair-collection_category.png', description: 'Curated pair collections, matching sets, and coordinated fine jewellery.', sort_order: 9 },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -170,16 +170,21 @@ const DEFAULT_SUBSCRIBERS = [
 // Category Fallback CDN Images (Lightweight Cloudinary URLs)
 // ============================================================
 export const CAT_FALLBACK_IMAGES = {
-  rings: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796753/abels_by_lincy/Ring_Category.png',
-  necklaces: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp',
-  earrings: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796736/abels_by_lincy/Earrings_Category.webp',
-  bracelets: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796726/abels_by_lincy/Bracelet_-_category.webp',
-  bangles: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796721/abels_by_lincy/Bangle_Category.webp',
-  charms: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp',
-  'silver-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp',
-  'seasonal-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png',
-  'pair-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png',
-  'pair collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png',
+  rings: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820746/abels_by_lincy/categories/rings_category.png',
+  necklaces: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820629/abels_by_lincy/categories/necklaces_category.webp',
+  'necklace-collection': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820629/abels_by_lincy/categories/necklaces_category.webp',
+  earrings: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820585/abels_by_lincy/categories/earrings_category.webp',
+  bracelets: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820574/abels_by_lincy/categories/bracelets_category.webp',
+  bangles: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820521/abels_by_lincy/categories/bangles_category.webp',
+  charms: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820580/abels_by_lincy/categories/charms_category.webp',
+  'charm-collection': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820580/abels_by_lincy/categories/charms_category.webp',
+  'silver-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820777/abels_by_lincy/categories/silver-collection_category.webp',
+  'silver-collection': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820777/abels_by_lincy/categories/silver-collection_category.webp',
+  'seasonal-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820772/abels_by_lincy/categories/seasonal-collections_category.png',
+  'seasonal-collection': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820772/abels_by_lincy/categories/seasonal-collections_category.png',
+  'pair-collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820739/abels_by_lincy/categories/pair-collection_category.png',
+  'pair-collection': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820739/abels_by_lincy/categories/pair-collection_category.png',
+  'pair collections': 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820739/abels_by_lincy/categories/pair-collection_category.png',
 };
 
 export function isAdminAccount(c) {
@@ -580,15 +585,19 @@ export function StoreProvider({ children }) {
         try {
           const data = await catRes.value.json();
           if (data.success && Array.isArray(data.categories)) {
-            const formattedCats = data.categories.map(c => ({
-              id: c.slug || String(c.id),
-              dbId: c.id,
-              name: c.name,
-              slug: c.slug,
-              image: c.image_url || c.image,
-              description: c.description || '',
-              sort_order: c.sort_order ?? 0
-            }));
+            const formattedCats = data.categories.map(c => {
+              const cSlug = (c.slug || c.id || '').toLowerCase();
+              const fallback = CAT_FALLBACK_IMAGES[cSlug] || CAT_FALLBACK_IMAGES[c.name?.toLowerCase()] || '';
+              return {
+                id: c.slug || String(c.id),
+                dbId: c.id,
+                name: c.name,
+                slug: c.slug,
+                image: (c.image_url && c.image_url.trim()) ? c.image_url : (c.image || fallback),
+                description: c.description || '',
+                sort_order: c.sort_order ?? 0
+              };
+            });
             setCategoriesRaw(formattedCats);
             writeLS('abl_categories_v6', formattedCats);
           }

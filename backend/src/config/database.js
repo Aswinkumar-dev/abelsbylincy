@@ -295,15 +295,15 @@ async function runMigrations(connection) {
       const catSlugs = existingCats.map(c => c.slug);
 
       const defaultsToSeed = [
-        { name: 'Rings', slug: 'rings', desc: 'Handcrafted statement rings and everyday fine bands.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796753/abels_by_lincy/Ring_Category.png', order: 1 },
-        { name: 'Necklaces', slug: 'necklaces', desc: 'Timeless pendants, layered chains, and elegant necklaces.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp', order: 2 },
-        { name: 'Earrings', slug: 'earrings', desc: 'Artisanal studs, hoops, and chandelier drop earrings.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796736/abels_by_lincy/Earrings_Category.webp', order: 3 },
-        { name: 'Bracelets', slug: 'bracelets', desc: 'Delicate chain bracelets, charms, and tennis cuffs.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796726/abels_by_lincy/Bracelet_-_category.webp', order: 4 },
-        { name: 'Bangles', slug: 'bangles', desc: 'Sculptural wrist cuffs, stackable bangles, and statement pieces.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796721/abels_by_lincy/Bangle_Category.webp', order: 5 },
-        { name: 'Charms', slug: 'charms', desc: 'Meaningful talisman pendants, symbolic charms, and keepsakes.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp', order: 6 },
-        { name: 'Silver Collections', slug: 'silver-collections', desc: 'Exquisite sterling silver jewellery and artisanal pieces.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp', order: 7 },
-        { name: 'Seasonal Collections', slug: 'seasonal-collections', desc: 'Curated seasonal jewellery pieces and limited releases.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png', order: 8 },
-        { name: 'Pair Collections', slug: 'pair-collections', desc: 'Curated pair collections, matching sets, and coordinated fine jewellery.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png', order: 9 }
+        { name: 'Rings', slug: 'rings', desc: 'Handcrafted statement rings and everyday fine bands.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820746/abels_by_lincy/categories/rings_category.png', order: 1 },
+        { name: 'Necklaces', slug: 'necklaces', desc: 'Timeless pendants, layered chains, and elegant necklaces.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820629/abels_by_lincy/categories/necklaces_category.webp', order: 2 },
+        { name: 'Earrings', slug: 'earrings', desc: 'Artisanal studs, hoops, and chandelier drop earrings.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820585/abels_by_lincy/categories/earrings_category.webp', order: 3 },
+        { name: 'Bracelets', slug: 'bracelets', desc: 'Delicate chain bracelets, charms, and tennis cuffs.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820574/abels_by_lincy/categories/bracelets_category.webp', order: 4 },
+        { name: 'Bangles', slug: 'bangles', desc: 'Sculptural wrist cuffs, stackable bangles, and statement pieces.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820521/abels_by_lincy/categories/bangles_category.webp', order: 5 },
+        { name: 'Charms', slug: 'charms', desc: 'Meaningful talisman pendants, symbolic charms, and keepsakes.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820580/abels_by_lincy/categories/charms_category.webp', order: 6 },
+        { name: 'Silver Collections', slug: 'silver-collections', desc: 'Exquisite sterling silver jewellery and artisanal pieces.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820777/abels_by_lincy/categories/silver-collection_category.webp', order: 7 },
+        { name: 'Seasonal Collections', slug: 'seasonal-collections', desc: 'Curated seasonal jewellery pieces and limited releases.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820772/abels_by_lincy/categories/seasonal-collections_category.png', order: 8 },
+        { name: 'Pair Collections', slug: 'pair-collections', desc: 'Curated pair collections, matching sets, and coordinated fine jewellery.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790820739/abels_by_lincy/categories/pair-collection_category.png', order: 9 }
       ];
 
       for (const defCat of defaultsToSeed) {
@@ -312,6 +312,11 @@ async function runMigrations(connection) {
             `INSERT INTO categories (name, slug, description, image_url, sort_order, is_active)
              VALUES (?, ?, ?, ?, ?, TRUE)`,
             [defCat.name, defCat.slug, defCat.desc, defCat.img, defCat.order]
+          );
+        } else {
+          await connection.query(
+            `UPDATE categories SET image_url = ? WHERE slug = ? AND (image_url IS NULL OR image_url = '' OR image_url NOT LIKE '%categories/%')`,
+            [defCat.img, defCat.slug]
           );
         }
       }

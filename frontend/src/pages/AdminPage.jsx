@@ -1505,9 +1505,24 @@ export default function AdminPage() {
                           alt={c.name}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onError={(e) => {
-                            const filename = (c.image || c.image_url || '').split('/').pop();
                             e.target.onerror = null;
-                            e.target.src = `/assets/${decodeURIComponent(filename)}`;
+                            const catSlug = (c.slug || c.id || '').toLowerCase();
+                            const localMap = {
+                              'bangles': '/assets/Bangle Category.webp',
+                              'bracelets': '/assets/Bracelet - category.webp',
+                              'charms': '/assets/charm collection category.webp',
+                              'earrings': '/assets/Earrings Category.webp',
+                              'necklaces': '/assets/necklace collection category.webp',
+                              'pair-collection': '/assets/pair collections category.png',
+                              'pair-collections': '/assets/pair collections category.png',
+                              'rings': '/assets/Ring Category.png',
+                              'seasonal-collections': '/assets/Sesonal collections category.png',
+                              'silver-collection': '/assets/silver collection category.webp',
+                              'silver-collections': '/assets/silver collection category.webp'
+                            };
+                            if (localMap[catSlug]) {
+                              e.target.src = localMap[catSlug];
+                            }
                           }}
                         />
                         <span style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(26,26,26,0.75)', backdropFilter: 'blur(4px)', color: '#FFFFFF', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20 }}>
@@ -3542,18 +3557,14 @@ export default function AdminPage() {
 
               {/* Category Image Upload / Spec */}
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', margin: 0 }}>
                     Category Cover Image <span style={{ color: '#E53E3E' }}>*</span>
                   </label>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold-dark)', background: '#FAF4E8', border: '1px solid #F5E6CC', padding: '2px 8px', borderRadius: 4 }}>
-                    📐 Recommended: 1200 × 1200 px
+                    Recommended: 1200 × 1200 px
                   </span>
                 </div>
-
-                <p style={{ fontSize: 12, color: 'var(--slate)', margin: '0 0 10px 0' }}>
-                  A 1:1 square ratio image (1200 × 1200 px) delivers the sharpest presentation on both the homepage category grid and catalogue headers.
-                </p>
 
                 {/* Image Preview & Upload Controls */}
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
@@ -3566,9 +3577,24 @@ export default function AdminPage() {
                           alt="Category preview"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onError={(e) => {
-                            const filename = (catImagePreview || catForm.image || '').split('/').pop();
                             e.target.onerror = null;
-                            e.target.src = `/assets/${decodeURIComponent(filename)}`;
+                            const catSlug = (catForm.slug || editingCategory?.slug || '').toLowerCase();
+                            const localMap = {
+                              'bangles': '/assets/Bangle Category.webp',
+                              'bracelets': '/assets/Bracelet - category.webp',
+                              'charms': '/assets/charm collection category.webp',
+                              'earrings': '/assets/Earrings Category.webp',
+                              'necklaces': '/assets/necklace collection category.webp',
+                              'pair-collection': '/assets/pair collections category.png',
+                              'pair-collections': '/assets/pair collections category.png',
+                              'rings': '/assets/Ring Category.png',
+                              'seasonal-collections': '/assets/Sesonal collections category.png',
+                              'silver-collection': '/assets/silver collection category.webp',
+                              'silver-collections': '/assets/silver collection category.webp'
+                            };
+                            if (localMap[catSlug]) {
+                              e.target.src = localMap[catSlug];
+                            }
                           }}
                         />
                         <button
