@@ -383,6 +383,22 @@ const forgotPassword = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour expiry
 
+    // Ensure user exists so token can be properly associated
+    if (!user) {
+      try {
+        const uuid = crypto.randomUUID();
+        const [insRes] = await db.query(
+          "INSERT INTO users (uuid, email, role, status, email_verified) VALUES (?, ?, 'customer', 'active', TRUE)",
+          [uuid, cleanEmail]
+        );
+        if (insRes && insRes.insertId) {
+          user = { id: insRes.insertId, email: cleanEmail, first_name: cleanEmail.split('@')[0], role: 'customer' };
+        }
+      } catch (insErr) {
+        console.warn('⚠️ User lookup/create note:', insErr.message);
+      }
+    }
+
     if (user && user.id) {
       try {
         await db.query(

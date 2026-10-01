@@ -3,6 +3,55 @@ const path = require('path');
 const resend = require('../config/resend');
 const db = require('../config/database');
 
+// Built-in fallback HTML generator for serverless environments where static assets might not be copied
+const getFallbackHtml = (templateName, vars) => {
+  const year = vars.currentYear || new Date().getFullYear();
+  const name = vars.customerName || 'Valued Customer';
+
+  if (templateName === 'reset-password') {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Reset Your Password</title><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Poppins',sans-serif;background-color:#FAF9F6;margin:0;padding:20px;color:#22252A;}.container{max-width:600px;margin:0 auto;background:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #ECECEC;}.header{background:#1A1A1A;padding:32px 20px;text-align:center;}.header h1{margin:0;color:#D4AF37;font-size:22px;letter-spacing:0.18em;text-transform:uppercase;}.body{padding:32px 28px;}.btn{display:inline-block;background:#D4AF37;color:#1A1A1A;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;text-decoration:none;padding:14px 32px;border-radius:6px;margin:24px 0;}.footer{background:#F8F6F2;padding:20px;text-align:center;font-size:12px;color:#6E7068;border-top:1px solid #ECE8E0;}</style></head><body><div class="container"><div class="header"><h1>Abel’s By Lincy</h1><p style="margin:4px 0 0 0;font-size:11px;color:#ECE8E0;letter-spacing:0.2em;text-transform:uppercase;">Fine Jewellery Collection</p></div><div class="body"><h2 style="font-size:18px;margin-top:0;">Password Reset Request</h2><p>Hello <strong>${name}</strong>,</p><p>We received a request to reset your password for your Abel's By Lincy account. Click below to securely choose a new password:</p><div style="text-align:center;"><a href="${vars.resetUrl || '#'}" class="btn" target="_blank">Reset Password</a></div><p style="font-size:12px;color:#787A74;">If the button doesn't work, copy and paste this link:<br><a href="${vars.resetUrl || '#'}" style="color:#B8860B;">${vars.resetUrl || '#'}</a></p><p style="font-size:12px;color:#888888;margin-top:24px;">This link is valid for 1 hour. If you didn't request this, please disregard this email.</p></div><div class="footer"><p style="margin:0;">© ${year} Abel's By Lincy. All rights reserved.</p></div></div></body></html>`;
+  }
+
+  if (templateName === 'order_confirmation' || templateName === 'order-confirmation') {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Order Confirmed</title><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Poppins',sans-serif;background:#FAF9F6;margin:0;padding:20px;color:#22252A;}.container{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #ECECEC;}.header{background:#1A1A1A;padding:32px 20px;text-align:center;}.header h1{margin:0;color:#D4AF37;font-size:22px;letter-spacing:0.18em;text-transform:uppercase;}.body{padding:32px 28px;}.footer{background:#F8F6F2;padding:20px;text-align:center;font-size:12px;color:#6E7068;border-top:1px solid #ECE8E0;}</style></head><body><div class="container"><div class="header"><h1>Abel’s By Lincy</h1><p style="margin:4px 0 0 0;font-size:11px;color:#ECE8E0;letter-spacing:0.2em;text-transform:uppercase;">Order Confirmation</p></div><div class="body"><h2 style="font-size:18px;margin-top:0;">Thank you for your order, ${name}!</h2><p>Your order <strong>${vars.orderNumber || ''}</strong> has been confirmed.</p><p>Total Amount: <strong>${vars.orderTotal || ''}</strong></p><p>Estimated Delivery: <strong>${vars.estimatedDeliveryDate || '3-5 business days'}</strong></p><table style="width:100%;margin-top:20px;border-collapse:collapse;">${vars.itemsHtml || ''}</table><table style="width:100%;margin-top:16px;border-collapse:collapse;">${vars.summaryBreakdownHtml || ''}</table></div><div class="footer"><p style="margin:0;">© ${year} Abel's By Lincy. All rights reserved.</p></div></div></body></html>`;
+  }
+
+  if (templateName === 'order_dispatch' || templateName === 'order-shipped') {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Order Dispatched</title><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Poppins',sans-serif;background:#FAF9F6;margin:0;padding:20px;color:#22252A;}.container{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #ECECEC;}.header{background:#1A1A1A;padding:32px 20px;text-align:center;}.header h1{margin:0;color:#D4AF37;font-size:22px;letter-spacing:0.18em;text-transform:uppercase;}.body{padding:32px 28px;}.btn{display:inline-block;background:#D4AF37;color:#1A1A1A;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;text-decoration:none;padding:14px 32px;border-radius:6px;margin:20px 0;}.footer{background:#F8F6F2;padding:20px;text-align:center;font-size:12px;color:#6E7068;border-top:1px solid #ECE8E0;}</style></head><body><div class="container"><div class="header"><h1>Abel’s By Lincy</h1><p style="margin:4px 0 0 0;font-size:11px;color:#ECE8E0;letter-spacing:0.2em;text-transform:uppercase;">Shipment Notification</p></div><div class="body"><h2 style="font-size:18px;margin-top:0;">Your order is on the way, ${name}!</h2><p>Your order <strong>${vars.orderId || ''}</strong> has been dispatched via ${vars.shippingMethod || 'Australia Post'}.</p><div style="background:#F4F4F2;padding:20px;border-radius:8px;text-align:center;margin:20px 0;"><p style="font-size:12px;color:#B8860B;font-weight:700;margin:0 0 6px 0;">TRACKING NUMBER</p><p style="font-size:18px;font-weight:700;margin:0 0 12px 0;">${vars.trackingNumber || ''}</p><a href="https://auspost.com.au/mypost/track/#/details/${vars.trackingNumber || ''}" class="btn" target="_blank">Track Shipment</a></div></div><div class="footer"><p style="margin:0;">© ${year} Abel's By Lincy. All rights reserved.</p></div></div></body></html>`;
+  }
+
+  if (templateName === 'order_refund' || templateName === 'refund') {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Refund Processed</title><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Poppins',sans-serif;background:#FAF9F6;margin:0;padding:20px;color:#22252A;}.container{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #ECECEC;}.header{background:#1A1A1A;padding:32px 20px;text-align:center;}.header h1{margin:0;color:#D4AF37;font-size:22px;letter-spacing:0.18em;text-transform:uppercase;}.body{padding:32px 28px;}.footer{background:#F8F6F2;padding:20px;text-align:center;font-size:12px;color:#6E7068;border-top:1px solid #ECE8E0;}</style></head><body><div class="container"><div class="header"><h1>Abel’s By Lincy</h1><p style="margin:4px 0 0 0;font-size:11px;color:#ECE8E0;letter-spacing:0.2em;text-transform:uppercase;">Refund Notice</p></div><div class="body"><h2 style="font-size:18px;margin-top:0;">${vars.refundHeading || 'Your Refund Has Been Processed'}</h2><p>Hello <strong>${name}</strong>,</p><p>${vars.refundMessage || 'Your refund has been processed successfully.'}</p><p>Refund Amount: <strong>${vars.refundAmount || ''}</strong></p><p>Timeline: <strong>${vars.timelineDays || '5 to 10 business days'}</strong></p></div><div class="footer"><p style="margin:0;">© ${year} Abel's By Lincy. All rights reserved.</p></div></div></body></html>`;
+  }
+
+  if (templateName === 'newsletter_welcome') {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Welcome</title></head><body style="font-family:'Poppins',sans-serif;background:#FAF9F6;padding:20px;"><div style="max-width:600px;margin:0 auto;background:#fff;padding:32px;border-radius:12px;border:1px solid #ECECEC;"><h1 style="color:#D4AF37;text-align:center;">Abel’s By Lincy</h1><h2 style="text-align:center;">Welcome to Our Circle!</h2><p>Thank you for subscribing to Abel's By Lincy. You'll now receive our latest jewelry releases, styling tips, and exclusive offers.</p><p style="text-align:center;color:#989A92;font-size:12px;margin-top:30px;">© ${year} Abel's By Lincy</p></div></body></html>`;
+  }
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Abel's By Lincy</title></head><body style="font-family:sans-serif;padding:20px;"><h1 style="color:#D4AF37;">Abel’s By Lincy</h1><p>Notification from Abel's By Lincy.</p><p>© ${year} Abel's By Lincy</p></body></html>`;
+};
+
+const getPlainText = (templateName, vars) => {
+  const year = vars.currentYear || new Date().getFullYear();
+  const name = vars.customerName || 'Valued Customer';
+  if (templateName === 'reset-password') {
+    return `ABEL'S BY LINCY\nFine Jewellery Collection\n\nHello ${name},\n\nWe received a request to reset your password for your Abel's By Lincy account.\n\nTo reset your password, please open the following link:\n${vars.resetUrl || 'https://abelsbylincy.com'}\n\nThis link is valid for 1 hour.\nIf you did not request this, please disregard this email.\n\n© ${year} Abel's By Lincy. All rights reserved.`;
+  }
+  if (templateName === 'order_confirmation' || templateName === 'order-confirmation') {
+    return `ABEL'S BY LINCY\nOrder Confirmation\n\nThank you for your order, ${name}!\nOrder Reference: ${vars.orderNumber || ''}\nTotal: ${vars.orderTotal || ''}\nEstimated Delivery: ${vars.estimatedDeliveryDate || '3-5 business days'}\n\n© ${year} Abel's By Lincy. All rights reserved.`;
+  }
+  if (templateName === 'order_dispatch' || templateName === 'order-shipped') {
+    return `ABEL'S BY LINCY\nShipment Notification\n\nYour order ${vars.orderId || ''} has been dispatched via ${vars.shippingMethod || 'Australia Post'}.\nTracking Number: ${vars.trackingNumber || ''}\n\n© ${year} Abel's By Lincy. All rights reserved.`;
+  }
+  if (templateName === 'order_refund' || templateName === 'refund') {
+    return `ABEL'S BY LINCY\nRefund Notice\n\n${vars.refundHeading || 'Your Refund Has Been Processed'}\nOrder: ${vars.orderNumber || ''}\nRefund Amount: ${vars.refundAmount || ''}\nTimeline: ${vars.timelineDays || '5 to 10 business days'}\n\n© ${year} Abel's By Lincy. All rights reserved.`;
+  }
+  if (templateName === 'newsletter_welcome') {
+    return `ABEL'S BY LINCY\nFine Jewellery Collection\n\nWelcome to the Abel's By Lincy Circle! Thank you for subscribing.\n\n© ${year} Abel's By Lincy. All rights reserved.`;
+  }
+  return `Abel's By Lincy notification.\n\n© ${year} Abel's By Lincy. All rights reserved.`;
+};
+
 const sendEmail = async ({ to, subject, templateName, variables, userId = null }) => {
   const logData = {
     user_id: userId,
@@ -27,20 +76,40 @@ const sendEmail = async ({ to, subject, templateName, variables, userId = null }
   }
 
   try {
-    // Read and parse template
-    const templatePath = path.join(__dirname, '../templates/emails', `${templateName}.html`);
-    let htmlContent = fs.readFileSync(templatePath, 'utf8');
-
-    // Replace template variables safely using a replacer function to avoid JavaScript $ token corruption
     const varsWithDefaults = {
       currentYear: new Date().getFullYear(),
       ...(variables || {})
     };
 
+    // Robust template loading with multi-path resolution and fallback
+    let htmlContent = null;
+    const searchPaths = [
+      path.join(__dirname, '../templates/emails', `${templateName}.html`),
+      path.join(process.cwd(), 'backend/src/templates/emails', `${templateName}.html`),
+      path.join(process.cwd(), 'src/templates/emails', `${templateName}.html`),
+      path.join(process.cwd(), 'templates/emails', `${templateName}.html`)
+    ];
+
+    for (const testPath of searchPaths) {
+      try {
+        if (fs.existsSync(testPath)) {
+          htmlContent = fs.readFileSync(testPath, 'utf8');
+          break;
+        }
+      } catch (_) {}
+    }
+
+    if (!htmlContent) {
+      htmlContent = getFallbackHtml(templateName, varsWithDefaults);
+    }
+
+    // Replace template variables safely using a replacer function to avoid JavaScript $ token corruption
     Object.keys(varsWithDefaults).forEach((key) => {
       const placeholder = new RegExp(`{{${key}}}`, 'g');
       htmlContent = htmlContent.replace(placeholder, () => String(varsWithDefaults[key] ?? ''));
     });
+
+    const plainText = getPlainText(templateName, varsWithDefaults);
 
     // 1. Try sending via Nodemailer if SMTP configured
     if (process.env.SMTP_HOST || process.env.SMTP_USER) {
@@ -60,7 +129,8 @@ const sendEmail = async ({ to, subject, templateName, variables, userId = null }
           from: process.env.EMAIL_FROM || `"Abel's By Lincy" <${process.env.SMTP_USER}>`,
           to,
           subject,
-          html: htmlContent
+          html: htmlContent,
+          text: plainText
         });
 
         await db.query(
@@ -82,12 +152,27 @@ const sendEmail = async ({ to, subject, templateName, variables, userId = null }
 
     const fromAddress = process.env.EMAIL_FROM || "Abel's By Lincy <orders@abelsbylincy.com>";
 
-    const response = await resend.emails.send({
+    let response = await resend.emails.send({
       from: fromAddress,
       to,
       subject,
-      html: htmlContent
+      html: htmlContent,
+      text: plainText
     });
+
+    if (response.error) {
+      // Fallback: If custom domain unverified, try with onboarding@resend.dev
+      if (response.error.message && (response.error.message.includes('domain') || response.error.message.includes('from'))) {
+        console.warn('⚠️ Custom from address note, retrying with verified sender fallback:', response.error.message);
+        response = await resend.emails.send({
+          from: "Abel's By Lincy <onboarding@resend.dev>",
+          to,
+          subject,
+          html: htmlContent,
+          text: plainText
+        });
+      }
+    }
 
     if (response.error) {
       throw new Error(response.error.message);
