@@ -9,6 +9,7 @@ const ensureInventoryTables = async () => {
         variant_id INT NULL,
         movement_type VARCHAR(50) NOT NULL,
         quantity INT NOT NULL,
+        stock_after INT NULL,
         reference_type VARCHAR(50) NULL,
         reference_id INT NULL,
         note TEXT NULL,
@@ -16,6 +17,14 @@ const ensureInventoryTables = async () => {
         INDEX idx_im_variant (variant_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
+
+    try {
+      const [cols] = await db.query('SHOW COLUMNS FROM inventory_movements');
+      const colNames = cols.map(c => c.Field);
+      if (!colNames.includes('stock_after')) {
+        await db.query('ALTER TABLE inventory_movements ADD COLUMN stock_after INT NULL AFTER quantity');
+      }
+    } catch (_) {}
   } catch (err) {
     console.warn('⚠️ inventory_movements table creation note:', err.message);
   }
@@ -117,8 +126,12 @@ const adjustStock = async (req, res, next) => {
     }
     const effectiveDelta = deltaNum !== 0 ? deltaNum : (calculatedStock - currentVarStock);
 
-    // 2. Update stock in MySQL product_variants table
+    // 2. Update stock in MySQL product_variants table & products table
     if (targetProductId) {
+      try {
+        await db.query('UPDATE products SET stock_quantity = ? WHERE id = ?', [calculatedStock, targetProductId]);
+      } catch (_) {}
+
       if (targetVariantId) {
         try {
           await db.query('UPDATE product_variants SET stock_quantity = ?, is_active = TRUE WHERE id = ?', [calculatedStock, targetVariantId]);
@@ -151,13 +164,20 @@ const adjustStock = async (req, res, next) => {
     if (targetVariantId) {
       try {
         const [insertRes] = await db.query(
-          `INSERT INTO inventory_movements (variant_id, movement_type, quantity, reference_type, note)
-           VALUES (?, ?, ?, 'manual_adjustment', ?)`,
-          [targetVariantId, type, effectiveDelta, note]
+          `INSERT INTO inventory_movements (variant_id, movement_type, quantity, stock_after, reference_type, note)
+           VALUES (?, ?, ?, ?, 'manual_adjustment', ?)`,
+          [targetVariantId, type, effectiveDelta, calculatedStock, note]
         );
         movementRecordId = insertRes.insertId;
       } catch (logErr) {
-        console.warn('⚠️ Failed to insert into inventory_movements:', logErr.message);
+        try {
+          const [fallbackRes] = await db.query(
+            `INSERT INTO inventory_movements (variant_id, movement_type, quantity, reference_type, note)
+             VALUES (?, ?, ?, 'manual_adjustment', ?)`,
+            [targetVariantId, type, effectiveDelta, note]
+          );
+          movementRecordId = fallbackRes.insertId;
+        } catch (_) {}
       }
     }
 
@@ -230,17 +250,31 @@ const restockAllLowStock = async (req, res, next) => {
     for (const v of variantsToRestock) {
       const nextQty = (v.stock_quantity || 0) + qtyToAdd;
       try {
-        await db.query('UPDATE product_variants SET stock_quantity = ? WHERE id = ?', [nextQty, v.variant_id]);
+        await db.query('UPDATE product_variants SET stock_quantity = ?, is_active = TRUE WHERE id = ?', [nextQty, v.variant_id]);
+        if (v.product_id) {
+          await db.query('UPDATE products SET stock_quantity = ? WHERE id = ?', [nextQty, v.product_id]);
+        }
 
-        const [mRes] = await db.query(
-          `INSERT INTO inventory_movements (variant_id, movement_type, quantity, reference_type, note)
-           VALUES (?, 'restock', ?, 'batch_restock', ?)`,
-          [v.variant_id, qtyToAdd, `Batch restock low stock (+${qtyToAdd})`]
-        );
+        let movementInsertId = null;
+        try {
+          const [mRes] = await db.query(
+            `INSERT INTO inventory_movements (variant_id, movement_type, quantity, stock_after, reference_type, note)
+             VALUES (?, 'restock', ?, ?, 'batch_restock', ?)`,
+            [v.variant_id, qtyToAdd, nextQty, `Batch restock low stock (+${qtyToAdd})`]
+          );
+          movementInsertId = mRes.insertId;
+        } catch (_) {
+          const [fbRes] = await db.query(
+            `INSERT INTO inventory_movements (variant_id, movement_type, quantity, reference_type, note)
+             VALUES (?, 'restock', ?, 'batch_restock', ?)`,
+            [v.variant_id, qtyToAdd, `Batch restock low stock (+${qtyToAdd})`]
+          );
+          movementInsertId = fbRes.insertId;
+        }
 
         recordedMovements.push({
-          id: `sh_${mRes.insertId}`,
-          dbId: mRes.insertId,
+          id: `sh_${movementInsertId || Date.now()}`,
+          dbId: movementInsertId,
           productId: v.uuid || String(v.product_id),
           sku: v.sku || v.variant_sku || 'ABL-JEW',
           productName: v.name,
@@ -307,7 +341,7 @@ const getInventoryHistory = async (req, res, next) => {
         change: r.quantity,
         reason: r.note || r.movement_type || 'Stock movement',
         date: r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
-        stockAfter: r.current_stock !== null && r.current_stock !== undefined ? r.current_stock : 10,
+        stockAfter: r.stock_after !== null && r.stock_after !== undefined ? Number(r.stock_after) : (r.current_stock !== null && r.current_stock !== undefined ? Number(r.current_stock) : 10),
         timestamp: r.created_at
       }));
     } catch (queryErr) {

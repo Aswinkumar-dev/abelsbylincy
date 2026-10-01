@@ -66,9 +66,7 @@ const fetchAllProductsFromDB = async () => {
         : null;
 
       let finalStock = 0;
-      if (directStock !== null && totalVariantStock !== null) {
-        finalStock = Math.max(directStock, totalVariantStock);
-      } else if (totalVariantStock !== null) {
+      if (totalVariantStock !== null) {
         finalStock = totalVariantStock;
       } else if (directStock !== null) {
         finalStock = directStock;
@@ -351,6 +349,7 @@ async function upsertProductToDB(p) {
     jewellery_type: p.jewelleryType || p.category || null,
     colors,
     price,
+    stock_quantity: safeStock,
     is_featured: featured,
     is_new_arrival: newArrival,
     is_best_seller: bestSeller,
