@@ -63,7 +63,7 @@ const addCategory = async (req, res, next) => {
       finalImageUrl = 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp';
     }
 
-    const orderNum = parseInt(sort_order, 10) || 10;
+    const orderNum = parseInt(sort_order, 10) || (DEFAULT_CATEGORIES.length + 1);
 
     // Check if category with this slug already exists
     try {
@@ -78,11 +78,31 @@ const addCategory = async (req, res, next) => {
         [cleanName, slug, description || null, finalImageUrl, orderNum]
       );
 
-      const [newRow] = await db.query('SELECT * FROM categories WHERE id = ?', [result.insertId]);
+      const newId = result.insertId;
+
+      // Reorder all active categories sequentially
+      try {
+        const [allActive] = await db.query(
+          'SELECT id, sort_order FROM categories WHERE is_active = TRUE ORDER BY sort_order ASC, id ASC'
+        );
+        const withoutNew = allActive.filter(r => r.id !== newId);
+        const insertIdx = Math.max(0, Math.min(orderNum - 1, withoutNew.length));
+        const reordered = [
+          ...withoutNew.slice(0, insertIdx),
+          { id: newId, sort_order: insertIdx + 1 },
+          ...withoutNew.slice(insertIdx)
+        ];
+
+        for (let i = 0; i < reordered.length; i++) {
+          await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [i + 1, reordered[i].id]);
+        }
+      } catch (_) {}
+
+      const [newRow] = await db.query('SELECT * FROM categories WHERE id = ?', [newId]);
       return res.status(201).json({
         success: true,
         message: 'Category added successfully.',
-        category: newRow[0] || { id: result.insertId, name: cleanName, slug, description, image_url: finalImageUrl, sort_order: orderNum }
+        category: newRow[0] || { id: newId, name: cleanName, slug, description, image_url: finalImageUrl, sort_order: orderNum }
       });
     } catch (dbErr) {
       console.warn('⚠️ Database insert category note:', dbErr.message);
@@ -133,25 +153,47 @@ const updateCategory = async (req, res, next) => {
       );
 
       const existing = existingRows[0] || {};
+      const targetDbId = existing.id || (isNumeric ? Number(id) : null);
       const updatedName = name !== undefined ? name.trim() : existing.name;
       const updatedSlug = slug !== undefined ? slug.trim().toLowerCase() : (existing.slug || updatedName?.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
       const updatedDesc = description !== undefined ? description : existing.description;
       const updatedImg = finalImageUrl || existing.image_url;
-      const updatedOrder = sort_order !== undefined ? parseInt(sort_order, 10) : (existing.sort_order || 0);
+      const parsedOrder = sort_order !== undefined ? parseInt(sort_order, 10) : (existing.sort_order || 1);
+      const targetOrder = isNaN(parsedOrder) ? 1 : parsedOrder;
       const updatedActive = is_active !== undefined ? (is_active === true || is_active === 'true' || is_active === 1 || is_active === '1') : (existing.is_active ?? 1);
 
       await db.query(
         `UPDATE categories 
          SET name = ?, slug = ?, description = ?, image_url = ?, sort_order = ?, is_active = ?
          WHERE id = ? OR slug = ?`,
-        [updatedName, updatedSlug, updatedDesc, updatedImg, updatedOrder, updatedActive ? 1 : 0, id, id]
+        [updatedName, updatedSlug, updatedDesc, updatedImg, targetOrder, updatedActive ? 1 : 0, id, id]
       );
+
+      // Re-index all active categories sequentially so moving to 3 places it in position 3
+      if (targetDbId) {
+        try {
+          const [allActive] = await db.query(
+            'SELECT id, sort_order FROM categories WHERE is_active = TRUE ORDER BY sort_order ASC, id ASC'
+          );
+          const withoutTarget = allActive.filter(r => r.id !== targetDbId);
+          const insertIdx = Math.max(0, Math.min(targetOrder - 1, withoutTarget.length));
+          const reordered = [
+            ...withoutTarget.slice(0, insertIdx),
+            { id: targetDbId, sort_order: insertIdx + 1 },
+            ...withoutTarget.slice(insertIdx)
+          ];
+
+          for (let i = 0; i < reordered.length; i++) {
+            await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [i + 1, reordered[i].id]);
+          }
+        } catch (_) {}
+      }
 
       const [updatedRows] = await db.query('SELECT * FROM categories WHERE id = ? OR slug = ?', [id, id]);
       return res.status(200).json({
         success: true,
         message: 'Category updated successfully.',
-        category: updatedRows[0] || { id, name: updatedName, slug: updatedSlug, description: updatedDesc, image_url: updatedImg, sort_order: updatedOrder, is_active: updatedActive }
+        category: updatedRows[0] || { id, name: updatedName, slug: updatedSlug, description: updatedDesc, image_url: updatedImg, sort_order: targetOrder, is_active: updatedActive }
       });
     } catch (dbErr) {
       console.warn('⚠️ Database update category note:', dbErr.message);

@@ -127,9 +127,8 @@ export default function AdminPage() {
   const [catForm, setCatForm] = useState({
     name: '',
     slug: '',
-    description: '',
     image: '',
-    sort_order: 10
+    sort_order: 1
   });
   const [catImageFile, setCatImageFile] = useState(null);
   const [catImagePreview, setCatImagePreview] = useState('');
@@ -141,7 +140,6 @@ export default function AdminPage() {
     setCatForm({
       name: '',
       slug: '',
-      description: '',
       image: '',
       sort_order: (categories.length + 1)
     });
@@ -156,9 +154,8 @@ export default function AdminPage() {
     setCatForm({
       name: category.name || '',
       slug: category.slug || category.id || '',
-      description: category.description || '',
       image: category.image || category.image_url || '',
-      sort_order: category.sort_order || 10
+      sort_order: category.sort_order ?? 1
     });
     setCatImageFile(null);
     setCatImagePreview(category.image || category.image_url || '');
@@ -193,14 +190,17 @@ export default function AdminPage() {
     setCatLoading(true);
     try {
       const slug = catForm.slug.trim() || catForm.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const targetOrder = (catForm.sort_order !== '' && !isNaN(Number(catForm.sort_order)))
+        ? Math.max(1, parseInt(catForm.sort_order, 10))
+        : (editingCategory ? (editingCategory.sort_order || 1) : (categories.length + 1));
+
       await saveCategory({
         id: editingCategory ? (editingCategory.id || editingCategory.slug) : slug,
         dbId: editingCategory?.dbId,
         name: catForm.name.trim(),
         slug: slug,
-        description: catForm.description.trim(),
         image: catForm.image.trim() || catImagePreview,
-        sort_order: parseInt(catForm.sort_order, 10) || (categories.length + 1)
+        sort_order: targetOrder
       }, catImageFile);
 
       setCatModalOpen(false);
@@ -1525,6 +1525,9 @@ export default function AdminPage() {
                             }
                           }}
                         />
+                        <span style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(212, 175, 55, 0.95)', color: '#1A1A1A', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>
+                          Order #{c.sort_order || 1}
+                        </span>
                         <span style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(26,26,26,0.75)', backdropFilter: 'blur(4px)', color: '#FFFFFF', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20 }}>
                           {prodCount} {prodCount === 1 ? 'Product' : 'Products'}
                         </span>
@@ -1535,11 +1538,6 @@ export default function AdminPage() {
                             <h4 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--onyx)', textTransform: 'capitalize' }}>{c.name}</h4>
                             <span style={{ fontSize: 11, color: 'var(--gold-dark)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>/{c.slug || c.id}</span>
                           </div>
-                          {c.description && (
-                            <p style={{ fontSize: 12, color: 'var(--slate)', margin: '4px 0 8px 0', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                              {c.description}
-                            </p>
-                          )}
                         </div>
                         <div style={{ display: 'flex', gap: 8, marginTop: 10, borderTop: '1px solid var(--border-light)', paddingTop: 10 }}>
                           <button
@@ -3533,26 +3531,18 @@ export default function AdminPage() {
                     type="number"
                     className="form-control"
                     min="1"
-                    value={catForm.sort_order}
-                    onChange={(e) => setCatForm(prev => ({ ...prev, sort_order: parseInt(e.target.value, 10) || 1 }))}
+                    placeholder="e.g. 1, 2, 3..."
+                    value={catForm.sort_order === '' ? '' : catForm.sort_order}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCatForm(prev => ({
+                        ...prev,
+                        sort_order: val === '' ? '' : (parseInt(val, 10) || '')
+                      }));
+                    }}
                     style={{ width: '100%' }}
                   />
                 </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', display: 'block', marginBottom: 6 }}>
-                  Description / Subtitle
-                </label>
-                <textarea
-                  className="form-control"
-                  rows={2}
-                  placeholder="Brief summary of pieces featured in this category collection..."
-                  value={catForm.description}
-                  onChange={(e) => setCatForm(prev => ({ ...prev, description: e.target.value }))}
-                  style={{ width: '100%', resize: 'vertical' }}
-                />
               </div>
 
               {/* Category Image Upload / Spec */}

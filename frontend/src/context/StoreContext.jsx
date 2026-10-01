@@ -444,7 +444,7 @@ export function StoreProvider({ children }) {
         }
         catMap.set(c.id, merged);
       });
-      const list = Array.from(catMap.values());
+      const list = Array.from(catMap.values()).sort((a, b) => (Number(a.sort_order ?? 10)) - (Number(b.sort_order ?? 10)));
       writeLS('abl_categories_v6', list);
       return list;
     }
@@ -595,9 +595,9 @@ export function StoreProvider({ children }) {
                 slug: c.slug,
                 image: (c.image_url && c.image_url.trim()) ? c.image_url : (c.image || fallback),
                 description: c.description || '',
-                sort_order: c.sort_order ?? 0
+                sort_order: Number(c.sort_order ?? 10)
               };
-            });
+            }).sort((a, b) => (Number(a.sort_order ?? 10)) - (Number(b.sort_order ?? 10)));
             setCategoriesRaw(formattedCats);
             writeLS('abl_categories_v6', formattedCats);
           }
@@ -773,8 +773,9 @@ export function StoreProvider({ children }) {
   const setCategories = useCallback((updaterOrValue) => {
     setCategoriesRaw(prev => {
       const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
-      writeLS('abl_categories_v5', next);
-      return next;
+      const sorted = Array.isArray(next) ? [...next].sort((a, b) => (Number(a.sort_order ?? 10)) - (Number(b.sort_order ?? 10))) : next;
+      writeLS('abl_categories_v6', sorted);
+      return sorted;
     });
   }, []);
   const setOrders = useCallback((updaterOrValue) => {
@@ -2049,45 +2050,63 @@ export function StoreProvider({ children }) {
         }
       }
 
+      const rawOrder = resData?.sort_order ?? catData.sort_order;
+      const parsedOrder = parseInt(rawOrder, 10);
+      const targetOrder = isNaN(parsedOrder) || parsedOrder < 1 ? 10 : parsedOrder;
+
       const cleanCat = {
         id: resData?.slug || catData.slug || catData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         dbId: resData?.id || catData.dbId,
         name: resData?.name || catData.name,
         slug: resData?.slug || catData.slug || catData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         image: resData?.image_url || catData.image || catData.image_url || 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp',
-        description: resData?.description || catData.description || '',
-        sort_order: resData?.sort_order ?? catData.sort_order ?? 10
+        description: '',
+        sort_order: targetOrder
       };
 
       setCategories(prev => {
         const currentList = Array.isArray(prev) ? prev : [];
-        const idx = currentList.findIndex(c => (c.dbId && cleanCat.dbId && c.dbId === cleanCat.dbId) || c.id === cleanCat.id || c.slug === cleanCat.slug);
-        if (idx !== -1) {
-          return currentList.map((c, i) => i === idx ? { ...c, ...cleanCat } : c);
-        }
-        return [...currentList, cleanCat];
+        const otherCategories = currentList.filter(c => 
+          !((c.dbId && cleanCat.dbId && c.dbId === cleanCat.dbId) || c.id === cleanCat.id || c.slug === cleanCat.slug)
+        );
+        const insertIdx = Math.max(0, Math.min(targetOrder - 1, otherCategories.length));
+        const reordered = [
+          ...otherCategories.slice(0, insertIdx),
+          { ...cleanCat, sort_order: insertIdx + 1 },
+          ...otherCategories.slice(insertIdx)
+        ];
+        return reordered.map((c, i) => ({ ...c, sort_order: i + 1 }));
       });
 
       showToast(`Category "${cleanCat.name}" saved!`, 'check');
       return { success: true, category: cleanCat };
     } catch (err) {
       console.warn('⚠️ Category save note:', err.message);
+      const rawOrder = catData.sort_order;
+      const parsedOrder = parseInt(rawOrder, 10);
+      const targetOrder = isNaN(parsedOrder) || parsedOrder < 1 ? 10 : parsedOrder;
+
       const fallbackCat = {
         id: catData.slug || catData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         dbId: catData.dbId || Date.now(),
         name: catData.name,
         slug: catData.slug || catData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         image: catData.image || catData.image_url || 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp',
-        description: catData.description || '',
-        sort_order: catData.sort_order ?? 10
+        description: '',
+        sort_order: targetOrder
       };
       setCategories(prev => {
         const currentList = Array.isArray(prev) ? prev : [];
-        const idx = currentList.findIndex(c => (c.dbId && fallbackCat.dbId && c.dbId === fallbackCat.dbId) || c.id === fallbackCat.id || c.slug === fallbackCat.slug);
-        if (idx !== -1) {
-          return currentList.map((c, i) => i === idx ? { ...c, ...fallbackCat } : c);
-        }
-        return [...currentList, fallbackCat];
+        const otherCategories = currentList.filter(c => 
+          !((c.dbId && fallbackCat.dbId && c.dbId === fallbackCat.dbId) || c.id === fallbackCat.id || c.slug === fallbackCat.slug)
+        );
+        const insertIdx = Math.max(0, Math.min(targetOrder - 1, otherCategories.length));
+        const reordered = [
+          ...otherCategories.slice(0, insertIdx),
+          { ...fallbackCat, sort_order: insertIdx + 1 },
+          ...otherCategories.slice(insertIdx)
+        ];
+        return reordered.map((c, i) => ({ ...c, sort_order: i + 1 }));
       });
       showToast(`Category "${fallbackCat.name}" saved!`, 'check');
       return { success: true, category: fallbackCat };
