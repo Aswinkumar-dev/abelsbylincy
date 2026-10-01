@@ -153,7 +153,16 @@ export default function ProductPage() {
     }
   };
 
+  const isOutOfStock = (
+    product.inStock === false ||
+    (product.stockQty !== undefined && product.stockQty !== null && Number(product.stockQty) <= 0) ||
+    (product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) ||
+    (product.stock_quantity !== undefined && product.stock_quantity !== null && Number(product.stock_quantity) <= 0) ||
+    (Array.isArray(product.variants) && product.variants.length > 0 && product.variants.every(v => ((v.stock_quantity !== undefined && Number(v.stock_quantity) <= 0) || (v.stock !== undefined && Number(v.stock) <= 0))))
+  );
+
   const handleAddToCart = () => {
+    if (isOutOfStock) return;
     if (product.sizes?.length > 0 && !selectedSize) {
       showToast('Please select a size', 'alert-circle');
       return;
@@ -399,13 +408,22 @@ export default function ProductPage() {
               </div>
 
               <button
-                className="btn-primary"
-                style={{ flex: 1, padding: '15px 28px', fontSize: 13, letterSpacing: '0.1em' }}
+                className={`btn-primary${isOutOfStock ? ' out-of-stock' : ''}`}
+                style={{
+                  flex: 1,
+                  padding: '15px 28px',
+                  fontSize: 13,
+                  letterSpacing: '0.1em',
+                  background: isOutOfStock ? '#DC2626' : undefined,
+                  borderColor: isOutOfStock ? '#DC2626' : undefined,
+                  color: isOutOfStock ? '#FFFFFF' : undefined,
+                  cursor: isOutOfStock ? 'not-allowed' : 'pointer'
+                }}
                 onClick={handleAddToCart}
-                disabled={!product.inStock}
+                disabled={isOutOfStock}
               >
                 <ShoppingBag style={{ width: 16, height: 16, display: 'inline-block', verticalAlign: 'middle', marginRight: 8 }} />
-                {product.inStock ? 'ADD TO BAG' : 'SOLD OUT'}
+                {isOutOfStock ? 'OUT OF STOCK' : 'ADD TO BAG'}
               </button>
 
               <button

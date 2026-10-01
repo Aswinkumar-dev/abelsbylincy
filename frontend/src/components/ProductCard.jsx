@@ -14,8 +14,16 @@ export default function ProductCard({ product }) {
     navigate(`/product?id=${product.id}`);
   };
 
+  const isOutOfStock = (
+    product.inStock === false ||
+    (product.stockQty !== undefined && product.stockQty !== null && Number(product.stockQty) <= 0) ||
+    (product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0) ||
+    (product.stock_quantity !== undefined && product.stock_quantity !== null && Number(product.stock_quantity) <= 0) ||
+    (Array.isArray(product.variants) && product.variants.length > 0 && product.variants.every(v => ((v.stock_quantity !== undefined && Number(v.stock_quantity) <= 0) || (v.stock !== undefined && Number(v.stock) <= 0))))
+  );
+
   return (
-    <div className="bs-card" onClick={handleCardClick}>
+    <div className={`bs-card${isOutOfStock ? ' card-out-of-stock' : ''}`} onClick={handleCardClick}>
       <div className="bs-card-img-wrap">
         <img
           src={product.images?.[0] || product.image}
@@ -66,12 +74,23 @@ export default function ProductCard({ product }) {
 
       <button
         type="button"
-        className="bs-add-to-cart-btn"
-        onClick={(e) => { e.stopPropagation(); addToCart(product.id, 1); }}
-        disabled={!product.inStock}
+        className={`bs-add-to-cart-btn${isOutOfStock ? ' out-of-stock' : ''}`}
+        style={isOutOfStock ? {
+          background: '#DC2626',
+          color: '#FFFFFF',
+          cursor: 'not-allowed',
+          borderColor: '#DC2626'
+        } : undefined}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isOutOfStock) return;
+          addToCart(product.id, 1);
+        }}
+        disabled={isOutOfStock}
+        title={isOutOfStock ? 'Currently Out of Stock' : 'Add to Bag'}
       >
         <ShoppingBag style={{ width: 13, height: 13, display: 'inline-block', verticalAlign: 'middle', marginRight: 6 }} />
-        {product.inStock ? 'ADD TO BAG' : 'SOLD OUT'}
+        {isOutOfStock ? 'OUT OF STOCK' : 'ADD TO BAG'}
       </button>
     </div>
   );

@@ -236,7 +236,7 @@ export default function HomePage() {
 
           <div className="collections-grid">
             {categories.map(cat => (
-              <Link key={cat.id} to={`/shop?category=${cat.id}`} className="collection-card">
+              <Link key={cat.id || cat.slug} to={`/shop?category=${cat.slug || cat.id}`} className="collection-card">
                 <img
                   src={cat.image}
                   alt={cat.name}

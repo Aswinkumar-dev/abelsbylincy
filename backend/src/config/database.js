@@ -275,37 +275,48 @@ async function runMigrations(connection) {
       console.warn('⚠️ Users table migration note:', userErr.message);
     }
 
-    // 5. Check categories table for Silver Collections & Seasonal Collections
+    // 5. Ensure categories table exists and seed all default collections
     try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS categories (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          slug VARCHAR(255) UNIQUE NOT NULL,
+          description TEXT NULL,
+          image_url TEXT NULL,
+          sort_order INT DEFAULT 0,
+          is_active TINYINT(1) DEFAULT 1,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       const [existingCats] = await connection.query('SELECT slug FROM categories');
       const catSlugs = existingCats.map(c => c.slug);
-      if (!catSlugs.includes('silver-collections')) {
-        await connection.query(
-          `INSERT INTO categories (name, slug, description, image_url, sort_order, is_active)
-           VALUES ('Silver Collections', 'silver-collections', 'Exquisite sterling silver jewellery and artisanal pieces.', 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp', 7, TRUE)`
-        );
-        console.log('Migrated: Seeded Silver Collections into categories table.');
-      }
-      if (!catSlugs.includes('seasonal-collections')) {
-        await connection.query(
-          `INSERT INTO categories (name, slug, description, image_url, sort_order, is_active)
-           VALUES ('Seasonal Collections', 'seasonal-collections', 'Curated seasonal jewellery pieces and limited releases.', 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png', 8, TRUE)`
-        );
-        console.log('Migrated: Seeded Seasonal Collections into categories table.');
-      }
-      if (!catSlugs.includes('pair-collections')) {
-        await connection.query(
-          `INSERT INTO categories (name, slug, description, image_url, sort_order, is_active)
-           VALUES ('Pair Collections', 'pair-collections', 'Curated pair collections, matching sets, and coordinated fine jewellery.', 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png', 9, TRUE)`
-        );
-        console.log('Migrated: Seeded Pair Collections into categories table.');
-      } else {
-        await connection.query(
-          `UPDATE categories SET image_url = 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png' WHERE slug = 'pair-collections'`
-        );
+
+      const defaultsToSeed = [
+        { name: 'Rings', slug: 'rings', desc: 'Handcrafted statement rings and everyday fine bands.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796753/abels_by_lincy/Ring_Category.png', order: 1 },
+        { name: 'Necklaces', slug: 'necklaces', desc: 'Timeless pendants, layered chains, and elegant necklaces.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp', order: 2 },
+        { name: 'Earrings', slug: 'earrings', desc: 'Artisanal studs, hoops, and chandelier drop earrings.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796736/abels_by_lincy/Earrings_Category.webp', order: 3 },
+        { name: 'Bracelets', slug: 'bracelets', desc: 'Delicate chain bracelets, charms, and tennis cuffs.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796726/abels_by_lincy/Bracelet_-_category.webp', order: 4 },
+        { name: 'Bangles', slug: 'bangles', desc: 'Sculptural wrist cuffs, stackable bangles, and statement pieces.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796721/abels_by_lincy/Bangle_Category.webp', order: 5 },
+        { name: 'Charms', slug: 'charms', desc: 'Meaningful talisman pendants, symbolic charms, and keepsakes.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796734/abels_by_lincy/charm_collection_category.webp', order: 6 },
+        { name: 'Silver Collections', slug: 'silver-collections', desc: 'Exquisite sterling silver jewellery and artisanal pieces.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796760/abels_by_lincy/silver_collection_category.webp', order: 7 },
+        { name: 'Seasonal Collections', slug: 'seasonal-collections', desc: 'Curated seasonal jewellery pieces and limited releases.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796758/abels_by_lincy/Sesonal_collections_category.png', order: 8 },
+        { name: 'Pair Collections', slug: 'pair-collections', desc: 'Curated pair collections, matching sets, and coordinated fine jewellery.', img: 'https://res.cloudinary.com/gylnyxru/image/upload/v1790393199/abels_by_lincy/pair_collections_category.png', order: 9 }
+      ];
+
+      for (const defCat of defaultsToSeed) {
+        if (!catSlugs.includes(defCat.slug)) {
+          await connection.query(
+            `INSERT INTO categories (name, slug, description, image_url, sort_order, is_active)
+             VALUES (?, ?, ?, ?, ?, TRUE)`,
+            [defCat.name, defCat.slug, defCat.desc, defCat.img, defCat.order]
+          );
+        }
       }
     } catch (catErr) {
-      // ignore if categories table is not created yet
+      console.warn('⚠️ Categories table migration note:', catErr.message);
     }
 
     // 6. Check password_reset_tokens table

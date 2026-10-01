@@ -4,7 +4,7 @@ import { Search, ShoppingBag, Heart, User, Menu, X, ChevronDown } from 'lucide-r
 import { useStore } from '../context/StoreContext';
 
 export default function Header() {
-  const { cart, wishlist, currentUser, cms, logoutUser } = useStore();
+  const { cart, wishlist, currentUser, cms, logoutUser, categories } = useStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileShopOpen, setMobileShopOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -85,15 +85,9 @@ export default function Header() {
                 <div className="nav-dropdown">
                   <Link to="/shop?category=new-arrivals" className="dropdown-link">New Arrivals</Link>
                   <Link to="/shop?category=best-sellers" className="dropdown-link">Best Sellers</Link>
-                  <Link to="/shop?category=necklaces" className="dropdown-link">Necklaces</Link>
-                  <Link to="/shop?category=bangles" className="dropdown-link">Bangles</Link>
-                  <Link to="/shop?category=rings" className="dropdown-link">Rings</Link>
-                  <Link to="/shop?category=bracelets" className="dropdown-link">Bracelets</Link>
-                  <Link to="/shop?category=earrings" className="dropdown-link">Earrings</Link>
-                  <Link to="/shop?category=charms" className="dropdown-link">Charms</Link>
-                  <Link to="/shop?category=silver-collections" className="dropdown-link">Silver Collections</Link>
-                  <Link to="/shop?category=seasonal-collections" className="dropdown-link">Seasonal Collections</Link>
-                  <Link to="/shop?category=pair-collections" className="dropdown-link">Pair Collections</Link>
+                  {(categories || []).map(c => (
+                    <Link key={c.id || c.slug} to={`/shop?category=${c.slug || c.id}`} className="dropdown-link">{c.name}</Link>
+                  ))}
                 </div>
               </div>
 
@@ -308,15 +302,9 @@ export default function Header() {
                     <Link to="/shop" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Shop All Products</Link>
                     <Link to="/shop?category=new-arrivals" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>New Arrivals</Link>
                     <Link to="/shop?category=best-sellers" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Best Sellers</Link>
-                    <Link to="/shop?category=necklaces" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Necklaces</Link>
-                    <Link to="/shop?category=bangles" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Bangles</Link>
-                    <Link to="/shop?category=rings" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Rings</Link>
-                    <Link to="/shop?category=bracelets" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Bracelets</Link>
-                    <Link to="/shop?category=earrings" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Earrings</Link>
-                    <Link to="/shop?category=charms" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Charms</Link>
-                    <Link to="/shop?category=silver-collections" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Silver Collections</Link>
-                    <Link to="/shop?category=seasonal-collections" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Seasonal Collections</Link>
-                    <Link to="/shop?category=pair-collections" className="mobile-sub-link" onClick={() => setMobileOpen(false)}>Pair Collections</Link>
+                    {(categories || []).map(c => (
+                      <Link key={c.id || c.slug} to={`/shop?category=${c.slug || c.id}`} className="mobile-sub-link" onClick={() => setMobileOpen(false)}>{c.name}</Link>
+                    ))}
                   </div>
                 )}
               </div>

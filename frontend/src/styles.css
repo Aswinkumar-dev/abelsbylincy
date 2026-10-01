@@ -4664,6 +4664,19 @@ input[type="number"] {
   color: var(--onyx);
 }
 
+.bs-add-to-cart-btn.out-of-stock {
+  background: #DC2626 !important;
+  color: #FFFFFF !important;
+  cursor: not-allowed !important;
+  border-color: #DC2626 !important;
+}
+
+.bs-add-to-cart-btn.out-of-stock:hover {
+  background: #B91C1C !important;
+  color: #FFFFFF !important;
+  border-color: #B91C1C !important;
+}
+
 /* ── Responsive Grid Spacing ── */
 @media (max-width: 1024px) {
   .shop-by-category-section .container {

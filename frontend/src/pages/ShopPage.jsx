@@ -76,7 +76,7 @@ export function isProductInCat(p, catId) {
 }
 
 export default function ShopPage() {
-  const { products } = useStore();
+  const { products, categories } = useStore();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || 'all');
@@ -94,15 +94,7 @@ export default function ShopPage() {
     { id: 'all', label: 'All Jewellery' },
     { id: 'new-arrivals', label: 'New Arrivals' },
     { id: 'best-sellers', label: 'Best Sellers' },
-    { id: 'necklaces', label: 'Necklaces' },
-    { id: 'bangles', label: 'Bangles' },
-    { id: 'rings', label: 'Rings' },
-    { id: 'bracelets', label: 'Bracelets' },
-    { id: 'earrings', label: 'Earrings' },
-    { id: 'charms', label: 'Charms' },
-    { id: 'silver-collections', label: 'Silver Collections' },
-    { id: 'seasonal-collections', label: 'Seasonal Collections' },
-    { id: 'pair-collections', label: 'Pair Collections' },
+    ...(categories || []).map(c => ({ id: c.slug || c.id, label: c.name }))
   ];
 
   const clearFilters = () => {

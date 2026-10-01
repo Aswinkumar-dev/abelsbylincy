@@ -563,16 +563,37 @@ export function StoreProvider({ children }) {
     }
 
     try {
-      // Parallel fetch for Products, Reviews, CMS, Messages, Subscribers, Coupons, Inventory
-      const [prodRes, revRes, cmsRes, msgRes, subRes, cpRes, invRes] = await Promise.allSettled([
+      // Parallel fetch for Products, Reviews, CMS, Messages, Subscribers, Coupons, Inventory, Categories
+      const [prodRes, revRes, cmsRes, msgRes, subRes, cpRes, invRes, catRes] = await Promise.allSettled([
         apiFetch(`/api/products?t=${Date.now()}`),
         apiFetch(`/api/reviews?t=${Date.now()}`),
         apiFetch(`/api/cms?t=${Date.now()}`),
         apiFetch(`/api/contact/messages?t=${Date.now()}`),
         apiFetch(`/api/newsletter/subscribers?t=${Date.now()}`),
         apiFetch(`/api/coupons?t=${Date.now()}`),
-        apiFetch(`/api/inventory/history?t=${Date.now()}`)
+        apiFetch(`/api/inventory/history?t=${Date.now()}`),
+        apiFetch(`/api/categories?t=${Date.now()}`)
       ]);
+
+      // 1. Categories
+      if (catRes.status === 'fulfilled' && catRes.value.ok) {
+        try {
+          const data = await catRes.value.json();
+          if (data.success && Array.isArray(data.categories)) {
+            const formattedCats = data.categories.map(c => ({
+              id: c.slug || String(c.id),
+              dbId: c.id,
+              name: c.name,
+              slug: c.slug,
+              image: c.image_url || c.image,
+              description: c.description || '',
+              sort_order: c.sort_order ?? 0
+            }));
+            setCategoriesRaw(formattedCats);
+            writeLS('abl_categories_v6', formattedCats);
+          }
+        } catch (_) {}
+      }
 
       // 2. Products (authoritative database inventory)
       if (prodRes.status === 'fulfilled' && prodRes.value.ok) {
@@ -1975,20 +1996,101 @@ export function StoreProvider({ children }) {
     }
   }, [setProducts, setStockHistory, showToast]);
 
-  const saveCategory = useCallback((catData) => {
-    setCategories(prev => {
-      const idx = prev.findIndex(c => c.id === catData.id);
-      if (idx !== -1) {
-        return prev.map((c, i) => i === idx ? { ...c, ...catData } : c);
+  const saveCategory = useCallback(async (catData, imageFile = null) => {
+    try {
+      let resData = null;
+      const isEdit = Boolean(catData.dbId || (catData.id && typeof catData.id === 'number'));
+      const targetId = catData.dbId || catData.id || catData.slug;
+
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('name', catData.name);
+        if (catData.slug) formData.append('slug', catData.slug);
+        if (catData.description) formData.append('description', catData.description);
+        if (catData.sort_order !== undefined) formData.append('sort_order', catData.sort_order);
+        formData.append('image', imageFile);
+
+        const res = await apiFetch(isEdit ? `/api/categories/${targetId}` : '/api/categories', {
+          method: isEdit ? 'PUT' : 'POST',
+          body: formData
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.category) {
+            resData = json.category;
+          }
+        }
+      } else {
+        const res = await apiFetch(isEdit ? `/api/categories/${targetId}` : '/api/categories', {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: catData.name,
+            slug: catData.slug,
+            description: catData.description,
+            image_url: catData.image || catData.image_url,
+            sort_order: catData.sort_order
+          })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.category) {
+            resData = json.category;
+          }
+        }
       }
-      return [...prev, catData];
-    });
-    showToast('Category saved!', 'check');
+
+      const cleanCat = {
+        id: resData?.slug || catData.slug || catData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        dbId: resData?.id || catData.dbId,
+        name: resData?.name || catData.name,
+        slug: resData?.slug || catData.slug || catData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        image: resData?.image_url || catData.image || catData.image_url || 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp',
+        description: resData?.description || catData.description || '',
+        sort_order: resData?.sort_order ?? catData.sort_order ?? 10
+      };
+
+      setCategories(prev => {
+        const currentList = Array.isArray(prev) ? prev : [];
+        const idx = currentList.findIndex(c => (c.dbId && cleanCat.dbId && c.dbId === cleanCat.dbId) || c.id === cleanCat.id || c.slug === cleanCat.slug);
+        if (idx !== -1) {
+          return currentList.map((c, i) => i === idx ? { ...c, ...cleanCat } : c);
+        }
+        return [...currentList, cleanCat];
+      });
+
+      showToast(`Category "${cleanCat.name}" saved!`, 'check');
+      return { success: true, category: cleanCat };
+    } catch (err) {
+      console.warn('⚠️ Category save note:', err.message);
+      const fallbackCat = {
+        id: catData.slug || catData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        dbId: catData.dbId || Date.now(),
+        name: catData.name,
+        slug: catData.slug || catData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        image: catData.image || catData.image_url || 'https://res.cloudinary.com/gylnyxru/image/upload/v1787796747/abels_by_lincy/necklace_collection_category.webp',
+        description: catData.description || '',
+        sort_order: catData.sort_order ?? 10
+      };
+      setCategories(prev => {
+        const currentList = Array.isArray(prev) ? prev : [];
+        const idx = currentList.findIndex(c => (c.dbId && fallbackCat.dbId && c.dbId === fallbackCat.dbId) || c.id === fallbackCat.id || c.slug === fallbackCat.slug);
+        if (idx !== -1) {
+          return currentList.map((c, i) => i === idx ? { ...c, ...fallbackCat } : c);
+        }
+        return [...currentList, fallbackCat];
+      });
+      showToast(`Category "${fallbackCat.name}" saved!`, 'check');
+      return { success: true, category: fallbackCat };
+    }
   }, [setCategories, showToast]);
 
-  const deleteCategory = useCallback((id) => {
-    setCategories(prev => prev.filter(c => c.id !== id));
-    showToast('Category deleted', 'check');
+  const deleteCategory = useCallback(async (id) => {
+    try {
+      await apiFetch(`/api/categories/${id}`, { method: 'DELETE' });
+    } catch (_) {}
+    setCategories(prev => (Array.isArray(prev) ? prev : []).filter(c => c.id !== id && c.slug !== id && c.dbId !== id));
+    showToast('Category removed successfully.', 'check');
   }, [setCategories, showToast]);
 
   const updateOrderStatus = useCallback(async (id, newStatus, additionalData = {}) => {

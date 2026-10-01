@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LayoutDashboard, Package, Tag, Layers, ShoppingCart, ShoppingBag, Users, Ticket, Globe, Inbox,
-  ChartNoAxesColumn, Lock, ChevronRight, ChevronLeft, Crown, Search, Plus, Pencil, Trash2,
+  ChartNoAxesColumn, Lock, ChevronRight, ChevronLeft, Crown, Search, Plus, Pencil, Trash2, Edit3,
   RefreshCw, DollarSign, TrendingUp, AlertTriangle, AlertCircle, CheckCircle2, Star, Eye, EyeOff,
-  ArrowUp, ArrowDown, Download, Upload, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
+  ArrowUp, ArrowDown, Download, Upload, UploadCloud, Loader2, HelpCircle, Info, MessageSquare, CornerDownRight, ExternalLink, Menu, X, GripVertical,
   User, Mail, Phone, MapPin, Printer, Truck, LogOut
 } from 'lucide-react';
 import { useStore, CAT_FALLBACK_IMAGES, apiFetch, matchesOrderId, isAdminAccount } from '../context/StoreContext';
@@ -120,6 +120,96 @@ export default function AdminPage() {
     isFeatured: false, bestSeller: false, newArrival: false, tags: '', colorsText: '', colorImages: {},
     seoTitle: '', seoDesc: '', slug: ''
   });
+
+  // Category Modal State & Handlers
+  const [catModalOpen, setCatModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [catForm, setCatForm] = useState({
+    name: '',
+    slug: '',
+    description: '',
+    image: '',
+    sort_order: 10
+  });
+  const [catImageFile, setCatImageFile] = useState(null);
+  const [catImagePreview, setCatImagePreview] = useState('');
+  const [catLoading, setCatLoading] = useState(false);
+  const [catFormErrors, setCatFormErrors] = useState({});
+
+  const openAddCategoryModal = () => {
+    setEditingCategory(null);
+    setCatForm({
+      name: '',
+      slug: '',
+      description: '',
+      image: '',
+      sort_order: (categories.length + 1)
+    });
+    setCatImageFile(null);
+    setCatImagePreview('');
+    setCatFormErrors({});
+    setCatModalOpen(true);
+  };
+
+  const openEditCategoryModal = (category) => {
+    setEditingCategory(category);
+    setCatForm({
+      name: category.name || '',
+      slug: category.slug || category.id || '',
+      description: category.description || '',
+      image: category.image || category.image_url || '',
+      sort_order: category.sort_order || 10
+    });
+    setCatImageFile(null);
+    setCatImagePreview(category.image || category.image_url || '');
+    setCatFormErrors({});
+    setCatModalOpen(true);
+  };
+
+  const handleCategoryFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCatImageFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setCatImagePreview(reader.result);
+        setCatFormErrors(prev => ({ ...prev, image: '' }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveCategorySubmit = async (e) => {
+    e.preventDefault();
+    const errors = {};
+    if (!catForm.name.trim()) errors.name = 'Category name is required';
+    if (!catImagePreview && !catForm.image.trim()) errors.image = 'Category image is required (recommended 1200 × 1200 px)';
+
+    if (Object.keys(errors).length > 0) {
+      setCatFormErrors(errors);
+      return;
+    }
+
+    setCatLoading(true);
+    try {
+      const slug = catForm.slug.trim() || catForm.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      await saveCategory({
+        id: editingCategory ? (editingCategory.id || editingCategory.slug) : slug,
+        dbId: editingCategory?.dbId,
+        name: catForm.name.trim(),
+        slug: slug,
+        description: catForm.description.trim(),
+        image: catForm.image.trim() || catImagePreview,
+        sort_order: parseInt(catForm.sort_order, 10) || (categories.length + 1)
+      }, catImageFile);
+
+      setCatModalOpen(false);
+    } catch (err) {
+      showToast(err.message || 'Failed to save category', 'alert-circle');
+    } finally {
+      setCatLoading(false);
+    }
+  };
 
   const compressImage = (file, maxDimension = 1200, quality = 0.85) => {
     return new Promise((resolve) => {
@@ -242,11 +332,6 @@ export default function AdminPage() {
       }, 1500);
     }
   };
-
-  // Category Modal state
-
-  const [editingCategory, setEditingCategory] = useState(null);
-  const [catForm, setCatForm] = useState({ id: '', name: '', slug: '', image: '', desc: '' });
 
   // Coupon Modal state
   const [editingCoupon, setEditingCoupon] = useState(null);
@@ -1391,17 +1476,69 @@ export default function AdminPage() {
                   <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>
                     Categories <span style={{ color: 'var(--onyx)', fontWeight: 600 }}>({categories.length})</span>
                   </h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Earrings, Necklaces, Rings, Bracelets, Bangles, Charms, New Arrivals, Best Sellers.</p>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Manage store categories, signature collections, and catalogue hero imagery.</p>
                 </div>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={openAddCategoryModal}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', fontSize: 13, fontWeight: 700, borderRadius: 8 }}
+                >
+                  <Plus style={{ width: 16, height: 16 }} />
+                  Add Category
+                </button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-                {categories.map(c => (
-                  <div key={c.id} style={{ background: '#FFFFFF', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', padding: 16 }}>
-                    <img src={c.image} alt={c.name} style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 8, marginBottom: 12 }} />
-                    <h4 style={{ fontSize: 16, fontWeight: 700, margin: 0, textTransform: 'capitalize' }}>{c.name}</h4>
-                  </div>
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 18 }}>
+                {categories.map(c => {
+                  const catSlug = (c.slug || c.id || '').toLowerCase();
+                  const prodCount = (products || []).filter(p => {
+                    const pCat = (p.category || '').toLowerCase().trim();
+                    return pCat === catSlug || (p.tags && Array.isArray(p.tags) && p.tags.some(t => String(t).toLowerCase() === catSlug));
+                  }).length;
+
+                  return (
+                    <div key={c.id || c.slug} style={{ background: '#FFFFFF', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                      <div style={{ position: 'relative', width: '100%', height: 180, background: '#F8F8F8', overflow: 'hidden' }}>
+                        <img
+                          src={c.image || c.image_url}
+                          alt={c.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            const filename = (c.image || c.image_url || '').split('/').pop();
+                            e.target.onerror = null;
+                            e.target.src = `/assets/${decodeURIComponent(filename)}`;
+                          }}
+                        />
+                        <span style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(26,26,26,0.75)', backdropFilter: 'blur(4px)', color: '#FFFFFF', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20 }}>
+                          {prodCount} {prodCount === 1 ? 'Product' : 'Products'}
+                        </span>
+                      </div>
+                      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <h4 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--onyx)', textTransform: 'capitalize' }}>{c.name}</h4>
+                            <span style={{ fontSize: 11, color: 'var(--gold-dark)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>/{c.slug || c.id}</span>
+                          </div>
+                          {c.description && (
+                            <p style={{ fontSize: 12, color: 'var(--slate)', margin: '4px 0 8px 0', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {c.description}
+                            </p>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10, borderTop: '1px solid var(--border-light)', paddingTop: 10 }}>
+                          <button
+                            type="button"
+                            onClick={() => openEditCategoryModal(c)}
+                            style={{ flex: 1, padding: '7px 12px', background: '#F4F4F2', border: '1px solid #E2E2DF', borderRadius: 6, fontSize: 12, fontWeight: 600, color: 'var(--onyx)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.2s' }}
+                          >
+                            <Edit3 style={{ width: 13, height: 13 }} /> Edit
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -3302,6 +3439,252 @@ export default function AdminPage() {
         </div>
       </div>
     )}
+
+      {/* MODAL: Add / Edit Category */}
+      {catModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 1050 }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, maxWidth: 580, width: '100%', padding: '28px 32px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: '1px solid var(--border-light)', paddingBottom: 16 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--onyx)' }}>
+                  {editingCategory ? 'Edit Category' : 'Add New Category'}
+                </h3>
+                <p style={{ fontSize: 12, color: 'var(--slate)', margin: '4px 0 0 0' }}>
+                  {editingCategory ? `Update details and imagery for "${editingCategory.name}"` : 'Create a new storefront category & collection'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCatModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--slate)', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X style={{ width: 20, height: 20 }} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategorySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {/* Category Name */}
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', display: 'block', marginBottom: 6 }}>
+                  Category Name <span style={{ color: '#E53E3E' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Hair Accessories, Rings, Brooches"
+                  value={catForm.name}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCatForm(prev => ({
+                      ...prev,
+                      name: val,
+                      slug: !editingCategory ? val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : prev.slug
+                    }));
+                    if (catFormErrors.name) setCatFormErrors(prev => ({ ...prev, name: '' }));
+                  }}
+                  style={{ width: '100%', borderColor: catFormErrors.name ? '#E53E3E' : undefined }}
+                  autoFocus
+                />
+                {catFormErrors.name && (
+                  <span style={{ color: '#E53E3E', fontSize: 12, marginTop: 4, display: 'block', fontWeight: 600 }}>
+                    {catFormErrors.name}
+                  </span>
+                )}
+              </div>
+
+              {/* Slug & Sort Order */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', display: 'block', marginBottom: 6 }}>
+                    Category Slug / URL Filter
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', background: '#F8FAFC', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px' }}>
+                    <span style={{ fontSize: 12, color: 'var(--slate)', fontWeight: 600 }}>/shop?category=</span>
+                    <input
+                      type="text"
+                      placeholder="hair-accessories"
+                      value={catForm.slug}
+                      onChange={(e) => setCatForm(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
+                      style={{ border: 'none', background: 'transparent', outline: 'none', padding: '10px 4px', fontSize: 13, fontWeight: 600, color: 'var(--onyx)', width: '100%' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', display: 'block', marginBottom: 6 }}>
+                    Display Order
+                  </label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    min="1"
+                    value={catForm.sort_order}
+                    onChange={(e) => setCatForm(prev => ({ ...prev, sort_order: parseInt(e.target.value, 10) || 1 }))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', display: 'block', marginBottom: 6 }}>
+                  Description / Subtitle
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={2}
+                  placeholder="Brief summary of pieces featured in this category collection..."
+                  value={catForm.description}
+                  onChange={(e) => setCatForm(prev => ({ ...prev, description: e.target.value }))}
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Category Image Upload / Spec */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', margin: 0 }}>
+                    Category Cover Image <span style={{ color: '#E53E3E' }}>*</span>
+                  </label>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold-dark)', background: '#FAF4E8', border: '1px solid #F5E6CC', padding: '2px 8px', borderRadius: 4 }}>
+                    📐 Recommended: 1200 × 1200 px
+                  </span>
+                </div>
+
+                <p style={{ fontSize: 12, color: 'var(--slate)', margin: '0 0 10px 0' }}>
+                  A 1:1 square ratio image (1200 × 1200 px) delivers the sharpest presentation on both the homepage category grid and catalogue headers.
+                </p>
+
+                {/* Image Preview & Upload Controls */}
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  {/* Preview Thumbnail */}
+                  <div style={{ width: 110, height: 110, borderRadius: 10, border: '2px dashed var(--border)', background: '#FAFAFA', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                    {catImagePreview || catForm.image ? (
+                      <>
+                        <img
+                          src={catImagePreview || catForm.image}
+                          alt="Category preview"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            const filename = (catImagePreview || catForm.image || '').split('/').pop();
+                            e.target.onerror = null;
+                            e.target.src = `/assets/${decodeURIComponent(filename)}`;
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCatImageFile(null);
+                            setCatImagePreview('');
+                            setCatForm(prev => ({ ...prev, image: '' }));
+                          }}
+                          style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.65)', color: '#FFFFFF', border: 'none', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                          title="Remove image"
+                        >
+                          <X style={{ width: 12, height: 12 }} />
+                        </button>
+                      </>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: 8, color: 'var(--slate)' }}>
+                        <UploadCloud style={{ width: 28, height: 28, margin: '0 auto 4px auto', opacity: 0.5, display: 'block' }} />
+                        <span style={{ fontSize: 10, fontWeight: 600 }}>1200×1200</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload button & Direct URL */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <label style={{ cursor: 'pointer', padding: '9px 16px', background: 'var(--onyx)', color: '#FFFFFF', borderRadius: 8, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <UploadCloud style={{ width: 15, height: 15 }} />
+                        <span>{catImagePreview ? 'Choose Different File' : 'Upload 1200×1200 Image'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleCategoryFileChange}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      {catImageFile && (
+                        <span style={{ fontSize: 11, color: '#15803D', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <CheckCircle2 style={{ width: 14, height: 14 }} /> {catImageFile.name}
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, color: 'var(--slate)', textTransform: 'uppercase', fontWeight: 600, whiteSpace: 'nowrap' }}>Or Image URL:</span>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="https://... or /assets/filename.webp"
+                        value={catForm.image}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCatForm(prev => ({ ...prev, image: val }));
+                          if (!catImageFile) setCatImagePreview(val);
+                          if (catFormErrors.image) setCatFormErrors(prev => ({ ...prev, image: '' }));
+                        }}
+                        style={{ flex: 1, fontSize: 12, padding: '6px 10px' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {catFormErrors.image && (
+                  <span style={{ color: '#E53E3E', fontSize: 12, marginTop: 6, display: 'block', fontWeight: 600 }}>
+                    {catFormErrors.image}
+                  </span>
+                )}
+              </div>
+
+              {/* Form Actions */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 16, borderTop: '1px solid var(--border-light)' }}>
+                {editingCategory ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete the category "${editingCategory.name}"? Products in this category will not be deleted.`)) {
+                        deleteCategory(editingCategory.id || editingCategory.slug || editingCategory.dbId);
+                        setCatModalOpen(false);
+                      }
+                    }}
+                    style={{ background: '#FFF5F5', color: '#E53E3E', border: '1px solid #FEB2B2', padding: '9px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Trash2 style={{ width: 14, height: 14 }} /> Delete Category
+                  </button>
+                ) : <div />}
+
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setCatModalOpen(false)}
+                    className="btn-secondary"
+                    style={{ padding: '9px 18px', fontSize: 13 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={catLoading}
+                    style={{ padding: '9px 24px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    {catLoading ? (
+                      <>
+                        <RefreshCw style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      editingCategory ? 'Update Category' : 'Create Category'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: Stock Movement History */}
       {selectedStockProduct && (
