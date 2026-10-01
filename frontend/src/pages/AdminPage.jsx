@@ -180,6 +180,7 @@ export default function AdminPage() {
     e.preventDefault();
     const errors = {};
     if (!catForm.name.trim()) errors.name = 'Category name is required';
+    if (!catForm.slug.trim()) errors.slug = 'Category URL is required';
     if (!catImagePreview && !catForm.image.trim()) errors.image = 'Category image is required (recommended 1200 × 1200 px)';
 
     if (Object.keys(errors).length > 0) {
@@ -189,7 +190,7 @@ export default function AdminPage() {
 
     setCatLoading(true);
     try {
-      const slug = catForm.slug.trim() || catForm.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const slug = catForm.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const targetOrder = (catForm.sort_order !== '' && !isNaN(Number(catForm.sort_order)))
         ? Math.max(1, parseInt(catForm.sort_order, 10))
         : (editingCategory ? (editingCategory.sort_order || 1) : (categories.length + 1));
@@ -1525,9 +1526,6 @@ export default function AdminPage() {
                             }
                           }}
                         />
-                        <span style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(212, 175, 55, 0.95)', color: '#1A1A1A', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>
-                          Order #{c.sort_order || 1}
-                        </span>
                         <span style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(26,26,26,0.75)', backdropFilter: 'blur(4px)', color: '#FFFFFF', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20 }}>
                           {prodCount} {prodCount === 1 ? 'Product' : 'Products'}
                         </span>
@@ -1536,7 +1534,6 @@ export default function AdminPage() {
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                             <h4 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--onyx)', textTransform: 'capitalize' }}>{c.name}</h4>
-                            <span style={{ fontSize: 11, color: 'var(--gold-dark)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>/{c.slug || c.id}</span>
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8, marginTop: 10, borderTop: '1px solid var(--border-light)', paddingTop: 10 }}>
@@ -3505,22 +3502,31 @@ export default function AdminPage() {
                 )}
               </div>
 
-              {/* Slug & Sort Order */}
+              {/* Category URL & Sort Order */}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx)', display: 'block', marginBottom: 6 }}>
-                    Category Slug / URL Filter
+                    Category URL <span style={{ color: '#E53E3E' }}>*</span>
                   </label>
-                  <div style={{ display: 'flex', alignItems: 'center', background: '#F8FAFC', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', background: '#F8FAFC', border: `1px solid ${catFormErrors.slug ? '#E53E3E' : 'var(--border)'}`, borderRadius: 8, padding: '0 10px' }}>
                     <span style={{ fontSize: 12, color: 'var(--slate)', fontWeight: 600 }}>/shop?category=</span>
                     <input
                       type="text"
-                      placeholder="hair-accessories"
+                      placeholder="earrings"
                       value={catForm.slug}
-                      onChange={(e) => setCatForm(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
+                      onChange={(e) => {
+                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                        setCatForm(prev => ({ ...prev, slug: val }));
+                        if (catFormErrors.slug) setCatFormErrors(prev => ({ ...prev, slug: '' }));
+                      }}
                       style={{ border: 'none', background: 'transparent', outline: 'none', padding: '10px 4px', fontSize: 13, fontWeight: 600, color: 'var(--onyx)', width: '100%' }}
                     />
                   </div>
+                  {catFormErrors.slug && (
+                    <span style={{ color: '#E53E3E', fontSize: 12, marginTop: 4, display: 'block', fontWeight: 600 }}>
+                      {catFormErrors.slug}
+                    </span>
+                  )}
                 </div>
 
                 <div>
