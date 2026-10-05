@@ -3614,12 +3614,12 @@ export default function AdminPage() {
                     )}
                   </div>
 
-                  {/* Upload button & Direct URL */}
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* Upload button */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <label style={{ cursor: 'pointer', padding: '9px 16px', background: 'var(--onyx)', color: '#FFFFFF', borderRadius: 8, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <UploadCloud style={{ width: 15, height: 15 }} />
-                        <span>{catImagePreview ? 'Choose Different File' : 'Upload 1200×1200 Image'}</span>
+                      <label style={{ cursor: 'pointer', padding: '10px 18px', background: 'var(--onyx)', color: '#FFFFFF', borderRadius: 8, fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'background 0.2s' }}>
+                        <UploadCloud style={{ width: 16, height: 16 }} />
+                        <span>{catImagePreview || catForm.image ? 'Choose Different File' : 'Upload 1200×1200 Image'}</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -3628,27 +3628,10 @@ export default function AdminPage() {
                         />
                       </label>
                       {catImageFile && (
-                        <span style={{ fontSize: 11, color: '#15803D', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <CheckCircle2 style={{ width: 14, height: 14 }} /> {catImageFile.name}
+                        <span style={{ fontSize: 12, color: '#15803D', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <CheckCircle2 style={{ width: 15, height: 15 }} /> {catImageFile.name}
                         </span>
                       )}
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 11, color: 'var(--slate)', textTransform: 'uppercase', fontWeight: 600, whiteSpace: 'nowrap' }}>Or Image URL:</span>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="https://... or /assets/filename.webp"
-                        value={catForm.image}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCatForm(prev => ({ ...prev, image: val }));
-                          if (!catImageFile) setCatImagePreview(val);
-                          if (catFormErrors.image) setCatFormErrors(prev => ({ ...prev, image: '' }));
-                        }}
-                        style={{ flex: 1, fontSize: 12, padding: '6px 10px' }}
-                      />
                     </div>
                   </div>
                 </div>
