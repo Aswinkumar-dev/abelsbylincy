@@ -3563,7 +3563,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Image Preview & Upload Controls */}
-                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                   {/* Preview Thumbnail */}
                   <div style={{ width: 110, height: 110, borderRadius: 10, border: '2px dashed var(--border)', background: '#FAFAFA', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                     {catImagePreview || catForm.image ? (
