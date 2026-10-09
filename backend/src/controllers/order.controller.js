@@ -397,25 +397,18 @@ const syncOrders = async (req, res, next) => {
         let isNewOrder = false;
 
         if (!orderDbId) {
-          const candidateKeys = [
-            order.order_number,
-            order.orderNumber,
-            order.id,
-            order.uuid,
-            orderUuid,
-            primaryKey
-          ].filter(Boolean).map(k => String(k).trim());
-
-          const candidateNums = candidateKeys.filter(k => !isNaN(k) && Number(k) > 0).map(k => Number(k));
-          if (candidateNums.length === 0) candidateNums.push(-1);
+          const oNum = String(order.order_number || order.orderNumber || primaryKey || '').trim();
+          const oUuid = String(order.uuid || orderUuid || '').trim();
+          const oIdNum = (!isNaN(order.id) && Number(order.id) > 0) ? Number(order.id) : ((!isNaN(primaryKey) && Number(primaryKey) > 0) ? Number(primaryKey) : -1);
+          const oDbIdNum = (order.dbId !== undefined && !isNaN(order.dbId) && Number(order.dbId) > 0) ? Number(order.dbId) : -1;
 
           const [existing] = await db.query(
             `SELECT id FROM orders 
-             WHERE order_number IN (?) 
-                OR uuid IN (?) 
-                OR id IN (?) 
+             WHERE order_number = ? OR order_number = ? 
+                OR uuid = ? OR uuid = ? 
+                OR id = ? OR id = ? 
              LIMIT 1`,
-            [candidateKeys, candidateKeys, candidateNums]
+            [oNum, primaryKey, oUuid, primaryKey, oIdNum, oDbIdNum]
           );
           if (existing.length > 0) {
             orderDbId = existing[0].id;

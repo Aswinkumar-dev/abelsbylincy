@@ -516,7 +516,7 @@ export default function AdminPage() {
     } else if (newStatus === 'Cancelled') {
       openCancelOrderModal(order);
     } else {
-      if (updateOrderStatus) updateOrderStatus(targetKey, newStatus);
+      if (updateOrderStatus) updateOrderStatus(order, newStatus);
       if (selectedOrder && matchesOrderId(selectedOrder, targetKey)) {
         setSelectedOrder(prev => ({ ...prev, status: newStatus }));
       }

@@ -2169,15 +2169,21 @@ export function StoreProvider({ children }) {
     showToast('Category removed successfully.', 'check');
   }, [setCategories, showToast]);
 
-  const updateOrderStatus = useCallback(async (id, newStatus, additionalData = {}) => {
-    if (!id) return;
+  const updateOrderStatus = useCallback(async (orderOrId, newStatus, additionalData = {}) => {
+    if (!orderOrId) return;
+    const targetKey = typeof orderOrId === 'object' ? (orderOrId.id || orderOrId.order_number || orderOrId.uuid || orderOrId.dbId) : orderOrId;
+    const baseOrder = typeof orderOrId === 'object' ? orderOrId : null;
     let affectedOrder = null;
+
     setOrdersRaw(prev => {
       const currentList = Array.isArray(prev) ? prev : [];
+      let found = false;
       const updated = currentList.map(o => {
-        if (matchesOrderId(o, id)) {
+        if (matchesOrderId(o, targetKey) || (baseOrder && areSameOrder(o, baseOrder))) {
+          found = true;
           affectedOrder = {
             ...o,
+            ...(baseOrder || {}),
             status: newStatus,
             lastUpdated: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
             ...additionalData
@@ -2186,28 +2192,50 @@ export function StoreProvider({ children }) {
         }
         return o;
       });
+      if (!found && baseOrder) {
+        affectedOrder = {
+          ...baseOrder,
+          status: newStatus,
+          lastUpdated: 'Today, ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          ...additionalData
+        };
+        updated.unshift(affectedOrder);
+      }
       writeLS('abl_orders_v9', updated);
       return updated;
     });
 
-    // Authoritative Server sync
-    if (affectedOrder) {
-      try {
-        const res = await apiFetch('/api/orders/sync', {
+    // Authoritative Server sync via /api/orders/sync and /api/orders/status
+    const payloadOrder = affectedOrder || (baseOrder ? { ...baseOrder, status: newStatus, ...additionalData } : { id: targetKey, status: newStatus, ...additionalData });
+
+    try {
+      const [syncRes] = await Promise.allSettled([
+        apiFetch('/api/orders/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order: affectedOrder })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && Array.isArray(data.orders)) {
-            setOrdersRaw(data.orders);
-            writeLS('abl_orders_v9', data.orders);
-          }
+          body: JSON.stringify({ order: payloadOrder })
+        }),
+        apiFetch('/api/orders/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: payloadOrder.id || targetKey,
+            orderNumber: payloadOrder.order_number || payloadOrder.id || targetKey,
+            status: newStatus,
+            trackingNumber: payloadOrder.trackingNumber || additionalData.trackingNumber
+          })
+        })
+      ]);
+
+      if (syncRes.status === 'fulfilled' && syncRes.value.ok) {
+        const data = await syncRes.value.json();
+        if (data.success && Array.isArray(data.orders)) {
+          setOrdersRaw(data.orders);
+          writeLS('abl_orders_v9', data.orders);
         }
-      } catch (err) {
-        console.warn('Orders sync server offline, status updated locally only:', err);
       }
+    } catch (err) {
+      console.warn('Orders sync server offline, status updated locally only:', err);
     }
 
     // Update customer spending when an order is cancelled or refunded
