@@ -880,6 +880,216 @@ const sendRefundEmail = async (req, res, next) => {
   }
 };
 
+const placePickupOrder = async (req, res, next) => {
+  try {
+    const { items, email, firstName, lastName, phone, discountAmount: reqDiscount, couponCode } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: 'Cart items are required.' });
+    }
+    if (!email || !phone || (!firstName && !req.body.name && !req.body.customerName)) {
+      return res.status(400).json({ success: false, message: 'Customer name, email, and phone are required for pick-up orders.' });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const custFirstName = String(firstName || req.body.name || req.body.customerName || 'Valued').trim().split(' ')[0] || 'Valued';
+    const custLastName = String(lastName || req.body.name || req.body.customerName || '').trim().split(' ').slice(1).join(' ') || 'Customer';
+    const fullName = `${custFirstName} ${custLastName}`.trim();
+    const cleanPhone = String(phone).trim();
+
+    // Verify & recalculate items from DB to prevent tampering
+    const { getStoredProducts } = require('../utils/fileStore');
+    const storedProducts = getStoredProducts() || [];
+
+    let subtotal = 0;
+    const verifiedItems = [];
+
+    for (const item of items) {
+      const parsedQty = parseInt(item.quantity || 1, 10);
+      if (isNaN(parsedQty) || parsedQty <= 0) continue;
+
+      const cleanItemId = String(item.id || item.productId || '').replace(/['";<>\\]/g, '').trim();
+      const cleanSku = String(item.sku || '').trim().toUpperCase();
+      let authoritativePrice = 0;
+      let authoritativeName = String(item.name || item.productName || 'Fine Jewellery').replace(/<[^>]*>/g, '').trim();
+
+      if (cleanItemId || cleanSku) {
+        try {
+          const [dbProducts] = await db.query(
+            'SELECT id, name, price, sale_price, images FROM products WHERE id = ? OR sku = ? OR uuid = ? LIMIT 1',
+            [cleanItemId || null, cleanSku || null, cleanItemId || null]
+          );
+          if (dbProducts && dbProducts.length > 0) {
+            const p = dbProducts[0];
+            const pPrice = parseFloat(p.sale_price || p.price || 0);
+            if (pPrice > 0) authoritativePrice = pPrice;
+            if (p.name) authoritativeName = p.name;
+          }
+        } catch (_) {}
+      }
+
+      if (!authoritativePrice && storedProducts.length > 0) {
+        const stored = storedProducts.find(
+          p => String(p.id) === cleanItemId || String(p.sku).toUpperCase() === cleanSku || (p.name && p.name.toLowerCase() === authoritativeName.toLowerCase())
+        );
+        if (stored) {
+          const sPrice = parseFloat(stored.salePrice || stored.price || 0);
+          if (sPrice > 0) authoritativePrice = sPrice;
+          if (stored.name) authoritativeName = stored.name;
+        }
+      }
+
+      if (!authoritativePrice) {
+        authoritativePrice = parseFloat(item.price || item.salePrice || item.unitPrice || 0);
+      }
+
+      const itemTotal = authoritativePrice * parsedQty;
+      subtotal += itemTotal;
+
+      verifiedItems.push({
+        id: item.id || item.productId,
+        productId: item.productId || item.id,
+        sku: cleanSku || 'ABL-JEW',
+        name: authoritativeName,
+        productName: authoritativeName,
+        quantity: parsedQty,
+        price: authoritativePrice,
+        unitPrice: authoritativePrice,
+        total: itemTotal,
+        image: item.image || item.productImageUrl || item.product_image_url || '/assets/logo.svg'
+      });
+    }
+
+    const discountAmount = Math.min(parseFloat(reqDiscount) || 0, subtotal);
+    const shippingAmount = 0.00;
+    const totalAmount = Math.max(0, subtotal - discountAmount);
+
+    const orderNumber = `ABL-PK-${Math.floor(100000 + Math.random() * 900000)}`;
+    const orderUuid = require('crypto').randomUUID();
+
+    let userId = null;
+    try {
+      const [uRows] = await db.query('SELECT id FROM users WHERE email = ?', [cleanEmail]);
+      if (uRows.length > 0) userId = uRows[0].id;
+    } catch (_) {}
+
+    // Ensure orders table columns exist
+    const [oCols] = await db.query('SHOW COLUMNS FROM orders');
+    const oColNames = oCols.map(c => c.Field);
+
+    const insertCols = ['order_number', 'guest_email', 'currency', 'subtotal', 'discount_amount', 'shipping_amount', 'total_amount', 'status', 'payment_status', 'fulfillment_status', 'placed_at'];
+    const insertPlaceholders = ['?', '?', "'AUD'", '?', '?', '0.00', '?', "'Pick Up Ready'", "'pending_pickup'", "'ready_for_pickup'", 'NOW()'];
+    const insertVals = [orderNumber, cleanEmail, subtotal, discountAmount, totalAmount];
+
+    if (oColNames.includes('uuid')) { insertCols.push('uuid'); insertPlaceholders.push('?'); insertVals.push(orderUuid); }
+    if (oColNames.includes('user_id')) { insertCols.push('user_id'); insertPlaceholders.push('?'); insertVals.push(userId); }
+    if (oColNames.includes('tax_amount')) { insertCols.push('tax_amount'); insertPlaceholders.push('0.00'); }
+
+    const [orderResult] = await db.query(
+      `INSERT INTO orders (${insertCols.join(', ')}) VALUES (${insertPlaceholders.join(', ')})`,
+      insertVals
+    );
+    const orderId = orderResult.insertId;
+
+    // Record In-Person Pickup Address
+    const iAddrCols = ['order_id', 'address_type', 'first_name', 'last_name', 'address_line_1', 'suburb', 'country', 'country_code', 'phone'];
+    const iAddrPlaceholders = ['?', "'pickup'", '?', '?', "'In-Person Pick Up'", "'In-Person Collection'", "'Australia'", "'AU'", '?'];
+    const iAddrVals = [orderId, custFirstName, custLastName, cleanPhone];
+
+    await db.query(`INSERT INTO order_addresses (${iAddrCols.join(', ')}) VALUES (${iAddrPlaceholders.join(', ')})`, iAddrVals);
+
+    // Record order_items
+    const [itCols] = await db.query('SHOW COLUMNS FROM order_items');
+    const itColNames = itCols.map(c => c.Field);
+
+    for (const item of verifiedItems) {
+      const itColsList = ['order_id', 'product_name', 'quantity', 'unit_price', 'total_amount'];
+      const itPlaceholders = ['?', '?', '?', '?', '?'];
+      const itVals = [orderId, item.name, item.quantity, item.price, item.total];
+
+      let realProductId = null;
+      const numId = parseInt(String(item.id || item.productId).replace(/[^0-9]/g, ''), 10);
+      if (!isNaN(numId) && numId > 0) realProductId = numId;
+
+      if (itColNames.includes('product_id')) { itColsList.push('product_id'); itPlaceholders.push('?'); itVals.push(realProductId); }
+      if (itColNames.includes('sku')) { itColsList.push('sku'); itPlaceholders.push('?'); itVals.push(item.sku); }
+      if (itColNames.includes('product_image_url')) { itColsList.push('product_image_url'); itPlaceholders.push('?'); itVals.push(item.image); }
+
+      await db.query(`INSERT INTO order_items (${itColsList.join(', ')}) VALUES (${itPlaceholders.join(', ')})`, itVals);
+    }
+
+    // Record in payments table (Cash / In-Person Collection)
+    const [pCols] = await db.query('SHOW COLUMNS FROM payments');
+    const pColNames = pCols.map(c => c.Field);
+
+    const pInsertCols = ['order_id', 'amount'];
+    const pInsertPlaceholders = ['?', '?'];
+    const pInsertVals = [orderId, totalAmount];
+
+    if (pColNames.includes('provider')) { pInsertCols.push('provider'); pInsertPlaceholders.push("'in_person'"); }
+    if (pColNames.includes('payment_method_type')) { pInsertCols.push('payment_method_type'); pInsertPlaceholders.push("'cash_on_pickup'"); }
+    if (pColNames.includes('currency')) { pInsertCols.push('currency'); pInsertPlaceholders.push("'AUD'"); }
+    if (pColNames.includes('status')) { pInsertCols.push('status'); pInsertPlaceholders.push("'pending'"); }
+    if (pColNames.includes('stripe_payment_intent_id')) { pInsertCols.push('stripe_payment_intent_id'); pInsertPlaceholders.push('?'); pInsertVals.push(`pickup_${orderNumber}`); }
+
+    await db.query(`INSERT INTO payments (${pInsertCols.join(', ')}) VALUES (${pInsertPlaceholders.join(', ')})`, pInsertVals);
+
+    // Real-Time Stock Deduction in MySQL
+    try {
+      await adjustOrderStockOnce(db, orderId, orderNumber, verifiedItems);
+    } catch (stockErr) {
+      console.warn('⚠️ Pickup stock adjustment note:', stockErr.message);
+    }
+
+    // Send Pickup Confirmation Email to Customer
+    try {
+      await sendOrderConfirmationEmail({
+        orderNumber: orderNumber,
+        customerName: fullName,
+        customerEmail: cleanEmail,
+        purchasedItems: verifiedItems,
+        subtotal: subtotal,
+        discountAmount: discountAmount,
+        shippingFee: 0,
+        orderTotal: `$${totalAmount.toFixed(2)} AUD`,
+        rawAmount: totalAmount,
+        shippingMethod: 'In-Person Pick Up'
+      });
+    } catch (emailErr) {
+      console.warn('⚠️ Pickup confirmation email note:', emailErr.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'In-Person Pick Up order placed successfully.',
+      order: {
+        id: orderId,
+        orderNumber,
+        order_number: orderNumber,
+        uuid: orderUuid,
+        customer: fullName,
+        name: fullName,
+        email: cleanEmail,
+        phone: cleanPhone,
+        items: verifiedItems,
+        subtotal: subtotal,
+        discountAmount: discountAmount,
+        couponCode: couponCode || null,
+        shippingFee: 0,
+        shippingMethod: 'In-Person Pick Up',
+        total: `$${totalAmount.toFixed(2)}`,
+        rawAmount: totalAmount,
+        status: 'Pick Up Ready',
+        paymentStatus: 'pending_pickup',
+        paymentMethod: 'In-Person Collection (Cash)',
+        date: new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error placing pick-up order:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   createStripeIntent,
   createCheckoutSession,
@@ -892,5 +1102,6 @@ module.exports = {
   reconcilePayments,
   recordStripeOrder,
   getSessionDetails,
-  checkStripeRefund
+  checkStripeRefund,
+  placePickupOrder
 };

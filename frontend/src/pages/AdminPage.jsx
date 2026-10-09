@@ -26,6 +26,8 @@ export default function AdminPage() {
   const normalizeStatus = (status) => {
     if (!status) return 'Confirmed';
     const s = String(status).trim().toLowerCase();
+    if (s.includes('pick up ready') || s.includes('pickup ready') || s === 'ready for pickup') return 'Pick Up Ready';
+    if (s.includes('collected') || s.includes('handed over')) return 'Collected / Handed Over';
     if (s === 'packed') return 'Packed';
     if (s === 'shipped') return 'Shipped';
     if (s === 'delivered') return 'Delivered';
@@ -35,6 +37,12 @@ export default function AdminPage() {
 
   const getStatusStyles = (status) => {
     const s = String(status || '').trim().toLowerCase();
+    if (s.includes('pick up ready') || s.includes('pickup ready') || s === 'ready for pickup') {
+      return { bg: '#E6FFFA', color: '#0D9488', border: '#99F6E4' };
+    }
+    if (s.includes('collected') || s.includes('handed over')) {
+      return { bg: '#E6F4EA', color: '#137333', border: '#CEEAD6' };
+    }
     switch (s) {
       case 'confirmed':
       case 'new order':
@@ -1877,11 +1885,27 @@ export default function AdminPage() {
                                         boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                                       }}
                                     >
-                                      <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
-                                      <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
-                                      <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
-                                      <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
-                                      <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
+                                      {(() => {
+                                        const isPickup = String(o.shippingMethod || '').includes('Pick Up') || String(o.id || '').startsWith('ABL-PK-') || normSt === 'Pick Up Ready' || normSt === 'Collected / Handed Over';
+                                        if (isPickup) {
+                                          return (
+                                            <>
+                                              <option value="Pick Up Ready" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Pick Up Ready</option>
+                                              <option value="Collected / Handed Over" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Collected / Handed Over</option>
+                                              <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
+                                            </>
+                                          );
+                                        }
+                                        return (
+                                          <>
+                                            <option value="Confirmed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Confirmed</option>
+                                            <option value="Packed" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Packed</option>
+                                            <option value="Shipped" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Shipped</option>
+                                            <option value="Delivered" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Delivered</option>
+                                            <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
+                                          </>
+                                        );
+                                      })()}
                                     </select>
 
                                     {o.trackingNumber && (
@@ -4649,20 +4673,33 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Delivery Address Box */}
+                {/* Delivery Address / Pick Up Box */}
                 <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: 'var(--gold-dark)', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    <MapPin style={{ width: 14, height: 14 }} /> Delivery Address
+                    <MapPin style={{ width: 14, height: 14 }} /> {String(selectedOrder.shippingMethod || '').includes('Pick Up') || String(selectedOrder.id || '').startsWith('ABL-PK-') ? 'Fulfillment Method' : 'Delivery Address'}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--onyx)', marginBottom: 2 }}>
-                    {selectedOrder.address || '189 Brompton Road'}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--slate)', lineHeight: 1.4 }}>
-                    {[selectedOrder.city || 'Brisbane City', selectedOrder.state || 'Queensland (QLD)', selectedOrder.postcode || '4061'].filter(Boolean).join(', ')}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 4, fontWeight: 500 }}>
-                    Country: Australia (Australia Post Delivery)
-                  </div>
+                  {String(selectedOrder.shippingMethod || '').includes('Pick Up') || String(selectedOrder.id || '').startsWith('ABL-PK-') ? (
+                    <div>
+                      <strong style={{ fontSize: 13, color: '#0D9488', display: 'block', marginBottom: 4 }}>
+                        In-Person Pick Up (Direct Handover)
+                      </strong>
+                      <span style={{ fontSize: 12, color: 'var(--slate)' }}>
+                        No postal shipping required. Collect directly in person.
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--onyx)', marginBottom: 2 }}>
+                        {selectedOrder.address || '189 Brompton Road'}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--slate)', lineHeight: 1.4 }}>
+                        {[selectedOrder.city || 'Brisbane City', selectedOrder.state || 'Queensland (QLD)', selectedOrder.postcode || '4061'].filter(Boolean).join(', ')}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#64748B', marginTop: 4, fontWeight: 500 }}>
+                        Country: Australia (Australia Post Delivery)
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -4788,11 +4825,27 @@ export default function AdminPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="Packed">Packed</option>
-                  <option value="Shipped">Shipped</option>
-                  <option value="Delivered">Delivered</option>
-                  <option value="Cancelled">Cancelled (Refunded)</option>
+                  {(() => {
+                    const isPickup = String(selectedOrder.shippingMethod || '').includes('Pick Up') || String(selectedOrder.id || '').startsWith('ABL-PK-') || normalizeStatus(selectedOrder.status) === 'Pick Up Ready' || normalizeStatus(selectedOrder.status) === 'Collected / Handed Over';
+                    if (isPickup) {
+                      return (
+                        <>
+                          <option value="Pick Up Ready">Pick Up Ready</option>
+                          <option value="Collected / Handed Over">Collected / Handed Over</option>
+                          <option value="Cancelled">Cancelled (Order Cancelled)</option>
+                        </>
+                      );
+                    }
+                    return (
+                      <>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Packed">Packed</option>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Cancelled">Cancelled (Refunded)</option>
+                      </>
+                    );
+                  })()}
                 </select>
               </div>
 

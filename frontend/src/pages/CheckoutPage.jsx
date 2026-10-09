@@ -20,6 +20,7 @@ export default function CheckoutPage() {
   const [paymentTab, setPaymentTab] = useState('card');
   const [completedOrder, setCompletedOrder] = useState(null);
   const [isRedirectingToPayment, setIsRedirectingToPayment] = useState(false);
+  const [isPlacingPickupOrder, setIsPlacingPickupOrder] = useState(false);
   const [phoneError, setPhoneError] = useState('');
   const [postcodeError, setPostcodeError] = useState('');
 
@@ -226,7 +227,7 @@ export default function CheckoutPage() {
 
   const activeCartItems = cart || [];
   const subtotal = activeCartItems.reduce((s, i) => s + i.price * i.quantity, 0);
-  const shippingFee = shippingMethod === 'express' ? 15 : (subtotal >= 60 ? 0 : 10);
+  const shippingFee = shippingMethod === 'pickup' ? 0 : (shippingMethod === 'express' ? 15 : (subtotal >= 60 ? 0 : 10));
 
   let discountAmount = 0;
   if (appliedCoupon) {
@@ -671,8 +672,106 @@ export default function CheckoutPage() {
     showToast(errMsg || data?.message || data?.error || 'Unable to connect to Stripe payment gateway. Please try again.', 'alert-circle');
   };
 
+  const handlePlacePickupOrder = async (e) => {
+    if (e) e.preventDefault();
+    if (isPlacingPickupOrder) return;
+
+    const { firstName, lastName, email, phone } = formData;
+    if (!firstName || !lastName || !email || !phone) {
+      showToast('Please enter your name, email, and contact phone number.', 'alert-circle');
+      return;
+    }
+
+    if (!isValidAustralianPhone(phone)) {
+      setPhoneError('Please enter a valid Australian phone number (e.g. 455 586 102 or 0455 586 102)');
+      showToast('Please enter a valid Australian phone number', 'alert-circle');
+      return;
+    }
+
+    if (activeCartItems.length === 0) {
+      showToast('Your bag is empty', 'alert-circle');
+      return;
+    }
+
+    setIsPlacingPickupOrder(true);
+    showToast('Placing In-Person Pick Up order...', 'loader');
+
+    try {
+      const res = await apiFetch('/api/payments/place-pickup-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: activeCartItems,
+          email: email.trim().toLowerCase(),
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone.trim(),
+          discountAmount: discountAmount,
+          couponCode: appliedCoupon ? appliedCoupon.code : null
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.order) {
+        if (typeof setCart === 'function') setCart([]);
+
+        if (setOrders) {
+          setOrders(prev => [data.order, ...(Array.isArray(prev) ? prev : [])]);
+        }
+
+        if (setCustomers && email) {
+          setCustomers(prevCusts => {
+            const currentCusts = Array.isArray(prevCusts) ? prevCusts : [];
+            const custEmail = email.toLowerCase();
+            const custIdx = currentCusts.findIndex(c => c.email.toLowerCase() === custEmail);
+            let updatedCusts = [...currentCusts];
+            if (custIdx !== -1) {
+              const cust = { ...updatedCusts[custIdx] };
+              cust.orders = (cust.orders || 0) + 1;
+              updatedCusts[custIdx] = cust;
+            } else {
+              updatedCusts.push({
+                id: `c_${Date.now()}`,
+                name: `${firstName} ${lastName}`.trim(),
+                email: email,
+                orders: 1,
+                spent: `$${data.order.rawAmount || 0}`,
+                joined: 'Recent',
+                status: 'Active'
+              });
+            }
+            return updatedCusts;
+          });
+        }
+
+        if (typeof syncBackendData === 'function') {
+          setTimeout(() => syncBackendData(), 1500);
+        }
+
+        setCompletedOrder(data.order);
+        setStep(3);
+        localStorage.removeItem('abl_checkout_draft_form');
+        localStorage.removeItem('abl_checkout_applied_coupon');
+        localStorage.removeItem('abl_checkout_shipping_method');
+        localStorage.removeItem('abl_pending_checkout_items');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        showToast('In-Person Pick Up order placed successfully!', 'check-circle');
+      } else {
+        showToast(data.message || 'Unable to place pick-up order. Please try again.', 'alert-circle');
+      }
+    } catch (err) {
+      showToast(err.message || 'Network error placing pick-up order.', 'alert-circle');
+    } finally {
+      setIsPlacingPickupOrder(false);
+    }
+  };
+
   const handleShippingSubmit = (e) => {
     e.preventDefault();
+    if (shippingMethod === 'pickup') {
+      handlePlacePickupOrder(e);
+      return;
+    }
     const { firstName, lastName, email, phone, address, city, state, postcode } = formData;
     if (!firstName || !lastName || !email || !phone || !address || !city || !state || !postcode) {
       showToast('Please fill in all required shipping fields', 'alert-circle');
@@ -754,6 +853,8 @@ export default function CheckoutPage() {
 
   // Step 3: Comprehensive Order Confirmation View
   if (step === 3 && completedOrder) {
+    const isPickup = completedOrder.shippingMethod === 'In-Person Pick Up' || completedOrder.status === 'Pick Up Ready' || String(completedOrder.id || '').startsWith('ABL-PK-');
+
     return (
       <div className="container" style={{ padding: '40px 16px 80px 16px', maxWidth: 800 }}>
         {/* Success Banner */}
@@ -761,39 +862,64 @@ export default function CheckoutPage() {
           <div style={{ width: 76, height: 76, borderRadius: '50%', background: 'var(--success-bg)', color: 'var(--success)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <Check style={{ width: 40, height: 40 }} />
           </div>
-          <p className="section-subtitle" style={{ color: 'var(--success)', marginBottom: 6, fontWeight: 700 }}>Payment Received via Stripe</p>
+          <p className="section-subtitle" style={{ color: 'var(--success)', marginBottom: 6, fontWeight: 700 }}>
+            {isPickup ? 'In-Person Pick Up Confirmed' : 'Payment Received via Stripe'}
+          </p>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 34, fontWeight: 600, margin: 0 }}>Order Confirmed!</h1>
           <p style={{ fontSize: 14, color: 'var(--slate)', marginTop: 8 }}>
-            Thank you, <strong>{completedOrder.customer}</strong>. Order reference: <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{completedOrder.id}</span>
+            Thank you, <strong>{completedOrder.customer || completedOrder.name}</strong>. Order reference: <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{completedOrder.id || completedOrder.orderNumber}</span>
           </p>
         </div>
 
-        {/* Estimated Delivery Highlight Banner */}
-        <div style={{ background: 'linear-gradient(135deg, var(--onyx) 0%, var(--onyx-light) 100%)', color: '#fff', borderRadius: 'var(--radius-lg)', padding: '24px 28px', marginBottom: 28, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-          <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'rgba(212,175,55,0.2)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Truck style={{ width: 26, height: 26 }} />
+        {/* Estimated Delivery / Pick Up Highlight Banner */}
+        {isPickup ? (
+          <div style={{ background: 'linear-gradient(135deg, var(--onyx) 0%, var(--onyx-light) 100%)', color: '#fff', borderRadius: 'var(--radius-lg)', padding: '24px 28px', marginBottom: 28, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+            <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'rgba(212,175,55,0.2)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <ShoppingBag style={{ width: 26, height: 26 }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--gold)', fontWeight: 700, margin: '0 0 4px 0' }}>In-Person Collection</p>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#fff' }}>
+                Ready for In-Person Pick Up
+              </h3>
+              <p style={{ fontSize: 12, color: 'var(--slate-light)', margin: '4px 0 0 0' }}>
+                Your jewellery will be prepared and handed over directly in person. Confirmation details sent to <strong>{completedOrder.email}</strong>.
+              </p>
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--gold)', fontWeight: 700, margin: '0 0 4px 0' }}>Australia Post Express Insured Dispatch</p>
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#fff' }}>
-              Estimated Delivery: <strong>{completedOrder.deliveryEstimate}</strong>
-            </h3>
-            <p style={{ fontSize: 12, color: 'var(--slate-light)', margin: '4px 0 0 0' }}>
-              Tracking updates will be sent to <strong>{completedOrder.email}</strong> as soon as dispatched.
-            </p>
+        ) : (
+          <div style={{ background: 'linear-gradient(135deg, var(--onyx) 0%, var(--onyx-light) 100%)', color: '#fff', borderRadius: 'var(--radius-lg)', padding: '24px 28px', marginBottom: 28, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+            <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'rgba(212,175,55,0.2)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Truck style={{ width: 26, height: 26 }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--gold)', fontWeight: 700, margin: '0 0 4px 0' }}>Australia Post Express Insured Dispatch</p>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#fff' }}>
+                Estimated Delivery: <strong>{completedOrder.deliveryEstimate || '2-5 Business Days'}</strong>
+              </h3>
+              <p style={{ fontSize: 12, color: 'var(--slate-light)', margin: '4px 0 0 0' }}>
+                Tracking updates will be sent to <strong>{completedOrder.email}</strong> as soon as dispatched.
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Order Details Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginBottom: 28 }}>
-          {/* Customer & Delivery Address Card */}
+          {/* Customer & Delivery / Pick Up Card */}
           <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 22, background: 'var(--cloud-white)' }}>
             <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 600, margin: '0 0 14px 0', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
-              Delivery Address & Contact
+              {isPickup ? 'Contact & Pick Up Details' : 'Delivery Address & Contact'}
             </h4>
-            <p style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px 0', color: 'var(--onyx)' }}>{completedOrder.customer}</p>
-            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 4px 0' }}>{completedOrder.address}</p>
-            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 12px 0' }}>{completedOrder.city}, {completedOrder.state} {completedOrder.postcode}</p>
+            <p style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px 0', color: 'var(--onyx)' }}>{completedOrder.customer || completedOrder.name}</p>
+            {isPickup ? (
+              <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 12px 0' }}>Method: In-Person Pick Up (Direct Handover)</p>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 4px 0' }}>{completedOrder.address}</p>
+                <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 12px 0' }}>{completedOrder.city}, {completedOrder.state} {completedOrder.postcode}</p>
+              </>
+            )}
             <p style={{ fontSize: 12, color: 'var(--slate)', margin: '0 0 4px 0' }}><strong>Email:</strong> {completedOrder.email}</p>
             <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}><strong>Phone:</strong> {completedOrder.phone || 'N/A'}</p>
           </div>
@@ -803,12 +929,12 @@ export default function CheckoutPage() {
             <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 600, margin: '0 0 14px 0', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
               Payment & Order Details
             </h4>
-            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Order Number:</strong> {completedOrder.id}</p>
-            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Order Date:</strong> {completedOrder.date}</p>
-            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Payment Method:</strong> {completedOrder.paymentMethod}</p>
-            <p style={{ fontSize: 13, color: 'var(--success)', margin: '0 0 12px 0', fontWeight: 600 }}><strong>Status:</strong> ✓ {completedOrder.status}</p>
+            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Order Number:</strong> {completedOrder.id || completedOrder.orderNumber}</p>
+            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Order Date:</strong> {completedOrder.date || 'Today'}</p>
+            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Payment Method:</strong> {isPickup ? 'In-Person Collection (Cash)' : (completedOrder.paymentMethod || 'Stripe Card')}</p>
+            <p style={{ fontSize: 13, color: 'var(--success)', margin: '0 0 12px 0', fontWeight: 600 }}><strong>Status:</strong> ✓ {completedOrder.status || (isPickup ? 'Pick Up Ready' : 'Confirmed')}</p>
             <div style={{ background: 'var(--cream)', padding: '10px 14px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Total Paid (GST Inc.):</span>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{isPickup ? 'Total Due on Collection:' : 'Total Paid (GST Inc.):'}</span>
               <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--onyx)' }}>{completedOrder.total}</span>
             </div>
           </div>
@@ -849,14 +975,14 @@ export default function CheckoutPage() {
             )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--slate)' }}>
-              <span>{completedOrder.shippingMethod === 'express' ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)'}</span>
+              <span>{isPickup ? 'In-Person Pick Up' : (completedOrder.shippingMethod === 'express' ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)')}</span>
               <span style={{ fontWeight: 600, color: 'var(--onyx)' }}>
-                {completedOrder.shippingFee === 0 ? 'FREE' : (formatMoney ? formatMoney(completedOrder.shippingFee || 0) : `$${(completedOrder.shippingFee || 0).toFixed(2)}`)}
+                {completedOrder.shippingFee === 0 || isPickup ? 'FREE' : (formatMoney ? formatMoney(completedOrder.shippingFee || 0) : `$${(completedOrder.shippingFee || 0).toFixed(2)}`)}
               </span>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700, color: 'var(--onyx)', marginTop: 8, paddingTop: 12, borderTop: '1.5px solid var(--border)' }}>
-              <span>Total Paid (GST Inc.)</span>
+              <span>{isPickup ? 'Total Due on Collection' : 'Total Paid (GST Inc.)'}</span>
               <span style={{ fontSize: 18, color: 'var(--gold-dark)', fontWeight: 700 }}>{completedOrder.total}</span>
             </div>
           </div>
@@ -963,70 +1089,80 @@ export default function CheckoutPage() {
                       </p>
                     )}
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Street Address *</label>
-                    <input type="text" className="form-control" value={formData.address} onChange={e => setFormData(f => ({...f, address: e.target.value}))} required />
-                  </div>
-                  <div className="form-grid-2">
-                    <div className="form-group">
-                      <label className="form-label">Suburb / Locality *</label>
-                      <input
-                        type="text"
-                        list="aus-suburbs-list"
-                        className="form-control"
-                        value={formData.city}
-                        onChange={handleSuburbChange}
-                        autoComplete="address-level2"
-                        required
-                      />
-                      <datalist id="aus-suburbs-list">
-                        {AUSTRALIAN_SUBURBS.map(s => (
-                          <option key={`${s.name}-${s.state}-${s.postcode}`} value={s.name}>
-                            {s.name}, {s.state} ({s.postcode})
-                          </option>
-                        ))}
-                      </datalist>
+                  {/* Street Address & Australian Location Fields (Only for Postal Delivery) */}
+                  {shippingMethod !== 'pickup' ? (
+                    <>
+                      <div className="form-group">
+                        <label className="form-label">Street Address *</label>
+                        <input type="text" className="form-control" value={formData.address} onChange={e => setFormData(f => ({...f, address: e.target.value}))} required />
+                      </div>
+                      <div className="form-grid-2">
+                        <div className="form-group">
+                          <label className="form-label">Suburb / Locality *</label>
+                          <input
+                            type="text"
+                            list="aus-suburbs-list"
+                            className="form-control"
+                            value={formData.city}
+                            onChange={handleSuburbChange}
+                            autoComplete="address-level2"
+                            required
+                          />
+                          <datalist id="aus-suburbs-list">
+                            {AUSTRALIAN_SUBURBS.map(s => (
+                              <option key={`${s.name}-${s.state}-${s.postcode}`} value={s.name}>
+                                {s.name}, {s.state} ({s.postcode})
+                              </option>
+                            ))}
+                          </datalist>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">State / Territory *</label>
+                          <select
+                            className="form-control"
+                            value={formData.state}
+                            onChange={handleStateChange}
+                            required
+                            style={{ cursor: 'pointer', background: '#fff' }}
+                          >
+                            <option value="">Select State / Territory</option>
+                            {AUSTRALIAN_STATES.map(st => (
+                              <option key={st.code} value={st.code}>
+                                {st.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Postcode *</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          maxLength={4}
+                          value={formData.postcode}
+                          onChange={handlePostcodeChange}
+                          onBlur={handlePostcodeBlur}
+                          style={{ borderColor: postcodeError ? '#DC2626' : undefined }}
+                          required
+                        />
+                        {postcodeError && (
+                          <p style={{ color: '#DC2626', fontSize: 11.5, marginTop: 4, marginBottom: 0, fontWeight: 500 }}>
+                            {postcodeError}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ margin: '14px 0 10px 0', padding: '12px 16px', background: 'var(--cream)', borderRadius: 'var(--radius-md)', fontSize: 13, color: 'var(--onyx)', fontWeight: 600 }}>
+                      No online card payment required.
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">State / Territory *</label>
-                      <select
-                        className="form-control"
-                        value={formData.state}
-                        onChange={handleStateChange}
-                        required
-                        style={{ cursor: 'pointer', background: '#fff' }}
-                      >
-                        <option value="">Select State / Territory</option>
-                        {AUSTRALIAN_STATES.map(st => (
-                          <option key={st.code} value={st.code}>
-                            {st.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Postcode *</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      maxLength={4}
-                      value={formData.postcode}
-                      onChange={handlePostcodeChange}
-                      onBlur={handlePostcodeBlur}
-                      style={{ borderColor: postcodeError ? '#DC2626' : undefined }}
-                      required
-                    />
-                    {postcodeError && (
-                      <p style={{ color: '#DC2626', fontSize: 11.5, marginTop: 4, marginBottom: 0, fontWeight: 500 }}>
-                        {postcodeError}
-                      </p>
-                    )}
-                  </div>
-                  {/* Delivery Options (Australia Post) */}
+                  )}
+
+                  {/* Delivery Options */}
                   <div style={{ marginTop: 24, marginBottom: 20 }}>
                     <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 600, marginBottom: 12, color: 'var(--onyx)' }}>
-                      Delivery Method (Australia Post)
+                      Delivery Method
                     </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {/* Standard Shipping */}
@@ -1035,7 +1171,7 @@ export default function CheckoutPage() {
                           <input type="radio" name="shippingMethod" value="standard" checked={shippingMethod === 'standard'} onChange={() => setShippingMethod('standard')} style={{ accentColor: 'var(--gold)' }} />
                           <div>
                             <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Standard Shipping</p>
-                            <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Delivery in 2–5 business days</p>
+                            <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Delivery in 2–5 business days (Australia Post)</p>
                           </div>
                         </div>
                         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)' }}>
@@ -1049,16 +1185,28 @@ export default function CheckoutPage() {
                           <input type="radio" name="shippingMethod" value="express" checked={shippingMethod === 'express'} onChange={() => setShippingMethod('express')} style={{ accentColor: 'var(--gold)' }} />
                           <div>
                             <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>Express Shipping</p>
-                            <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Delivery in 1–2 business days</p>
+                            <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Delivery in 1–2 business days (Australia Post)</p>
                           </div>
                         </div>
                         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--onyx)' }}>$15.00 AUD</span>
                       </label>
+
+                      {/* In-Person Pick Up */}
+                      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', border: `2px solid ${shippingMethod === 'pickup' ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: shippingMethod === 'pickup' ? 'var(--cream)' : '#fff', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <input type="radio" name="shippingMethod" value="pickup" checked={shippingMethod === 'pickup'} onChange={() => setShippingMethod('pickup')} style={{ accentColor: 'var(--gold)' }} />
+                          <div>
+                            <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>In-Person Pick Up: $0.00 (Free)</p>
+                            <p style={{ fontSize: 12, color: 'var(--slate)', margin: '2px 0 0 0' }}>Handed over directly in person</p>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#16A34A' }}>$0.00 (Free)</span>
+                      </label>
                     </div>
                   </div>
 
-                  {/* Show "Save these details" checkbox ONLY if customer has not saved address yet */}
-                  {!savedAddress && (
+                  {/* Show "Save these details" checkbox ONLY if customer has not saved address yet and not pickup */}
+                  {!savedAddress && shippingMethod !== 'pickup' && (
                     <div style={{ margin: '10px 0 20px 0', background: 'var(--cream)', borderRadius: 'var(--radius-md)', padding: '12px 16px' }}>
                       <label className="filter-checkbox-label" style={{ fontSize: 13, color: 'var(--onyx)', cursor: 'pointer', userSelect: 'none' }}>
                         <input type="checkbox" className="filter-checkbox" checked={saveAddress} onChange={e => setSaveAddress(e.target.checked)} />
@@ -1070,30 +1218,44 @@ export default function CheckoutPage() {
                   <button
                     type="submit"
                     className="btn-primary"
-                    disabled={isRedirectingToPayment}
+                    disabled={isRedirectingToPayment || isPlacingPickupOrder}
                     style={{
                       width: '100%',
                       height: 48,
                       fontSize: 14,
-                      marginTop: savedAddress ? 20 : 0,
-                      opacity: isRedirectingToPayment ? 0.75 : 1,
-                      cursor: isRedirectingToPayment ? 'not-allowed' : 'pointer',
+                      marginTop: (savedAddress || shippingMethod === 'pickup') ? 20 : 0,
+                      opacity: (isRedirectingToPayment || isPlacingPickupOrder) ? 0.75 : 1,
+                      cursor: (isRedirectingToPayment || isPlacingPickupOrder) ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: 8
                     }}
                   >
-                    {isRedirectingToPayment ? (
-                      <>
-                        <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
-                        <span>Redirecting to Stripe Gateway...</span>
-                      </>
+                    {shippingMethod === 'pickup' ? (
+                      isPlacingPickupOrder ? (
+                        <>
+                          <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
+                          <span>Placing Pick Up Order...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Place Pick Up Order</span>
+                          <Check style={{ width: 15, height: 15 }} />
+                        </>
+                      )
                     ) : (
-                      <>
-                        <span>Proceed to Payment</span>
-                        <Lock style={{ width: 14, height: 14 }} />
-                      </>
+                      isRedirectingToPayment ? (
+                        <>
+                          <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
+                          <span>Redirecting to Stripe Gateway...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Proceed to Payment</span>
+                          <Lock style={{ width: 14, height: 14 }} />
+                        </>
+                      )
                     )}
                   </button>
                 </form>

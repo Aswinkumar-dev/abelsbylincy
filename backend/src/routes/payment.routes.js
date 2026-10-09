@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createStripeIntent, createCheckoutSession, handleStripeWebhook, processAdminRefund, sendConfirmationEmail, sendNewsletterEmail, sendDispatchEmail, sendRefundEmail, reconcilePayments, recordStripeOrder, getSessionDetails, checkStripeRefund } = require('../controllers/payment.controller');
+const { createStripeIntent, createCheckoutSession, handleStripeWebhook, processAdminRefund, sendConfirmationEmail, sendNewsletterEmail, sendDispatchEmail, sendRefundEmail, reconcilePayments, recordStripeOrder, getSessionDetails, checkStripeRefund, placePickupOrder } = require('../controllers/payment.controller');
 const authenticateToken = require('../middleware/auth.middleware');
 
 // Public Stripe webhook receiver (expects RAW body buffer, parsed in app.js entry point)
@@ -8,6 +8,9 @@ router.post('/webhook', handleStripeWebhook);
 
 // Stripe Hosted Checkout Session creation
 router.post('/create-checkout-session', createCheckoutSession);
+
+// In-Person Pick Up Order Placement (Cash / In-Person Collection, Immediate Stock Deduction)
+router.post('/place-pickup-order', placePickupOrder);
 
 // Get Stripe Checkout Session Details (for confirmation screen verification)
 router.get('/session-details/:sessionId', getSessionDetails);
