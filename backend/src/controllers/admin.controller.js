@@ -219,11 +219,31 @@ const updateOrderStatus = async (req, res, next) => {
     const customerEmail = order.guest_email || await db.query('SELECT email FROM users WHERE id = ?', [order.user_id]).then(([r]) => r[0]?.email);
 
     // Update fulfillment / shipping status
-    let updateQuery = 'UPDATE orders SET status = ?';
-    const params = [status];
+    let fulfillmentStatus = 'unfulfilled';
+    let paymentStatus = order.payment_status;
+    const sLower = String(status || '').trim().toLowerCase();
 
-    if (status === 'shipped') {
-      updateQuery += ", fulfillment_status = 'shipped'";
+    if (sLower === 'shipped') {
+      fulfillmentStatus = 'shipped';
+    } else if (sLower === 'delivered') {
+      fulfillmentStatus = 'delivered';
+    } else if (sLower === 'packed') {
+      fulfillmentStatus = 'packed';
+    } else if (sLower.includes('collected') || sLower.includes('handed over')) {
+      fulfillmentStatus = 'fulfilled';
+      paymentStatus = 'paid';
+    } else if (sLower.includes('pick up ready') || sLower.includes('pickup ready') || sLower === 'ready for pickup') {
+      fulfillmentStatus = 'ready_for_pickup';
+      paymentStatus = 'pending_pickup';
+    } else if (sLower === 'cancelled') {
+      fulfillmentStatus = 'cancelled';
+      paymentStatus = 'cancelled';
+    }
+
+    let updateQuery = 'UPDATE orders SET status = ?, fulfillment_status = ?, payment_status = ?';
+    const params = [status, fulfillmentStatus, paymentStatus];
+
+    if (sLower === 'shipped') {
       // Send shipping notification
       if (customerEmail) {
         await sendEmail({
@@ -240,8 +260,7 @@ const updateOrderStatus = async (req, res, next) => {
           userId: order.user_id
         });
       }
-    } else if (status === 'delivered') {
-      updateQuery += ", fulfillment_status = 'delivered'";
+    } else if (sLower === 'delivered') {
       // Send delivery notification
       if (customerEmail) {
         await sendEmail({

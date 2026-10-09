@@ -121,9 +121,9 @@ const fetchAllCombinedOrders = async () => {
   let dbOrders = [];
   try {
     try {
-      await db.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'Confirmed'");
-      await db.query("ALTER TABLE orders MODIFY COLUMN payment_status VARCHAR(50) NOT NULL DEFAULT 'paid'");
-      await db.query("ALTER TABLE orders MODIFY COLUMN fulfillment_status VARCHAR(50) NULL DEFAULT 'unfulfilled'");
+      await db.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(100) NOT NULL DEFAULT 'Confirmed'");
+      await db.query("ALTER TABLE orders MODIFY COLUMN payment_status VARCHAR(100) NOT NULL DEFAULT 'paid'");
+      await db.query("ALTER TABLE orders MODIFY COLUMN fulfillment_status VARCHAR(100) NULL DEFAULT 'unfulfilled'");
     } catch (_) {}
 
     try {
@@ -180,11 +180,22 @@ const fetchAllCombinedOrders = async () => {
           } catch (_) {}
         }
 
-        const shipAddr = addresses.find(a => a.address_type === 'shipping') || addresses[0] || {};
+        const shipAddr = addresses.find(a => a.address_type === 'shipping' || a.address_type === 'pickup') || addresses[0] || {};
         const custName = `${shipAddr.first_name || order.user_fname || ''} ${shipAddr.last_name || order.user_lname || ''}`.trim() || 'Valued Customer';
         const dateStr = order.placed_at 
           ? new Date(order.placed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
           : new Date(order.created_at || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+        const isPickupOrder = Boolean(
+          shipAddr.address_type === 'pickup' ||
+          String(order.order_number || '').startsWith('ABL-PK-') ||
+          String(order.status || '').includes('Pick Up') ||
+          String(order.status || '').includes('Collected') ||
+          (parseFloat(order.shipping_amount || 0) === 0 && (shipAddr.address_type === 'pickup' || String(shipAddr.address_line_1 || '').includes('Pick Up') || !shipAddr.address_line_1))
+        );
+        const shippingMethodVal = isPickupOrder
+          ? 'In-Person Pick Up'
+          : (parseFloat(order.shipping_amount || 0) >= 15 ? 'Express Shipping' : 'Standard Shipping');
 
         const formattedItems = (items || []).map(i => ({
           id: i.product_id,
@@ -205,22 +216,23 @@ const fetchAllCombinedOrders = async () => {
 
         dbOrders.push({
           id: order.order_number || String(order.id),
-          order_number: order.order_number,
+          order_number: order.order_number || String(order.id),
           dbId: order.id,
           uuid: order.uuid,
           customer: custName,
           email: order.guest_email || order.user_email || '',
           phone: shipAddr.phone || '',
-          address: shipAddr.address_line_1 || '',
-          city: shipAddr.suburb || '',
-          state: shipAddr.state || '',
-          postcode: shipAddr.postcode || '',
+          address: isPickupOrder ? (shipAddr.address_line_1 || 'In-Person Pick Up') : (shipAddr.address_line_1 || ''),
+          city: isPickupOrder ? (shipAddr.suburb || 'In-Person Collection') : (shipAddr.suburb || ''),
+          state: isPickupOrder ? (shipAddr.state || 'Queensland (QLD)') : (shipAddr.state || ''),
+          postcode: isPickupOrder ? (shipAddr.postcode || '4061') : (shipAddr.postcode || ''),
+          shippingMethod: shippingMethodVal,
           product: primaryProdName,
           items: formattedItems,
           date: dateStr,
-          status: order.status || 'Confirmed',
-          payment_status: order.payment_status || (finalRefundAmount >= parseFloat(order.total_amount || 0) && parseFloat(order.total_amount || 0) > 0 ? 'refunded' : (finalRefundAmount > 0 ? 'partially_refunded' : 'paid')),
-          fulfillment_status: order.fulfillment_status || 'unfulfilled',
+          status: order.status || (isPickupOrder ? 'Pick Up Ready' : 'Confirmed'),
+          payment_status: order.payment_status || (isPickupOrder ? (order.status === 'Collected / Handed Over' ? 'paid' : 'pending_pickup') : (finalRefundAmount >= parseFloat(order.total_amount || 0) && parseFloat(order.total_amount || 0) > 0 ? 'refunded' : (finalRefundAmount > 0 ? 'partially_refunded' : 'paid'))),
+          fulfillment_status: order.fulfillment_status || (isPickupOrder ? (order.status === 'Collected / Handed Over' ? 'fulfilled' : 'ready_for_pickup') : 'unfulfilled'),
           total: `$${parseFloat(order.total_amount || 0).toFixed(2)}`,
           rawAmount: parseFloat(order.total_amount || 0),
           subtotal: parseFloat(order.subtotal || 0),
@@ -239,7 +251,7 @@ const fetchAllCombinedOrders = async () => {
             createdAt: r.created_at
           })),
           sessionId: payments?.[0]?.stripe_payment_intent_id || null,
-          paymentMethod: payments?.[0]?.payment_method_type || 'Stripe Encrypted Payment'
+          paymentMethod: payments?.[0]?.payment_method_type === 'cash_on_pickup' ? 'In-Person Collection (Cash)' : (payments?.[0]?.payment_method_type || 'Stripe Encrypted Payment')
         });
       } catch {}
     }
@@ -364,9 +376,10 @@ const syncOrders = async (req, res, next) => {
 
       // Persist full order, addresses, items into MySQL
       try {
-        // Ensure status column in orders table is VARCHAR(50) so it supports any lifecycle status
         try {
-          await db.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'Confirmed'");
+          await db.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(100) NOT NULL DEFAULT 'Confirmed'");
+          await db.query("ALTER TABLE orders MODIFY COLUMN payment_status VARCHAR(100) NOT NULL DEFAULT 'paid'");
+          await db.query("ALTER TABLE orders MODIFY COLUMN fulfillment_status VARCHAR(100) NULL DEFAULT 'unfulfilled'");
         } catch (_) {}
 
         const [oCols] = await db.query('SHOW COLUMNS FROM orders');
@@ -380,13 +393,29 @@ const syncOrders = async (req, res, next) => {
         const shippingAmount = parseFloat(order.shippingFee || order.shippingAmount || 0) || 0;
         const statusVal = order.status || 'Confirmed';
 
-        let orderDbId = order.dbId || null;
+        let orderDbId = (order.dbId !== undefined && order.dbId !== null && !isNaN(order.dbId) && Number(order.dbId) > 0) ? Number(order.dbId) : null;
         let isNewOrder = false;
 
         if (!orderDbId) {
+          const candidateKeys = [
+            order.order_number,
+            order.orderNumber,
+            order.id,
+            order.uuid,
+            orderUuid,
+            primaryKey
+          ].filter(Boolean).map(k => String(k).trim());
+
+          const candidateNums = candidateKeys.filter(k => !isNaN(k) && Number(k) > 0).map(k => Number(k));
+          if (candidateNums.length === 0) candidateNums.push(-1);
+
           const [existing] = await db.query(
-            'SELECT id FROM orders WHERE order_number = ? OR uuid = ? OR id = ?', 
-            [primaryKey, orderUuid, (!isNaN(primaryKey) && Number(primaryKey) > 0) ? Number(primaryKey) : -1]
+            `SELECT id FROM orders 
+             WHERE order_number IN (?) 
+                OR uuid IN (?) 
+                OR id IN (?) 
+             LIMIT 1`,
+            [candidateKeys, candidateKeys, candidateNums]
           );
           if (existing.length > 0) {
             orderDbId = existing[0].id;
@@ -404,13 +433,42 @@ const syncOrders = async (req, res, next) => {
         const refundAmt = order.refundAmount !== undefined && order.refundAmount !== null ? parseFloat(order.refundAmount) : 0;
         const refundStatusVal = order.refundStatus || (refundAmt >= totalAmount && totalAmount > 0 ? 'Full Refund Processed' : (refundAmt > 0 ? 'Partial Refund Processed' : null));
         const refundReasonVal = order.refundReason || order.cancelReason || (refundAmt > 0 ? 'Customer Refund' : null);
-        const paymentStatusVal = order.payment_status || (refundAmt >= totalAmount && totalAmount > 0 ? 'refunded' : (refundAmt > 0 ? 'partially_refunded' : (statusVal === 'Cancelled' ? 'cancelled' : 'paid')));
+
+        let fulfillmentStatusVal = order.fulfillment_status;
+        let paymentStatusVal = order.payment_status;
+
+        if (statusVal === 'Collected / Handed Over') {
+          fulfillmentStatusVal = 'fulfilled';
+          paymentStatusVal = 'paid';
+        } else if (statusVal === 'Pick Up Ready') {
+          fulfillmentStatusVal = 'ready_for_pickup';
+          paymentStatusVal = 'pending_pickup';
+        } else if (statusVal === 'Shipped') {
+          fulfillmentStatusVal = 'shipped';
+        } else if (statusVal === 'Delivered') {
+          fulfillmentStatusVal = 'delivered';
+        } else if (statusVal === 'Packed') {
+          fulfillmentStatusVal = 'packed';
+        } else if (statusVal === 'Cancelled') {
+          fulfillmentStatusVal = 'cancelled';
+          paymentStatusVal = 'cancelled';
+        }
+
+        if (refundAmt >= totalAmount && totalAmount > 0) {
+          paymentStatusVal = 'refunded';
+        } else if (refundAmt > 0) {
+          paymentStatusVal = 'partially_refunded';
+        } else if (!paymentStatusVal) {
+          paymentStatusVal = (statusVal === 'Cancelled' ? 'cancelled' : 'paid');
+        }
 
         if (orderDbId) {
           const updateSets = [];
           const updateVals = [];
 
           if (oColNames.includes('status')) { updateSets.push('status = ?'); updateVals.push(statusVal); }
+          if (oColNames.includes('fulfillment_status') && fulfillmentStatusVal) { updateSets.push('fulfillment_status = ?'); updateVals.push(fulfillmentStatusVal); }
+          if (oColNames.includes('payment_status') && paymentStatusVal) { updateSets.push('payment_status = ?'); updateVals.push(paymentStatusVal); }
           if (oColNames.includes('tracking_number') && order.trackingNumber !== undefined) { updateSets.push('tracking_number = ?'); updateVals.push(order.trackingNumber || null); }
           if (oColNames.includes('user_id') && userId !== null) { updateSets.push('user_id = COALESCE(?, user_id)'); updateVals.push(userId); }
           if (oColNames.includes('guest_email') && guestEmail) { updateSets.push('guest_email = ?'); updateVals.push(guestEmail); }
@@ -419,7 +477,6 @@ const syncOrders = async (req, res, next) => {
           if (oColNames.includes('discount_amount') && order.discountAmount !== undefined) { updateSets.push('discount_amount = ?'); updateVals.push(discountAmount); }
           if (oColNames.includes('shipping_amount') && (order.shippingFee !== undefined || order.shippingAmount !== undefined)) { updateSets.push('shipping_amount = ?'); updateVals.push(shippingAmount); }
           if (oColNames.includes('total_amount') && (order.rawAmount !== undefined || order.total !== undefined)) { updateSets.push('total_amount = ?'); updateVals.push(totalAmount); }
-          if (oColNames.includes('payment_status')) { updateSets.push('payment_status = ?'); updateVals.push(paymentStatusVal); }
           if (oColNames.includes('refund_amount') && order.refundAmount !== undefined) { updateSets.push('refund_amount = ?'); updateVals.push(refundAmt); }
           if (oColNames.includes('refund_status') && refundStatusVal !== null) { updateSets.push('refund_status = ?'); updateVals.push(refundStatusVal); }
           if (oColNames.includes('refund_reason') && refundReasonVal !== null) { updateSets.push('refund_reason = ?'); updateVals.push(refundReasonVal); }
@@ -446,8 +503,8 @@ const syncOrders = async (req, res, next) => {
           if (oColNames.includes('shipping_amount')) { insertCols.push('shipping_amount'); insertPlaceholders.push('?'); insertVals.push(shippingAmount); }
           if (oColNames.includes('total_amount')) { insertCols.push('total_amount'); insertPlaceholders.push('?'); insertVals.push(totalAmount); }
           if (oColNames.includes('status')) { insertCols.push('status'); insertPlaceholders.push('?'); insertVals.push(statusVal); }
-          if (oColNames.includes('payment_status')) { insertCols.push('payment_status'); insertPlaceholders.push('?'); insertVals.push(paymentStatusVal); }
-          if (oColNames.includes('fulfillment_status')) { insertCols.push('fulfillment_status'); insertPlaceholders.push("'dispatching'"); }
+          if (oColNames.includes('payment_status')) { insertCols.push('payment_status'); insertPlaceholders.push('?'); insertVals.push(paymentStatusVal || 'paid'); }
+          if (oColNames.includes('fulfillment_status')) { insertCols.push('fulfillment_status'); insertPlaceholders.push('?'); insertVals.push(fulfillmentStatusVal || 'unfulfilled'); }
           if (oColNames.includes('tracking_number')) { insertCols.push('tracking_number'); insertPlaceholders.push('?'); insertVals.push(order.trackingNumber || null); }
           if (oColNames.includes('refund_amount')) { insertCols.push('refund_amount'); insertPlaceholders.push('?'); insertVals.push(refundAmt); }
           if (oColNames.includes('refund_status')) { insertCols.push('refund_status'); insertPlaceholders.push('?'); insertVals.push(refundStatusVal); }
@@ -487,7 +544,7 @@ const syncOrders = async (req, res, next) => {
           const firstName = custName.split(' ')[0] || 'Valued';
           const lastName = custName.split(' ').slice(1).join(' ') || 'Customer';
 
-          const [existingAddr] = await db.query('SELECT id FROM order_addresses WHERE order_id = ? AND address_type = "shipping"', [orderDbId]);
+          const [existingAddr] = await db.query('SELECT id FROM order_addresses WHERE order_id = ? AND (address_type = "shipping" OR address_type = "pickup")', [orderDbId]);
           if (existingAddr.length > 0) {
             await db.query(
               `UPDATE order_addresses SET
@@ -577,7 +634,9 @@ const updateOrderStatus = async (req, res, next) => {
     }
 
     try {
-      await db.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'Confirmed'");
+      await db.query("ALTER TABLE orders MODIFY COLUMN status VARCHAR(100) NOT NULL DEFAULT 'Confirmed'");
+      await db.query("ALTER TABLE orders MODIFY COLUMN payment_status VARCHAR(100) NOT NULL DEFAULT 'paid'");
+      await db.query("ALTER TABLE orders MODIFY COLUMN fulfillment_status VARCHAR(100) NULL DEFAULT 'unfulfilled'");
     } catch (_) {}
 
     const [oCols] = await db.query('SHOW COLUMNS FROM orders');
@@ -586,6 +645,33 @@ const updateOrderStatus = async (req, res, next) => {
     const updateSets = ['status = ?'];
     const updateVals = [status];
 
+    let fulfillmentStatusVal = null;
+    let paymentStatusVal = null;
+    if (status === 'Collected / Handed Over') {
+      fulfillmentStatusVal = 'fulfilled';
+      paymentStatusVal = 'paid';
+    } else if (status === 'Pick Up Ready') {
+      fulfillmentStatusVal = 'ready_for_pickup';
+      paymentStatusVal = 'pending_pickup';
+    } else if (status === 'Shipped') {
+      fulfillmentStatusVal = 'shipped';
+    } else if (status === 'Delivered') {
+      fulfillmentStatusVal = 'delivered';
+    } else if (status === 'Packed') {
+      fulfillmentStatusVal = 'packed';
+    } else if (status === 'Cancelled') {
+      fulfillmentStatusVal = 'cancelled';
+      paymentStatusVal = 'cancelled';
+    }
+
+    if (oColNames.includes('fulfillment_status') && fulfillmentStatusVal) {
+      updateSets.push('fulfillment_status = ?');
+      updateVals.push(fulfillmentStatusVal);
+    }
+    if (oColNames.includes('payment_status') && paymentStatusVal) {
+      updateSets.push('payment_status = ?');
+      updateVals.push(paymentStatusVal);
+    }
     if (oColNames.includes('tracking_number') && trackingNumber !== undefined) {
       updateSets.push('tracking_number = ?');
       updateVals.push(trackingNumber || null);
@@ -607,7 +693,13 @@ const updateOrderStatus = async (req, res, next) => {
       const fileOrders = getStoredOrders() || [];
       const updatedFileOrders = fileOrders.map(o => {
         if (o.id === targetKey || o.order_number === targetKey || o.uuid === targetKey || String(o.dbId) === String(targetKey)) {
-          return { ...o, status, ...(trackingNumber !== undefined ? { trackingNumber } : {}) };
+          return { 
+            ...o, 
+            status, 
+            ...(fulfillmentStatusVal ? { fulfillment_status: fulfillmentStatusVal } : {}),
+            ...(paymentStatusVal ? { payment_status: paymentStatusVal } : {}),
+            ...(trackingNumber !== undefined ? { trackingNumber } : {}) 
+          };
         }
         return o;
       });
