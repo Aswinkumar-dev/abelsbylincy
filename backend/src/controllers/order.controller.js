@@ -513,13 +513,28 @@ const syncOrders = async (req, res, next) => {
             const cleanId = item.id || item.productId;
             const cleanSku = item.sku || null;
             const cleanName = (item.name || item.productName || '').trim();
+            const cleanSlug = (item.slug || cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '').trim();
+
+            let realProductId = null;
+            try {
+              const numId = parseInt(String(cleanId).replace(/[^0-9]/g, ''), 10);
+              const [pRows] = await db.query(
+                'SELECT id FROM products WHERE id = ? OR sku = ? OR name = ? OR slug = ? LIMIT 1',
+                [!isNaN(numId) && numId > 0 ? numId : -1, cleanSku || '__none__', cleanName || '__none__', cleanSlug || '__none__']
+              );
+              if (pRows.length > 0 && pRows[0].id) {
+                realProductId = pRows[0].id;
+              }
+            } catch (_) {
+              realProductId = null;
+            }
 
             await db.query(
               `INSERT INTO order_items (order_id, product_id, sku, product_name, variant_name, quantity, unit_price, total_amount, product_image_url) 
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 orderDbId,
-                cleanId || null,
+                realProductId,
                 cleanSku || 'ABL-JEW',
                 cleanName || 'Fine Jewellery Selection',
                 item.size || item.color || item.variantName || null,

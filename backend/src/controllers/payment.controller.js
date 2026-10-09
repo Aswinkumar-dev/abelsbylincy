@@ -656,21 +656,24 @@ const recordStripeOrder = async (req, res, next) => {
           const cleanSlug = (item.slug || cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '').trim();
 
           let realProductId = null;
-          const numId = parseInt(String(cleanId).replace(/[^0-9]/g, ''), 10);
-          if (!isNaN(numId) && numId > 0) realProductId = numId;
           try {
+            const numId = parseInt(String(cleanId).replace(/[^0-9]/g, ''), 10);
             const [pRows] = await db.query(
-              'SELECT id FROM products WHERE id = ? OR sku = ? OR name = ? LIMIT 1',
-              [realProductId || -1, cleanSku || '', cleanName || '']
+              'SELECT id FROM products WHERE id = ? OR sku = ? OR name = ? OR slug = ? LIMIT 1',
+              [!isNaN(numId) && numId > 0 ? numId : -1, cleanSku || '__none__', cleanName || '__none__', cleanSlug || '__none__']
             );
-            if (pRows.length > 0) realProductId = pRows[0].id;
-          } catch (_) {}
+            if (pRows.length > 0 && pRows[0].id) {
+              realProductId = pRows[0].id;
+            }
+          } catch (_) {
+            realProductId = null;
+          }
 
           const iCols = ['order_id', 'product_name', 'quantity', 'unit_price', 'total_amount'];
           const iPlaceholders = ['?', '?', '?', '?', '?'];
           const iVals = [orderId, cleanName || 'Fine Jewellery Selection', qty, unitPrice, unitPrice * qty];
 
-          if (itColNames.includes('product_id')) { iCols.push('product_id'); iPlaceholders.push('?'); iVals.push(realProductId || null); }
+          if (itColNames.includes('product_id')) { iCols.push('product_id'); iPlaceholders.push('?'); iVals.push(realProductId); }
           if (itColNames.includes('sku')) { iCols.push('sku'); iPlaceholders.push('?'); iVals.push(cleanSku || 'ABL-JEW'); }
           if (itColNames.includes('variant_name')) { iCols.push('variant_name'); iPlaceholders.push('?'); iVals.push(item.size || item.color || item.variantName || null); }
           if (itColNames.includes('product_image_url')) { iCols.push('product_image_url'); iPlaceholders.push('?'); iVals.push(item.image || item.productImageUrl || null); }
@@ -1004,15 +1007,31 @@ const placePickupOrder = async (req, res, next) => {
     for (const item of verifiedItems) {
       const itColsList = ['order_id', 'product_name', 'quantity', 'unit_price', 'total_amount'];
       const itPlaceholders = ['?', '?', '?', '?', '?'];
-      const itVals = [orderId, item.name, item.quantity, item.price, item.total];
+      const itVals = [orderId, item.name || item.productName || 'Fine Jewellery Selection', item.quantity || 1, item.price || item.unitPrice || 0, item.total || item.totalAmount || 0];
 
       let realProductId = null;
-      const numId = parseInt(String(item.id || item.productId).replace(/[^0-9]/g, ''), 10);
-      if (!isNaN(numId) && numId > 0) realProductId = numId;
+      try {
+        const cleanId = item.id || item.productId;
+        const numId = parseInt(String(cleanId).replace(/[^0-9]/g, ''), 10);
+        const cleanSku = (item.sku || '').trim();
+        const cleanName = (item.name || item.productName || '').trim();
+        const cleanSlug = (item.slug || cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '').trim();
+
+        const [pRows] = await db.query(
+          'SELECT id FROM products WHERE id = ? OR sku = ? OR name = ? OR slug = ? LIMIT 1',
+          [!isNaN(numId) && numId > 0 ? numId : -1, cleanSku || '__none__', cleanName || '__none__', cleanSlug || '__none__']
+        );
+        if (pRows.length > 0 && pRows[0].id) {
+          realProductId = pRows[0].id;
+        }
+      } catch (_) {
+        realProductId = null;
+      }
 
       if (itColNames.includes('product_id')) { itColsList.push('product_id'); itPlaceholders.push('?'); itVals.push(realProductId); }
-      if (itColNames.includes('sku')) { itColsList.push('sku'); itPlaceholders.push('?'); itVals.push(item.sku); }
-      if (itColNames.includes('product_image_url')) { itColsList.push('product_image_url'); itPlaceholders.push('?'); itVals.push(item.image); }
+      if (itColNames.includes('sku')) { itColsList.push('sku'); itPlaceholders.push('?'); itVals.push(item.sku || 'ABL-JEW'); }
+      if (itColNames.includes('variant_name')) { itColsList.push('variant_name'); itPlaceholders.push('?'); itVals.push(item.variantName || item.size || item.color || null); }
+      if (itColNames.includes('product_image_url')) { itColsList.push('product_image_url'); itPlaceholders.push('?'); itVals.push(item.image || item.productImageUrl || null); }
 
       await db.query(`INSERT INTO order_items (${itColsList.join(', ')}) VALUES (${itPlaceholders.join(', ')})`, itVals);
     }
