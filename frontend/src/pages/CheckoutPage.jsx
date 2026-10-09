@@ -883,7 +883,7 @@ export default function CheckoutPage() {
                 Ready for In-Person Pick Up
               </h3>
               <p style={{ fontSize: 12, color: 'var(--slate-light)', margin: '4px 0 0 0' }}>
-                Your jewellery will be handed over directly in person. Confirmation details sent to <strong>{completedOrder.email}</strong>.
+                Your jewellery will be handed over directly in person.
               </p>
             </div>
           </div>
@@ -974,12 +974,14 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--slate)' }}>
-              <span>{isPickup ? 'In-Person Pick Up' : (completedOrder.shippingMethod === 'express' ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)')}</span>
-              <span style={{ fontWeight: 600, color: 'var(--onyx)' }}>
-                {completedOrder.shippingFee === 0 || isPickup ? 'FREE' : (formatMoney ? formatMoney(completedOrder.shippingFee || 0) : `$${(completedOrder.shippingFee || 0).toFixed(2)}`)}
-              </span>
-            </div>
+            {!isPickup && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--slate)' }}>
+                <span>{completedOrder.shippingMethod === 'express' ? 'Express Shipping (Australia Post)' : 'Standard Shipping (Australia Post)'}</span>
+                <span style={{ fontWeight: 600, color: 'var(--onyx)' }}>
+                  {completedOrder.shippingFee === 0 ? 'FREE' : (formatMoney ? formatMoney(completedOrder.shippingFee || 0) : `$${(completedOrder.shippingFee || 0).toFixed(2)}`)}
+                </span>
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700, color: 'var(--onyx)', marginTop: 8, paddingTop: 12, borderTop: '1.5px solid var(--border)' }}>
               <span>{isPickup ? 'Total Due on Collection' : 'Total Paid (GST Inc.)'}</span>

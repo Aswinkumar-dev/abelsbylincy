@@ -314,12 +314,20 @@ const sendOrderConfirmationEmail = async (orderData) => {
       `;
     }
 
-    summaryBreakdownHtml += `
-      <tr style="border-bottom: 1px solid #F0F0F0; font-family: 'Poppins', sans-serif !important;">
-        <td colspan="2" style="padding: 6px 0 12px 0; font-size: 13px; color: #5A5C56; font-family: 'Poppins', sans-serif !important;">${shippingMethod}</td>
-        <td style="text-align: right; padding: 6px 0 12px 0; font-size: 13.5px; font-weight: 600; color: ${shippingFee > 0 ? '#1A1A1A' : '#047857'}; font-family: 'Poppins', sans-serif !important;">${shippingFee > 0 ? `+$${shippingFee.toFixed(2)} AUD` : 'FREE'}</td>
-      </tr>
-    `;
+    const isPickup = Boolean(
+      orderData.isPickup ||
+      /pick\s*up/i.test(String(shippingMethod || '')) ||
+      String(orderNumber || '').startsWith('ABL-PK-')
+    );
+
+    if (!isPickup) {
+      summaryBreakdownHtml += `
+        <tr style="border-bottom: 1px solid #F0F0F0; font-family: 'Poppins', sans-serif !important;">
+          <td colspan="2" style="padding: 6px 0 12px 0; font-size: 13px; color: #5A5C56; font-family: 'Poppins', sans-serif !important;">${shippingMethod}</td>
+          <td style="text-align: right; padding: 6px 0 12px 0; font-size: 13.5px; font-weight: 600; color: ${shippingFee > 0 ? '#1A1A1A' : '#047857'}; font-family: 'Poppins', sans-serif !important;">${shippingFee > 0 ? `+$${shippingFee.toFixed(2)} AUD` : 'FREE'}</td>
+        </tr>
+      `;
+    }
 
     // Estimated Delivery Date Calculation based on shipping choice:
     // Express Shipping = within 2 days; Standard Shipping = within 3-4 days
@@ -331,12 +339,6 @@ const sendOrderConfirmationEmail = async (orderData) => {
       estDate.setDate(estDate.getDate() + addDays);
       finalDeliveryEstimate = estDate.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
-
-    const isPickup = Boolean(
-      orderData.isPickup ||
-      /pick\s*up/i.test(String(shippingMethod || '')) ||
-      String(orderNumber || '').startsWith('ABL-PK-')
-    );
 
     const variables = {
       orderNumber: orderNumber || '#ABL-2026-8842',
