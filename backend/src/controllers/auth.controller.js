@@ -706,6 +706,57 @@ const clearUsers = async (req, res, next) => {
   }
 };
 
+/**
+ * Verify live session against MySQL database
+ */
+const getMe = async (req, res, next) => {
+  try {
+    let email = req.user?.email || req.query?.email || req.body?.email;
+    let userId = req.user?.id || req.user?.uuid || req.query?.id || req.query?.uuid || req.body?.id || req.body?.uuid;
+
+    if (!email && !userId) {
+      return res.status(401).json({ success: false, message: 'Authentication identity required.' });
+    }
+
+    const cleanEmail = email ? String(email).trim().toLowerCase() : null;
+    const cleanId = userId ? String(userId).trim() : null;
+
+    const [rows] = await db.query(
+      `SELECT id, uuid, email, first_name, last_name, role, phone, created_at 
+       FROM users 
+       WHERE (email = ? OR id = ? OR uuid = ?) 
+       LIMIT 1`,
+      [cleanEmail || '___nonexistent___', cleanId || -1, cleanId || '___nonexistent___']
+    );
+
+    if (!rows || rows.length === 0) {
+      return res.status(401).json({ success: false, message: 'User does not exist in database.' });
+    }
+
+    const u = rows[0];
+    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email.split('@')[0];
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: u.uuid || u.id,
+        dbId: u.id,
+        uuid: u.uuid,
+        name: fullName,
+        firstName: u.first_name || '',
+        lastName: u.last_name || '',
+        email: u.email,
+        phone: u.phone || '',
+        role: u.role || 'customer',
+        status: 'active'
+      }
+    });
+  } catch (error) {
+    console.error('getMe error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   register,
   verifyEmail,
@@ -715,6 +766,7 @@ module.exports = {
   googleLogin,
   logout,
   getAllUsers,
-  clearUsers
+  clearUsers,
+  getMe
 };
 

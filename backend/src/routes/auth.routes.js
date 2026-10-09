@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { register, verifyEmail, login, forgotPassword, resetPassword, googleLogin, logout, getAllUsers, clearUsers } = require('../controllers/auth.controller');
+const { register, verifyEmail, login, forgotPassword, resetPassword, googleLogin, logout, getAllUsers, clearUsers, getMe } = require('../controllers/auth.controller');
+const { optionalAuthenticateToken } = require('../middleware/auth.middleware');
 
+router.get('/me', optionalAuthenticateToken, getMe);
 router.post('/register', register);
 router.get('/verify', verifyEmail);
 router.post('/login', login);

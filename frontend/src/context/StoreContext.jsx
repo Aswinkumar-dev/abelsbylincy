@@ -477,11 +477,10 @@ export function StoreProvider({ children }) {
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => readLS('abl_admin_auth', false));
   const [adminUser, setAdminUserRaw] = useState(() => readLS('abl_admin_user', null));
   const [messages, setMessagesRaw] = useState(() => readLS('abl_messages_v2', DEFAULT_MESSAGES));
-  const [subscribers, setSubscribersRaw] = useState(() => readLS('abl_subscribers_v2', DEFAULT_SUBSCRIBERS));
-
-  // Purge any stale client-side wishlist & cart storage keys so DB is 100% authoritative
+  // Purge any stale client-side credentials & wishlist & cart storage keys so DB is 100% authoritative
   useEffect(() => {
     try {
+      localStorage.removeItem('abl_user_token');
       localStorage.removeItem('abl_wishlist');
       Object.keys(localStorage).forEach(k => {
         if (k.startsWith('abl_wishlist_') || k.startsWith('abl_cart_') || k === 'abl_pending_checkout_items' || k === 'abl_pre_checkout_cart') {
@@ -489,6 +488,52 @@ export function StoreProvider({ children }) {
         }
       });
     } catch (_) {}
+  }, []);
+
+  // Real-Time Authoritative Validation: Verify active user session directly with MySQL database on startup
+  useEffect(() => {
+    const verifyUserSessionWithDB = async () => {
+      const storedUser = readLS('abl_current_user', null) || currentUser;
+      const token = localStorage.getItem('abl_access_token');
+      if (!storedUser && !token) return;
+
+      const email = storedUser?.email;
+      const id = storedUser?.id || storedUser?.uuid;
+
+      try {
+        const queryParams = new URLSearchParams();
+        if (email) queryParams.set('email', email);
+        if (id) queryParams.set('id', id);
+
+        const res = await apiFetch(`/api/auth/me?${queryParams.toString()}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success && data.user) {
+          // Authoritative user exists in MySQL
+          setCurrentUserRaw(data.user);
+          writeLS('abl_current_user', data.user);
+        } else {
+          // User was removed/deleted from MySQL -> Immediately invalidate local session
+          console.warn('⚠️ User session no longer exists in database. Clearing local session.');
+          setCurrentUserRaw(null);
+          localStorage.removeItem('abl_current_user');
+          localStorage.removeItem('abl_user_token');
+          localStorage.removeItem('abl_access_token');
+          localStorage.removeItem('abl_saved_address');
+          localStorage.removeItem('abl_checkout_draft_form');
+        }
+      } catch (err) {
+        console.warn('Session verification network note:', err.message);
+      }
+    };
+
+    verifyUserSessionWithDB();
   }, []);
 
   // Authoritative sync with backend API (Orders, Products, Reviews, Coupons directly from Server/DB)
@@ -563,6 +608,22 @@ export function StoreProvider({ children }) {
       const mergedCustomers = Array.from(customerMap.values());
       setCustomersRaw(mergedCustomers);
       writeLS('abl_customers_v7', mergedCustomers);
+
+      // Validate logged-in user against live MySQL user list
+      const activeUser = readLS('abl_current_user', null) || currentUser;
+      if (activeUser && activeUser.email && !isAdminAccount(activeUser)) {
+        const activeEmail = activeUser.email.trim().toLowerCase();
+        const userStillInDB = dbUsers.some(u => (u.email || '').trim().toLowerCase() === activeEmail);
+        if (!userStillInDB && dbUsers.length > 0) {
+          console.warn('⚠️ Logged-in user not found in MySQL database. Invalidating local session.');
+          setCurrentUserRaw(null);
+          localStorage.removeItem('abl_current_user');
+          localStorage.removeItem('abl_user_token');
+          localStorage.removeItem('abl_access_token');
+          localStorage.removeItem('abl_saved_address');
+          localStorage.removeItem('abl_checkout_draft_form');
+        }
+      }
     } catch (err) {
       // Server offline fallback
     }
@@ -1144,7 +1205,6 @@ export function StoreProvider({ children }) {
 
         setCurrentUser(userObj);
         writeLS('abl_current_user', userObj);
-        writeLS('abl_user_token', { ...userObj, password });
 
         showToast(`Welcome back, ${userName}!`, 'check');
         return true;
@@ -1239,7 +1299,6 @@ export function StoreProvider({ children }) {
 
       setCurrentUser(newUser);
       writeLS('abl_current_user', newUser);
-      writeLS('abl_user_token', { ...newUser, password });
 
       showToast(`Welcome to Abel's By Lincy, ${fullName}!`, 'check');
       return true;
@@ -1312,12 +1371,6 @@ export function StoreProvider({ children }) {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        if (userEmail) {
-          const stored = readLS('abl_user_token', null);
-          if (stored && stored.email?.toLowerCase() === userEmail.toLowerCase()) {
-            writeLS('abl_user_token', { ...stored, password: newPassword });
-          }
-        }
         showToast('Password successfully reset! Please sign in.', 'check');
         return { success: true, message: data.message || 'Password reset successfully. You can now login.' };
       } else {
@@ -1326,12 +1379,6 @@ export function StoreProvider({ children }) {
         return { success: false, message: errorMsg };
       }
     } catch (err) {
-      if (userEmail) {
-        const stored = readLS('abl_user_token', null);
-        if (stored && stored.email?.toLowerCase() === userEmail.toLowerCase()) {
-          writeLS('abl_user_token', { ...stored, password: newPassword });
-        }
-      }
       showToast('Password reset successfully! Please sign in.', 'check');
       return { success: true, message: 'Password reset successfully. You can now login.' };
     }
@@ -1438,7 +1485,6 @@ export function StoreProvider({ children }) {
 
       setCurrentUser(userObj);
       writeLS('abl_current_user', userObj);
-      writeLS('abl_user_token', { email: lowerEmail, name: userObj.name, provider: 'google' });
       showToast(`Welcome back, ${userObj.name}!`, 'check');
 
       return true;
@@ -1569,6 +1615,8 @@ export function StoreProvider({ children }) {
     try {
       localStorage.removeItem('abl_access_token');
       localStorage.removeItem('abl_user_token');
+      localStorage.removeItem('abl_saved_address');
+      localStorage.removeItem('abl_checkout_draft_form');
     } catch (_) {}
     showToast('Signed out successfully', 'check');
     if (typeof window !== 'undefined' && window.location.pathname !== '/') {
