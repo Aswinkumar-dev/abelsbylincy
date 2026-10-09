@@ -477,6 +477,7 @@ export function StoreProvider({ children }) {
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => readLS('abl_admin_auth', false));
   const [adminUser, setAdminUserRaw] = useState(() => readLS('abl_admin_user', null));
   const [messages, setMessagesRaw] = useState(() => readLS('abl_messages_v2', DEFAULT_MESSAGES));
+  const [subscribers, setSubscribersRaw] = useState(() => readLS('abl_subscribers_v2', DEFAULT_SUBSCRIBERS));
   // Purge any stale client-side credentials & wishlist & cart storage keys so DB is 100% authoritative
   useEffect(() => {
     try {
