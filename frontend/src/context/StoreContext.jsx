@@ -122,8 +122,7 @@ const DEFAULT_CMS = {
 const DEFAULT_ORDERS = [];
 const DEFAULT_CUSTOMERS = [];
 const DEFAULT_COUPONS = [
-  { id: 'cp1', code: 'WELCOME10', label: 'Welcome 10% Off', discountType: 'percentage', value: 10, minOrder: 50, maxDiscount: 20, expiry: '2026-12-31', active: true, usageLimit: 100, perCustomerLimit: 1 },
-  { id: 'cp2', code: 'FIRSTORDER', label: 'First Order Special', discountType: 'percentage', value: 15, minOrder: 80, maxDiscount: 30, expiry: '2026-12-31', active: true, usageLimit: 50, perCustomerLimit: 1 },
+  { id: 'cp1', code: 'FIRSTORDER', label: 'First Order Special', discountType: 'percentage', value: 10, minOrder: 0, maxDiscount: 50, expiry: '2026-12-31', active: true, usageLimit: 1000, perCustomerLimit: 1 },
 ];
 const DEFAULT_REVIEWS = [];
 const DEFAULT_STOCK_HISTORY = [];

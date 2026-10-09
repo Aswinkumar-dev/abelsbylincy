@@ -1963,7 +1963,7 @@ export default function AdminPage() {
                   <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 600, margin: 0, color: 'var(--onyx)' }}>
                     Discount Coupons <span style={{ color: 'var(--onyx)', fontWeight: 600, whiteSpace: 'nowrap' }}>({coupons.length})</span>
                   </h2>
-                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Create promotional discount codes (e.g. WELCOME10, FIRSTORDER, DIWALI15).</p>
+                  <p style={{ fontSize: 13, color: 'var(--slate)', margin: '4px 0 0 0' }}>Create promotional discount codes (e.g. FIRSTORDER, FESTIVE10).</p>
                 </div>
                 <button
                   onClick={() => {
@@ -4252,7 +4252,7 @@ export default function AdminPage() {
                 const errors = {};
                 const cleanCode = (couponForm.code || '').trim().toUpperCase();
                 if (!cleanCode) {
-                  errors.code = 'Coupon code is required (e.g. WELCOME10, DIWALI15).';
+                  errors.code = 'Coupon code is required (e.g. FIRSTORDER, FESTIVE10).';
                 }
                 if (!couponForm.label || !couponForm.label.trim()) {
                   errors.label = 'Coupon description / campaign title is required.';
@@ -4396,7 +4396,7 @@ export default function AdminPage() {
                       type="text"
                       className="form-control coupon-code-input"
                       style={{ borderColor: couponFormErrors.code ? '#DC2626' : undefined, width: '100%', boxSizing: 'border-box' }}
-                      placeholder="e.g. WELCOME10"
+                      placeholder="e.g. FIRSTORDER"
                       value={couponForm.code}
                       onChange={e => {
                         setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() });
@@ -4434,7 +4434,7 @@ export default function AdminPage() {
                     type="text"
                     className="form-control"
                     style={{ borderColor: couponFormErrors.label ? '#DC2626' : undefined, width: '100%', boxSizing: 'border-box' }}
-                    placeholder="e.g. Welcome 10% Off on First Order"
+                    placeholder="e.g. 10% Off on First Order"
                     value={couponForm.label}
                     onChange={e => {
                       setCouponForm({ ...couponForm, label: e.target.value });
