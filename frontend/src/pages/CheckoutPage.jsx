@@ -883,7 +883,7 @@ export default function CheckoutPage() {
                 Ready for In-Person Pick Up
               </h3>
               <p style={{ fontSize: 12, color: 'var(--slate-light)', margin: '4px 0 0 0' }}>
-                Your jewellery will be handed over directly in person. Details will be sent to <strong>{completedOrder.email}</strong>.
+                Your jewellery will be handed over directly in person. Details will be sent to <strong>{completedOrder.email || completedOrder.guest_email || completedOrder.customerEmail || formData?.email || 'your email'}</strong>.
               </p>
             </div>
           </div>
