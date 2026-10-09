@@ -1892,7 +1892,6 @@ export default function AdminPage() {
                                             <>
                                               <option value="Pick Up Ready" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Pick Up Ready</option>
                                               <option value="Collected / Handed Over" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Collected / Handed Over</option>
-                                              <option value="Cancelled" style={{ background: '#FFFFFF', color: '#1A1A1A' }}>Cancelled</option>
                                             </>
                                           );
                                         }
@@ -4832,7 +4831,6 @@ export default function AdminPage() {
                         <>
                           <option value="Pick Up Ready">Pick Up Ready</option>
                           <option value="Collected / Handed Over">Collected / Handed Over</option>
-                          <option value="Cancelled">Cancelled (Order Cancelled)</option>
                         </>
                       );
                     }
@@ -4849,8 +4847,8 @@ export default function AdminPage() {
                 </select>
               </div>
 
-              {/* Quick Issue / Record Stripe Refund Action */}
-              {selectedOrder.status !== 'Cancelled' && selectedOrder.status !== 'Refunded' && (
+              {/* Quick Issue / Record Stripe Refund Action (For Standard/Express Orders Only) */}
+              {!String(selectedOrder.shippingMethod || '').includes('Pick Up') && !String(selectedOrder.id || '').startsWith('ABL-PK-') && selectedOrder.status !== 'Cancelled' && selectedOrder.status !== 'Refunded' && (
                 <div style={{ marginTop: 14, padding: 14, background: '#FFF5F5', border: '1px dashed #FEB2B2', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
                   <div>
                     <strong style={{ fontSize: 13, color: '#9B2C2C', display: 'block' }}>Process / Record Stripe Refund</strong>
@@ -4862,7 +4860,7 @@ export default function AdminPage() {
                     className="btn-secondary"
                     style={{ padding: '7px 16px', fontSize: 12, fontWeight: 700, color: '#C5221F', borderColor: '#FEB2B2', background: '#FFFFFF', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                   >
-                    💳 Cancel & Refund
+                    Cancel & Refund
                   </button>
                 </div>
               )}

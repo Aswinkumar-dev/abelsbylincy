@@ -12,6 +12,10 @@ const getFallbackHtml = (templateName, vars) => {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Reset Your Password</title><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Poppins',sans-serif;background-color:#FAF9F6;margin:0;padding:20px;color:#22252A;}.container{max-width:600px;margin:0 auto;background:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #ECECEC;}.header{background:#1A1A1A;padding:32px 20px;text-align:center;}.header h1{margin:0;color:#D4AF37;font-size:22px;letter-spacing:0.18em;text-transform:uppercase;}.body{padding:32px 28px;}.btn{display:inline-block;background:#D4AF37;color:#1A1A1A;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;text-decoration:none;padding:14px 32px;border-radius:6px;margin:24px 0;}.footer{background:#F8F6F2;padding:20px;text-align:center;font-size:12px;color:#6E7068;border-top:1px solid #ECE8E0;}</style></head><body><div class="container"><div class="header"><h1>Abel’s By Lincy</h1><p style="margin:4px 0 0 0;font-size:11px;color:#ECE8E0;letter-spacing:0.2em;text-transform:uppercase;">Fine Jewellery Collection</p></div><div class="body"><h2 style="font-size:18px;margin-top:0;">Password Reset Request</h2><p>Hello <strong>${name}</strong>,</p><p>We received a request to reset your password for your Abel's By Lincy account. Click below to securely choose a new password:</p><div style="text-align:center;"><a href="${vars.resetUrl || '#'}" class="btn" target="_blank">Reset Password</a></div><p style="font-size:12px;color:#787A74;">If the button doesn't work, copy and paste this link:<br><a href="${vars.resetUrl || '#'}" style="color:#B8860B;">${vars.resetUrl || '#'}</a></p><p style="font-size:12px;color:#888888;margin-top:24px;">This link is valid for 1 hour. If you didn't request this, please disregard this email.</p></div><div class="footer"><p style="margin:0;">© ${year} Abel's By Lincy. All rights reserved.</p></div></div></body></html>`;
   }
 
+  if (templateName === 'pickup_order_confirmation' || templateName === 'pickup-order-confirmation') {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Pick Up Order Confirmed</title><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Poppins',sans-serif;background:#FAF9F6;margin:0;padding:20px;color:#22252A;}.container{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #ECECEC;}.header{background:#1A1A1A;padding:32px 20px;text-align:center;}.header h1{margin:0;color:#D4AF37;font-size:22px;letter-spacing:0.18em;text-transform:uppercase;}.body{padding:32px 28px;}.card{background:#F8F6F2;padding:16px 18px;border-radius:8px;font-size:13px;color:#4A4D45;margin-bottom:14px;border:1px solid #EFECE6;}.footer{background:#F8F6F2;padding:20px;text-align:center;font-size:12px;color:#6E7068;border-top:1px solid #ECE8E0;}</style></head><body><div class="container"><div class="header"><h1>Abel’s By Lincy</h1><p style="margin:4px 0 0 0;font-size:11px;color:#ECE8E0;letter-spacing:0.2em;text-transform:uppercase;">In-Person Collection</p></div><div class="body"><h2 style="font-size:18px;margin-top:0;">Ready for In-Person Pick Up</h2><p>Thank you for your order, <strong>${name}</strong>. Your jewellery will be handed over directly in person.</p><p>Order Reference: <strong>${vars.orderNumber || ''}</strong></p><p>Total Due on Collection: <strong>${vars.orderTotal || ''}</strong></p><table style="width:100%;margin-top:20px;border-collapse:collapse;">${vars.itemsHtml || ''}</table><table style="width:100%;margin-top:16px;border-collapse:collapse;">${vars.summaryBreakdownHtml || ''}</table><div class="card" style="margin-top:20px;"><strong style="color:#1A1A1A;display:block;margin-bottom:6px;">Contact Information:</strong><strong>Customer:</strong> ${name}<br><strong>Email:</strong> ${vars.customerEmail || ''}<br><strong>Phone:</strong> ${vars.customerPhone || 'Not Provided'}<br><strong>Method:</strong> In-Person Pick Up (Direct Handover)</div></div><div class="footer"><p style="margin:0;">© ${year} Abel's By Lincy. All rights reserved.</p></div></div></body></html>`;
+  }
+
   if (templateName === 'order_confirmation' || templateName === 'order-confirmation') {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Order Confirmed</title><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Poppins',sans-serif;background:#FAF9F6;margin:0;padding:20px;color:#22252A;}.container{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #ECECEC;}.header{background:#1A1A1A;padding:32px 20px;text-align:center;}.header h1{margin:0;color:#D4AF37;font-size:22px;letter-spacing:0.18em;text-transform:uppercase;}.body{padding:32px 28px;}.footer{background:#F8F6F2;padding:20px;text-align:center;font-size:12px;color:#6E7068;border-top:1px solid #ECE8E0;}</style></head><body><div class="container"><div class="header"><h1>Abel’s By Lincy</h1><p style="margin:4px 0 0 0;font-size:11px;color:#ECE8E0;letter-spacing:0.2em;text-transform:uppercase;">Order Confirmation</p></div><div class="body"><h2 style="font-size:18px;margin-top:0;">Thank you for your order, ${name}!</h2><p>Your order <strong>${vars.orderNumber || ''}</strong> has been confirmed.</p><p>Total Amount: <strong>${vars.orderTotal || ''}</strong></p><p>Estimated Delivery: <strong>${vars.estimatedDeliveryDate || '3-5 business days'}</strong></p><table style="width:100%;margin-top:20px;border-collapse:collapse;">${vars.itemsHtml || ''}</table><table style="width:100%;margin-top:16px;border-collapse:collapse;">${vars.summaryBreakdownHtml || ''}</table></div><div class="footer"><p style="margin:0;">© ${year} Abel's By Lincy. All rights reserved.</p></div></div></body></html>`;
   }
@@ -36,6 +40,9 @@ const getPlainText = (templateName, vars) => {
   const name = vars.customerName || 'Valued Customer';
   if (templateName === 'reset-password') {
     return `ABEL'S BY LINCY\nFine Jewellery Collection\n\nHello ${name},\n\nWe received a request to reset your password for your Abel's By Lincy account.\n\nTo reset your password, please open the following link:\n${vars.resetUrl || 'https://abelsbylincy.com'}\n\nThis link is valid for 1 hour.\nIf you did not request this, please disregard this email.\n\n© ${year} Abel's By Lincy. All rights reserved.`;
+  }
+  if (templateName === 'pickup_order_confirmation' || templateName === 'pickup-order-confirmation') {
+    return `ABEL'S BY LINCY\nIn-Person Pick Up Order Confirmation\n\nThank you for your order, ${name}!\nYour jewellery will be handed over directly in person.\n\nOrder Reference: ${vars.orderNumber || ''}\nTotal Due on Collection: ${vars.orderTotal || ''}\nCustomer: ${name}\nEmail: ${vars.customerEmail || ''}\nPhone: ${vars.customerPhone || 'Not Provided'}\nMethod: In-Person Pick Up (Direct Handover)\n\n© ${year} Abel's By Lincy. All rights reserved.`;
   }
   if (templateName === 'order_confirmation' || templateName === 'order-confirmation') {
     return `ABEL'S BY LINCY\nOrder Confirmation\n\nThank you for your order, ${name}!\nOrder Reference: ${vars.orderNumber || ''}\nTotal: ${vars.orderTotal || ''}\nEstimated Delivery: ${vars.estimatedDeliveryDate || '3-5 business days'}\n\n© ${year} Abel's By Lincy. All rights reserved.`;
@@ -325,6 +332,12 @@ const sendOrderConfirmationEmail = async (orderData) => {
       finalDeliveryEstimate = estDate.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
 
+    const isPickup = Boolean(
+      orderData.isPickup ||
+      /pick\s*up/i.test(String(shippingMethod || '')) ||
+      String(orderNumber || '').startsWith('ABL-PK-')
+    );
+
     const variables = {
       orderNumber: orderNumber || '#ABL-2026-8842',
       customerName: cleanCustomerName,
@@ -334,22 +347,25 @@ const sendOrderConfirmationEmail = async (orderData) => {
       suburb: suburb || 'Brisbane City',
       state: state || 'Queensland (QLD)',
       postcode: postcode || '4061',
-      estimatedDeliveryDate: finalDeliveryEstimate,
+      estimatedDeliveryDate: isPickup ? 'In-Person Handover' : finalDeliveryEstimate,
       itemsHtml: itemsHtml,
       summaryBreakdownHtml: summaryBreakdownHtml,
       orderTotal: finalTotalStr,
       orderDate: orderDate || new Date().toLocaleDateString('en-GB')
     };
 
-    const subject = `✨ Order Confirmed! ${variables.orderNumber} — Abel's By Lincy`;
+    const templateName = isPickup ? 'pickup_order_confirmation' : 'order_confirmation';
+    const subject = isPickup 
+      ? `Order Confirmed for In-Person Pick Up! ${variables.orderNumber} — Abel's By Lincy`
+      : `Order Confirmed! ${variables.orderNumber} — Abel's By Lincy`;
 
-    console.log(`✉️ [BACKGROUND EMAIL SERVICE] Dispatching Order Confirmation Email to: ${customerEmail} (Order Ref: ${variables.orderNumber})`);
+    console.log(`✉️ [BACKGROUND EMAIL SERVICE] Dispatching ${isPickup ? 'Pick Up' : 'Standard'} Order Confirmation Email to: ${customerEmail} (Order Ref: ${variables.orderNumber})`);
 
     try {
       return await sendEmail({
         to: customerEmail,
         subject: subject,
-        templateName: 'order_confirmation',
+        templateName: templateName,
         variables: variables
       });
     } catch (err) {

@@ -883,7 +883,7 @@ export default function CheckoutPage() {
                 Ready for In-Person Pick Up
               </h3>
               <p style={{ fontSize: 12, color: 'var(--slate-light)', margin: '4px 0 0 0' }}>
-                Your jewellery will be prepared and handed over directly in person. Confirmation details sent to <strong>{completedOrder.email}</strong>.
+                Your jewellery will be handed over directly in person. Confirmation details sent to <strong>{completedOrder.email}</strong>.
               </p>
             </div>
           </div>
@@ -929,10 +929,10 @@ export default function CheckoutPage() {
             <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 600, margin: '0 0 14px 0', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
               Payment & Order Details
             </h4>
-            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Order Number:</strong> {completedOrder.id || completedOrder.orderNumber}</p>
+            <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Order Number:</strong> {completedOrder.orderNumber || completedOrder.order_number || completedOrder.id}</p>
             <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Order Date:</strong> {completedOrder.date || 'Today'}</p>
             <p style={{ fontSize: 13, color: 'var(--slate)', margin: '0 0 6px 0' }}><strong>Payment Method:</strong> {isPickup ? 'In-Person Collection (Cash)' : (completedOrder.paymentMethod || 'Stripe Card')}</p>
-            <p style={{ fontSize: 13, color: 'var(--success)', margin: '0 0 12px 0', fontWeight: 600 }}><strong>Status:</strong> ✓ {completedOrder.status || (isPickup ? 'Pick Up Ready' : 'Confirmed')}</p>
+            <p style={{ fontSize: 13, color: 'var(--success)', margin: '0 0 12px 0', fontWeight: 600 }}><strong>Status:</strong> {completedOrder.status || (isPickup ? 'Pick Up Ready' : 'Confirmed')}</p>
             <div style={{ background: 'var(--cream)', padding: '10px 14px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 13, fontWeight: 600 }}>{isPickup ? 'Total Due on Collection:' : 'Total Paid (GST Inc.):'}</span>
               <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--onyx)' }}>{completedOrder.total}</span>
