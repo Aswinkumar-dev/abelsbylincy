@@ -285,6 +285,8 @@ export default function CheckoutPage() {
     try {
       navigator.clipboard.writeText(code);
       setCopiedCode(code);
+      setCouponInput(code);
+      setCouponError('');
       setTimeout(() => setCopiedCode(''), 2500);
     } catch {}
   };
@@ -1472,7 +1474,30 @@ export default function CheckoutPage() {
                                     )}
                                   </div>
 
-                                  <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+                                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApplyCoupon(cp.code)}
+                                      disabled={isCurrentApplied}
+                                      style={{
+                                        background: isCurrentApplied ? '#10B981' : 'var(--gold-dark)',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        padding: '4px 10px',
+                                        color: '#FFFFFF',
+                                        cursor: isCurrentApplied ? 'default' : 'pointer',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        letterSpacing: '0.03em',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 3,
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                    >
+                                      {isCurrentApplied ? 'Applied' : 'Apply'}
+                                    </button>
+
                                     <button
                                       type="button"
                                       onClick={(e) => handleCopyCoupon(cp.code, e)}
@@ -1480,7 +1505,7 @@ export default function CheckoutPage() {
                                         background: '#FFFFFF',
                                         border: '1px solid var(--border)',
                                         borderRadius: 4,
-                                        padding: '4px 10px',
+                                        padding: '4px 8px',
                                         color: 'var(--onyx)',
                                         cursor: 'pointer',
                                         fontSize: 11,
