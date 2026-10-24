@@ -126,6 +126,123 @@ export default function ProductPage() {
     return items;
   }, [product]);
 
+  const colorOptions = React.useMemo(() => {
+    if (!product) return [];
+    const fromColors = Array.isArray(product.colors)
+      ? product.colors
+      : (typeof product.colors === 'string' ? product.colors.split(',') : []);
+    const fromImages = product.colorImages && typeof product.colorImages === 'object'
+      ? Object.keys(product.colorImages)
+      : [];
+
+    const combined = [...fromColors, ...fromImages]
+      .map(c => (typeof c === 'string' ? c.trim() : ''))
+      .filter(c => c && c.length > 1 && c !== ',');
+
+    // Deduplicate case-insensitively, preserving proper casing
+    const uniqueMap = new Map();
+    combined.forEach(c => {
+      const key = c.toLowerCase();
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, c);
+      }
+    });
+
+    return Array.from(uniqueMap.values());
+  }, [product]);
+
+  const parsedDescription = React.useMemo(() => {
+    const rawDesc = (product?.description || product?.desc || '').trim();
+    if (!rawDesc) return null;
+
+    // Detect if this description contains a 'Product Details' section or specification keys
+    const headerRegex = /(?:\n|\.\s+|:\s*|^)(?:product details|item details|details)\s*:\s*/i;
+    const headerMatch = rawDesc.match(headerRegex);
+
+    let intro = '';
+    let detailsBlock = '';
+
+    if (headerMatch) {
+      if (headerMatch[0].startsWith('.')) {
+        intro = rawDesc.substring(0, headerMatch.index + 1).trim();
+      } else {
+        intro = rawDesc.substring(0, headerMatch.index).trim();
+      }
+      detailsBlock = rawDesc.substring(headerMatch.index + headerMatch[0].length).trim();
+    } else {
+      // Check if it starts or has specification keys like 'Material:', 'Dimensions:', etc.
+      const keyMatch = rawDesc.match(/(?:^|\n|\.\s+)((?:material|finish|closure(?:\s+type)?|dimensions?|pendant size|necklace length)\s*:\s*)/i);
+      if (keyMatch) {
+        if (keyMatch[0].startsWith('.')) {
+          intro = rawDesc.substring(0, keyMatch.index + 1).trim();
+        } else {
+          intro = rawDesc.substring(0, keyMatch.index).trim();
+        }
+        detailsBlock = rawDesc.substring(keyMatch.index).trim();
+      } else {
+        return null;
+      }
+    }
+
+    if (!detailsBlock) return null;
+
+    const knownLabels = [
+      'Material', 'Materials', 'Base Metal', 'Metal', 'Plating',
+      'Accent', 'Accents', 'Stone Accents', 'Stone', 'Stones', 'Gemstone', 'Gemstones',
+      'Design', 'Style', 'Pattern',
+      'Closure Type', 'Closure & Weight', 'Closure',
+      'Dimensions', 'Dimension', 'Pendant Size', 'Size',
+      'Necklace Length', 'Bracelet Length', 'Chain Length', 'Earring Length', 'Length', 'Width',
+      'Finish', 'Quality', 'Weight', 'Fit',
+      'Color', 'Colour', 'Care', 'Packaging',
+      'Features', 'Details', 'Origin', 'Warranty'
+    ];
+    knownLabels.sort((a, b) => b.length - a.length);
+
+    let items = [];
+
+    // Check if detailsBlock has multiple lines
+    if (detailsBlock.includes('\n')) {
+      const lines = detailsBlock.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      lines.forEach(line => {
+        const subparts = line.split(/;\s*/).filter(Boolean);
+        subparts.forEach(sp => {
+          const clean = sp.replace(/^[•\-\*–—\d\.]+\s*/, '').trim();
+          if (clean) items.push(clean);
+        });
+      });
+    } else {
+      // Single line / collapsed without newlines
+      const labelPattern = new RegExp('(?:^|\\s+)(' + knownLabels.map(l => l.replace(/ /g, '\\s+')).join('|') + '):\\s*', 'gi');
+      const matches = Array.from(detailsBlock.matchAll(labelPattern));
+
+      if (matches.length > 0) {
+        for (let i = 0; i < matches.length; i++) {
+          const cur = matches[i];
+          const start = cur.index + cur[0].indexOf(cur[1]);
+          const end = (i + 1 < matches.length) ? matches[i + 1].index : detailsBlock.length;
+          const chunk = detailsBlock.substring(start, end).trim().replace(/[,;]+$/, '');
+          if (chunk) items.push(chunk);
+        }
+      } else {
+        const parts = detailsBlock.split(/[;•·]+/);
+        if (parts.length > 1) {
+          parts.map(p => p.trim()).filter(Boolean).forEach(p => items.push(p));
+        } else {
+          items.push(detailsBlock);
+        }
+      }
+    }
+
+    items = items
+      .map(i => i.replace(/^[•\-\*–—\d\.]+\s*/, '').trim())
+      .filter(i => i && i.length > 1);
+
+    if (items.length === 0) return null;
+
+    return { intro, details: items };
+  }, [product]);
+
   const images = galleryItems.map(item => item.url);
 
   const handleThumbnailClick = (index) => {
@@ -281,7 +398,60 @@ export default function ProductPage() {
               )}
             </div>
 
-            <p className="pdp-description">{product.description}</p>
+            {/* Description & Product Details */}
+            {parsedDescription ? (
+              <div className="pdp-description-wrapper" style={{ marginBottom: 20 }}>
+                {parsedDescription.intro && (
+                  <p className="pdp-description" style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--onyx)', marginBottom: 14 }}>
+                    {parsedDescription.intro}
+                  </p>
+                )}
+                {parsedDescription.details.length > 0 && (
+                  <div className="pdp-product-details" style={{ marginTop: parsedDescription.intro ? 14 : 0 }}>
+                    <h4 style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      color: 'var(--onyx)',
+                      marginBottom: 8
+                    }}>
+                      Product Details:
+                    </h4>
+                    <ul style={{
+                      margin: 0,
+                      paddingLeft: 20,
+                      listStyleType: 'disc',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6
+                    }}>
+                      {parsedDescription.details.map((item, idx) => {
+                        const colonIdx = item.indexOf(':');
+                        if (colonIdx > 0 && colonIdx < 30) {
+                          const label = item.substring(0, colonIdx);
+                          const val = item.substring(colonIdx + 1).trim();
+                          return (
+                            <li key={idx} style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--onyx)' }}>
+                              <span style={{ fontWeight: 600, color: 'var(--onyx)' }}>{label}:</span> {val}
+                            </li>
+                          );
+                        }
+                        return (
+                          <li key={idx} style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--onyx)' }}>
+                            {item}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="pdp-description" style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--onyx)', marginBottom: 20, whiteSpace: 'pre-line' }}>
+                {product.description}
+              </p>
+            )}
 
             {/* Quality Badges */}
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
@@ -294,7 +464,7 @@ export default function ProductPage() {
             </div>
 
             {/* Color Variant Options */}
-            {(product.colors?.length > 0 || (product.colorImages && Object.keys(product.colorImages).length > 0)) && (
+            {colorOptions.length > 0 && (
               <div className="pdp-option-group" style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span className="pdp-option-label" style={{ margin: 0, fontWeight: 700 }}>
@@ -314,10 +484,7 @@ export default function ProductPage() {
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {Array.from(new Set([
-                    ...(product.colors || []),
-                    ...Object.keys(product.colorImages || {})
-                  ])).filter(c => c && c.trim()).map(col => {
+                  {colorOptions.map(col => {
                     const isSelected = selectedColor?.toLowerCase() === col?.toLowerCase();
                     return (
                       <button

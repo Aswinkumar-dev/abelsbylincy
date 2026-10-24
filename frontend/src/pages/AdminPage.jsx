@@ -1342,11 +1342,16 @@ export default function AdminPage() {
                                   <button
                                     onClick={() => {
                                       const baseImgs = p.images?.length > 0 ? p.images : [p.image || ''];
-                                      const validColors = (p.colors || []).filter(c => {
-                                        if (!c || !c.trim()) return false;
-                                        if (c.trim().toLowerCase() === 'gold' && (!p.colorImages || !p.colorImages['Gold'] || !p.colorImages['Gold'][0])) return false;
-                                        return true;
-                                      });
+                                      const rawColors = Array.isArray(p.colors)
+                                        ? p.colors
+                                        : (typeof p.colors === 'string' ? p.colors.split(',') : []);
+                                      const validColors = rawColors
+                                        .map(c => String(c).trim())
+                                        .filter(c => {
+                                          if (!c || c.length <= 1 || c === ',') return false;
+                                          if (c.toLowerCase() === 'gold' && (!p.colorImages || !p.colorImages['Gold'] || !p.colorImages['Gold'][0])) return false;
+                                          return true;
+                                        });
                                       const colorsListStr = validColors.join(', ');
                                       setProdForm({
                                         id: p.id,

@@ -220,8 +220,22 @@ export function sanitizeProduct(p) {
   const isNA = Boolean(p.newArrival || p.new_arrival || p.is_new_arrival || p.isNewArrival);
   const isFeat = Boolean(p.featured || p.is_featured || p.isFeatured);
 
+  // Normalize colors to clean array of color names (removing comma fragments or single letters)
+  let normalizedColors = [];
+  if (Array.isArray(p.colors)) {
+    normalizedColors = p.colors
+      .map(c => String(c).trim())
+      .filter(c => c && c.length > 1 && c !== ',');
+  } else if (typeof p.colors === 'string' && p.colors.trim()) {
+    normalizedColors = p.colors
+      .split(',')
+      .map(c => c.trim())
+      .filter(c => c && c.length > 1);
+  }
+
   return {
     ...p,
+    colors: normalizedColors,
     bestSeller: isBS,
     is_best_seller: isBS ? 1 : 0,
     newArrival: isNA,
