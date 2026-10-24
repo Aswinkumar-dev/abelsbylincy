@@ -470,18 +470,6 @@ export default function ProductPage() {
                   <span className="pdp-option-label" style={{ margin: 0, fontWeight: 700 }}>
                     COLOR: {selectedColor ? selectedColor.toUpperCase() : 'DEFAULT'}
                   </span>
-                  {selectedColor && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedColor('');
-                        setSelectedImageIdx(0);
-                      }}
-                      style={{ fontSize: 12, color: 'var(--gold-dark)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                    >
-                      View Base Image
-                    </button>
-                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {colorOptions.map(col => {
